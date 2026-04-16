@@ -1,0 +1,88 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        cream: {
+          DEFAULT: '#F8F4EE',
+          dark: '#EDE7DC',
+          mid: '#E5DDD0',
+        },
+        navy: {
+          50:  '#f0f4f8',
+          100: '#d9e2ec',
+          200: '#bcccdc',
+          300: '#9fb3c8',
+          400: '#829ab1',
+          500: '#627d98',
+          600: '#486581',
+          700: '#334e68',
+          800: '#243b53',
+          900: '#16243A',
+          950: '#0a1929',
+        },
+        gold: {
+          50:  '#FDF3E0',
+          100: '#fef3c7',
+          200: '#fde68a',
+          300: '#fcd34d',
+          400: '#F0A832',
+          500: '#C97B1A',
+          600: '#B36A10',
+          700: '#b45309',
+          800: '#92400e',
+          900: '#78350f',
+        },
+        emerald: {
+          50:  '#ecfdf5',
+          100: '#d1fae5',
+          500: '#10b981',
+          600: '#059669',
+          700: '#047857',
+        },
+        amber: {
+          50:  '#FDF3E0',
+          500: '#C97B1A',
+          600: '#B36A10',
+        },
+      },
+      fontFamily: {
+        sans:    ["'DM Sans'", 'system-ui', 'sans-serif'],
+        display: ["'Playfair Display'", 'Georgia', 'serif'],
+        serif:   ["'Playfair Display'", 'Georgia', 'serif'],
+      },
+      boxShadow: {
+        'soft':    '0 2px 15px -3px rgba(22,36,58,0.08), 0 4px 6px -4px rgba(22,36,58,0.04)',
+        'soft-md': '0 4px 25px -5px rgba(22,36,58,0.10), 0 8px 10px -6px rgba(22,36,58,0.05)',
+        'soft-lg': '0 10px 40px -10px rgba(22,36,58,0.15)',
+        'soft-xl': '0 20px 50px -12px rgba(22,36,58,0.20)',
+        'glow':    '0 0 20px rgba(201,123,26,0.3)',
+      },
+      borderRadius: { '2xl':'1rem','3xl':'1.5rem','4xl':'2rem' },
+      animation: {
+        'fade-in':    'fadeIn 0.5s ease-out forwards',
+        'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
+        'scale-in':   'scaleIn 0.3s ease-out forwards',
+        'float':      'float 6s ease-in-out infinite',
+        'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+        'stagger-1':  'fadeInUp 0.5s ease-out 0.1s forwards',
+        'stagger-2':  'fadeInUp 0.5s ease-out 0.2s forwards',
+        'stagger-3':  'fadeInUp 0.5s ease-out 0.3s forwards',
+        'stagger-4':  'fadeInUp 0.5s ease-out 0.4s forwards',
+      },
+      keyframes: {
+        fadeIn:    { '0%':{ opacity:'0' }, '100%':{ opacity:'1' } },
+        fadeInUp:  { '0%':{ opacity:'0', transform:'translateY(20px)' }, '100%':{ opacity:'1', transform:'translateY(0)' } },
+        scaleIn:   { '0%':{ opacity:'0', transform:'scale(0.9)' }, '100%':{ opacity:'1', transform:'scale(1)' } },
+        float:     { '0%,100%':{ transform:'translateY(0)' }, '50%':{ transform:'translateY(-10px)' } },
+        pulseSoft: { '0%,100%':{ opacity:'1' }, '50%':{ opacity:'0.6' } },
+      },
+    },
+  },
+  plugins: [],
+};

@@ -1,0 +1,172 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSupabase } from '@/lib/supabase';
+import { requireActiveSubscription } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
+
+// GET - List people (subscription enforced)
+export async function GET() {
+  const auth = await requireActiveSubscription();
+  if ('error' in auth) return auth.error;
+
+  try {
+    const supabase = getServerSupabase();
+    const { data, error } = await supabase
+      .from('people')
+      .select('*')
+      .eq('org_id', auth.session.orgId)
+      .order('full_name');
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ people: data });
+  } catch (error) {
+    console.error('People GET error:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+// POST - Add person (subscription enforced)
+export async function POST(request: NextRequest) {
+  const auth = await requireActiveSubscription();
+  if ('error' in auth) return auth.error;
+
+  try {
+    const supabase = getServerSupabase();
+    const body = await request.json();
+
+    const { full_name, phone, gender, email, role, date_of_birth, occupation, location } = body;
+
+    if (!full_name || !phone) {
+      return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('people')
+      .insert({
+        org_id: auth.session.orgId,
+        full_name: full_name.trim(),
+        phone: phone.trim(),
+        gender: gender || null,
+        email: email?.trim() || null,
+        role: role || 'visitor',
+        date_of_birth: date_of_birth || null,
+        occupation: occupation || null,
+        location: location || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'A person with this phone number already exists' }, { status: 400 });
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, person: data });
+  } catch (error) {
+    console.error('People POST error:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+// PATCH - Update or archive person (subscription enforced)
+export async function PATCH(request: NextRequest) {
+  const auth = await requireActiveSubscription();
+  if ('error' in auth) return auth.error;
+
+  try {
+    const supabase = getServerSupabase();
+    const body = await request.json();
+    const { personId, action, updates } = body;
+
+    if (!personId) {
+      return NextResponse.json({ error: 'Person ID is required' }, { status: 400 });
+    }
+
+    if (action === 'archive') {
+      const { error } = await supabase
+        .from('people')
+        .update({ archived: true })
+        .eq('id', personId)
+        .eq('org_id', auth.session.orgId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    } else if (action === 'restore') {
+      const { error } = await supabase
+        .from('people')
+        .update({ archived: false })
+        .eq('id', personId)
+        .eq('org_id', auth.session.orgId);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    } else if (updates) {
+      const allowedKeys = new Set([
+        'full_name', 'phone', 'gender', 'email', 'date_of_birth',
+        'occupation', 'company', 'location', 'how_found_us',
+        'notes', 'role', 'archived'
+      ]);
+      const safeUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([key]) => allowedKeys.has(key))
+      );
+
+      if (Object.keys(safeUpdates).length === 0) {
+        return NextResponse.json({ error: 'No valid updates provided' }, { status: 400 });
+      }
+
+      const { error } = await supabase
+        .from('people')
+        .update(safeUpdates)
+        .eq('id', personId)
+        .eq('org_id', auth.session.orgId);
+
+      if (error) {
+        if (error.code === '23505') {
+          return NextResponse.json({ error: 'A person with this phone number already exists' }, { status: 400 });
+        }
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+    } else {
+      return NextResponse.json({ error: 'No action or updates provided' }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('People PATCH error:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+// DELETE - Permanently delete person (subscription enforced)
+export async function DELETE(request: NextRequest) {
+  const auth = await requireActiveSubscription();
+  if ('error' in auth) return auth.error;
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const personId = searchParams.get('id');
+
+    if (!personId) {
+      return NextResponse.json({ error: 'Person ID is required' }, { status: 400 });
+    }
+
+    const supabase = getServerSupabase();
+    const { error } = await supabase
+      .from('people')
+      .delete()
+      .eq('id', personId)
+      .eq('org_id', auth.session.orgId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('People DELETE error:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
