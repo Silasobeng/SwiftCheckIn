@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Service, Person, Checkin, AppSettings, EmailTemplate } from '@/types';
+import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod } from '@/types';
 import { calculateAge, getAgeGroup } from '@/lib/utils';
 
 const OWNER_EMAILS = (process.env.NEXT_PUBLIC_OWNER_EMAILS || '').split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
 
-type Tab = 'dashboard' | 'services' | 'people' | 'analytics' | 'emails' | 'settings';
+type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
 
 interface SessionData {
   orgId: string; orgName: string; orgSlug: string; adminEmail: string;
@@ -176,6 +176,16 @@ export default function AdminPage() {
   });
   const [savingService, setSavingService]     = useState(false);
   const [peopleSearch, setPeopleSearch] = useState('');
+  const [giving, setGiving] = useState<Giving[]>([]);
+  const [givingFormOpen, setGivingFormOpen] = useState(false);
+  const [savingGiving, setSavingGiving] = useState(false);
+  const [sendingReceiptId, setSendingReceiptId] = useState<string|null>(null);
+  const [givingPersonQuery, setGivingPersonQuery] = useState('');
+  const [givingForm, setGivingForm] = useState({
+    person_id: '', giver_name: '', giver_email: '', amount: '',
+    giving_type: 'offering' as GivingType, giving_type_other: '',
+    payment_method: 'cash' as PaymentMethod, notes: '',
+  });
   const [branding, setBranding] = useState({
   org_name: '',
   tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'' });
@@ -190,9 +200,9 @@ export default function AdminPage() {
     if (!session) return;
     try {
       setError(null);
-      const [sR,pR,cR,stR,tR] = await Promise.all([fetch('/api/services',{cache:'no-store'}),fetch('/api/people',{cache:'no-store'}),fetch('/api/checkin',{cache:'no-store'}),fetch('/api/settings',{cache:'no-store'}),fetch('/api/email/templates',{cache:'no-store'})]);
-      const [sD,pD,cD,stD,tD] = await Promise.all([sR.json(),pR.json(),cR.json(),stR.json(),tR.json()]);
-      setServices(sD.services||[]); setPeople(pD.people||[]); setCheckins(cD.checkins||[]); setSettings(stD.settings||null); setTemplates(tD.templates||[]);
+      const [sR,pR,cR,stR,tR,gR] = await Promise.all([fetch('/api/services',{cache:'no-store'}),fetch('/api/people',{cache:'no-store'}),fetch('/api/checkin',{cache:'no-store'}),fetch('/api/settings',{cache:'no-store'}),fetch('/api/email/templates',{cache:'no-store'}),fetch('/api/giving',{cache:'no-store'})]);
+      const [sD,pD,cD,stD,tD,gD] = await Promise.all([sR.json(),pR.json(),cR.json(),stR.json(),tR.json(),gR.json()]);
+      setServices(sD.services||[]); setPeople(pD.people||[]); setCheckins(cD.checkins||[]); setSettings(stD.settings||null); setTemplates(tD.templates||[]); setGiving(gD.giving||[]);
       const org = stD.settings?.organization;
       if (org) setBranding({
   org_name: org.name || '',
@@ -360,7 +370,68 @@ export default function AdminPage() {
   const returningThisMonth = currentMonthCheckins.length-firstTimersThisMonth;
   const filteredPeople = useMemo(() => { const q=peopleSearch.trim().toLowerCase(); if(!q) return activePeople; return activePeople.filter(p=>p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)||p.email?.toLowerCase().includes(q)); }, [activePeople,peopleSearch]);
 
-  const TAB_LABELS:Record<Tab,string> = {dashboard:'Dashboard',services:"Today's Service",people:'People',analytics:'Analytics',emails:'Emails',settings:'Settings'};
+  const givingPersonMatches = useMemo(() => {
+    const q = givingPersonQuery.trim().toLowerCase();
+    if (!q) return [];
+    return activePeople.filter(p=>p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)).slice(0,6);
+  }, [activePeople, givingPersonQuery]);
+  const givingThisMonth = giving.filter(g=>g.created_at?.startsWith(currentMonthKey));
+  const givingTotalThisMonth = givingThisMonth.reduce((sum,g)=>sum+Number(g.amount||0),0);
+  const givingPendingCount = giving.filter(g=>g.status==='recorded').length;
+  const GIVING_TYPE_LABELS: Record<GivingType,string> = { tithe:'Tithe', offering:'Offering', seed:'Seed', pledge:'Pledge', other:'Other' };
+
+  const resetGivingForm = () => setGivingForm({ person_id:'', giver_name:'', giver_email:'', amount:'', giving_type:'offering', giving_type_other:'', payment_method:'cash', notes:'' });
+
+  const selectGivingPerson = (p: Person) => {
+    setGivingForm(f=>({...f, person_id:p.id, giver_name:p.full_name, giver_email:p.email||''}));
+    setGivingPersonQuery(p.full_name);
+  };
+
+  const handleSaveGiving = async () => {
+    setSavingGiving(true); setError(null);
+    try {
+      const res = await fetch('/api/giving', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          person_id: givingForm.person_id || null,
+          giver_name: givingForm.giver_name.trim(),
+          giver_email: givingForm.giver_email.trim() || null,
+          amount: givingForm.amount,
+          giving_type: givingForm.giving_type,
+          giving_type_other: givingForm.giving_type_other.trim() || null,
+          payment_method: givingForm.payment_method,
+          notes: givingForm.notes.trim() || null,
+        })});
+      const data = await res.json();
+      if (!res.ok) { setError(data.error||'Could not record gift.'); return; }
+      setMessage('Gift recorded.');
+      setGivingFormOpen(false); resetGivingForm(); setGivingPersonQuery('');
+      loadData();
+    } finally { setSavingGiving(false); }
+  };
+
+  const handleSendReceipt = async (id: string) => {
+    setSendingReceiptId(id); setError(null);
+    try {
+      const res = await fetch(`/api/giving/${id}/send-receipt`, { method:'POST' });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error||'Could not send receipt.'); return; }
+      setMessage('Receipt sent.');
+      loadData();
+    } finally { setSendingReceiptId(null); }
+  };
+
+  const handleDeleteGiving = async (id: string) => {
+    if (!window.confirm('Delete this giving record? This cannot be undone.')) return;
+    setError(null);
+    const res = await fetch(`/api/giving?id=${id}`, { method:'DELETE' });
+    const data = await res.json();
+    if (!res.ok) { setError(data.error||'Could not delete record.'); return; }
+    setMessage('Record deleted.');
+    loadData();
+  };
+
+
+  const TAB_LABELS:Record<Tab,string> = {dashboard:'Dashboard',services:"Today's Service",people:'People',giving:'Giving',analytics:'Analytics',emails:'Emails',settings:'Settings'};
 
   if (loading) return (
     <div style={{minHeight:'100vh',background:'#F8F4EE',display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -407,7 +478,7 @@ export default function AdminPage() {
       {/* Tabs */}
       <nav className="bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-[65px] z-30">
         <div className="max-w-7xl mx-auto flex gap-0 overflow-x-auto hide-scrollbar">
-          {(['dashboard','services','people','analytics','emails','settings'] as Tab[]).map(t=>(
+          {(['dashboard','services','people','giving','analytics','emails','settings'] as Tab[]).map(t=>(
             <button key={t} onClick={()=>setTab(t)} className={`tab flex items-center gap-1.5 px-3 sm:px-4 text-sm ${tab===t?'tab-active':'tab-inactive'}`}>
               {TAB_LABELS[t]}
             </button>
@@ -691,6 +762,175 @@ export default function AdminPage() {
                           </tr>
                         );
                       })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── GIVING ── */}
+        {tab==='giving' && (
+          <div className="animate-fade-in" style={{maxWidth:1060,margin:'0 auto'}}>
+
+            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:20,marginBottom:24,flexWrap:'wrap'}}>
+              <div>
+                <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400}}>Giving</h2>
+                <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginTop:2}}>Record tithes, offerings, seed and pledges — and send receipts.</p>
+              </div>
+              <button onClick={()=>{resetGivingForm(); setGivingPersonQuery(''); setGivingFormOpen(true);}}
+                style={{background:'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'10px 20px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>
+                + Record a gift
+              </button>
+            </div>
+
+            {/* Stat cards */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,marginBottom:24}}>
+              {[
+                {label:'This month',        value:`${(givingThisMonth[0]?.currency)||'GHS'} ${givingTotalThisMonth.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`},
+                {label:'Gifts this month',  value:String(givingThisMonth.length)},
+                {label:'Awaiting receipt',  value:String(givingPendingCount)},
+                {label:'All-time gifts',    value:String(giving.length)},
+              ].map(({label,value})=>(
+                <div key={label} style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:14,padding:'22px 24px'}}>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',lineHeight:1,marginBottom:6}}>{value}</div>
+                  <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Record gift modal */}
+            {givingFormOpen && (
+              <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
+                onClick={()=>setGivingFormOpen(false)}>
+                <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
+                  onClick={e=>e.stopPropagation()}>
+                  <div style={{padding:'24px 28px',borderBottom:'1px solid #E4DFD5'}}>
+                    <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A'}}>Record a gift</h3>
+                  </div>
+                  <div style={{padding:'24px 28px',display:'flex',flexDirection:'column',gap:16}}>
+
+                    <div style={{position:'relative'}}>
+                      <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Giver</label>
+                      <input className="input text-sm" placeholder="Search People, or type a name…"
+                        value={givingPersonQuery}
+                        onChange={e=>{ setGivingPersonQuery(e.target.value); setGivingForm(f=>({...f, person_id:'', giver_name:e.target.value})); }} />
+                      {givingPersonMatches.length>0 && givingForm.person_id==='' && (
+                        <div style={{position:'absolute',top:'100%',left:0,right:0,background:'#fff',border:'1px solid #E4DFD5',borderRadius:10,marginTop:4,zIndex:10,boxShadow:'0 8px 24px rgba(22,36,58,0.12)',maxHeight:200,overflowY:'auto'}}>
+                          {givingPersonMatches.map(p=>(
+                            <div key={p.id} onClick={()=>selectGivingPerson(p)}
+                              style={{padding:'10px 14px',cursor:'pointer',fontSize:13,borderBottom:'1px solid #F0EBE3'}}>
+                              <div style={{color:'#16243A',fontWeight:500}}>{p.full_name}</div>
+                              <div style={{color:'#A89D8E',fontSize:12}}>{p.phone}{p.email?` · ${p.email}`:''}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{fontSize:11,color:'#A89D8E',marginTop:5}}>
+                        {givingForm.person_id ? 'Linked to a person in your list.' : 'Not in your list? Just type their name — you can add their email below.'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Email (for receipt)</label>
+                      <input className="input text-sm" type="email" placeholder="giver@email.com" value={givingForm.giver_email} onChange={e=>setGivingForm(f=>({...f,giver_email:e.target.value}))} />
+                    </div>
+
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                      <div>
+                        <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Amount (GHS)</label>
+                        <input className="input text-sm" type="number" min="0.01" step="0.01" placeholder="0.00" value={givingForm.amount} onChange={e=>setGivingForm(f=>({...f,amount:e.target.value}))} />
+                      </div>
+                      <div>
+                        <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Type</label>
+                        <select className="input text-sm" value={givingForm.giving_type} onChange={e=>setGivingForm(f=>({...f,giving_type:e.target.value as GivingType}))}>
+                          <option value="tithe">Tithe</option>
+                          <option value="offering">Offering</option>
+                          <option value="seed">Seed</option>
+                          <option value="pledge">Pledge</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {givingForm.giving_type==='other' && (
+                      <div>
+                        <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Custom type label</label>
+                        <input className="input text-sm" placeholder="e.g. Building Fund" value={givingForm.giving_type_other} onChange={e=>setGivingForm(f=>({...f,giving_type_other:e.target.value}))} />
+                      </div>
+                    )}
+
+                    <div>
+                      <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Payment method</label>
+                      <select className="input text-sm" value={givingForm.payment_method} onChange={e=>setGivingForm(f=>({...f,payment_method:e.target.value as PaymentMethod}))}>
+                        <option value="cash">Cash</option>
+                        <option value="mobile_money">Mobile Money</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Notes (optional)</label>
+                      <textarea className="input text-sm" rows={2} value={givingForm.notes} onChange={e=>setGivingForm(f=>({...f,notes:e.target.value}))} />
+                    </div>
+
+                  </div>
+                  <div style={{padding:'18px 28px',borderTop:'1px solid #E4DFD5',display:'flex',justifyContent:'flex-end',gap:10}}>
+                    <button onClick={()=>setGivingFormOpen(false)} className="btn btn-secondary text-sm">Cancel</button>
+                    <button onClick={handleSaveGiving} disabled={savingGiving || !givingForm.giver_name.trim() || !givingForm.amount}
+                      style={{background:savingGiving?'#B8A898':'#C97B1A',color:'#fff',border:'none',borderRadius:10,padding:'10px 22px',fontSize:13,fontWeight:500,cursor:savingGiving?'wait':'pointer'}}>
+                      {savingGiving ? 'Saving…' : 'Save record'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Giving list */}
+            <div className="card p-0 overflow-hidden">
+              {giving.length===0 ? (
+                <div className="text-center py-16">
+                  <p className="text-navy-400 text-sm">No gifts recorded yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead><tr className="bg-cream">
+                      <th className="table-header">Giver</th>
+                      <th className="table-header">Type</th>
+                      <th className="table-header">Amount</th>
+                      <th className="table-header hidden sm:table-cell">Date</th>
+                      <th className="table-header">Status</th>
+                      <th className="table-header text-right">Action</th>
+                    </tr></thead>
+                    <tbody>
+                      {giving.map(g=>(
+                        <tr key={g.id} className="table-row">
+                          <td className="table-cell">
+                            <div className="font-medium text-navy-900 text-sm">{g.giver_name}</div>
+                            {g.giver_email && <div style={{fontSize:12,color:'#A89D8E'}}>{g.giver_email}</div>}
+                          </td>
+                          <td className="table-cell"><span className="badge badge-primary text-[11px]">{g.giving_type==='other'?(g.giving_type_other||'Other'):GIVING_TYPE_LABELS[g.giving_type]}</span></td>
+                          <td className="table-cell text-navy-900 text-sm font-medium">{g.currency} {Number(g.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                          <td className="table-cell hidden sm:table-cell text-navy-500 text-sm">{new Date(g.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+                          <td className="table-cell">
+                            <span className={`badge text-[11px] ${g.status==='sent'?'badge-primary':'badge-warning'}`}>{g.status==='sent'?'Receipt sent':'Recorded'}</span>
+                          </td>
+                          <td className="table-cell text-right">
+                            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+                              {g.giver_email && (
+                                <button onClick={()=>handleSendReceipt(g.id)} disabled={sendingReceiptId===g.id}
+                                  className="btn btn-secondary text-xs py-1.5 px-3">
+                                  {sendingReceiptId===g.id ? 'Sending…' : g.status==='sent' ? 'Resend' : 'Send Receipt'}
+                                </button>
+                              )}
+                              <button onClick={()=>handleDeleteGiving(g.id)} className="btn btn-ghost text-xs py-1.5 px-3 text-red-500">Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
