@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod } from '@/types';
+import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization } from '@/types';
 import { calculateAge, getAgeGroup } from '@/lib/utils';
 
 const OWNER_EMAILS = (process.env.NEXT_PUBLIC_OWNER_EMAILS || '').split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
@@ -199,16 +198,34 @@ export default function AdminPage() {
 
   const loadData = useCallback(async () => {
     if (!session) return;
-    try {
-      setError(null);
-      const [sR,pR,cR,stR,tR,gR] = await Promise.all([fetch('/api/services',{cache:'no-store'}),fetch('/api/people',{cache:'no-store'}),fetch('/api/checkin',{cache:'no-store'}),fetch('/api/settings',{cache:'no-store'}),fetch('/api/email/templates',{cache:'no-store'}),fetch('/api/giving',{cache:'no-store'})]);
-      const [sD,pD,cD,stD,tD,gD] = await Promise.all([sR.json(),pR.json(),cR.json(),stR.json(),tR.json(),gR.json()]);
-      setServices(sD.services||[]); setPeople(pD.people||[]); setCheckins(cD.checkins||[]); setSettings(stD.settings||null); setTemplates(tD.templates||[]); setGiving(gD.giving||[]);
-      const org = stD.settings?.organization;
-      if (org) setBranding({
+    setError(null);
+
+    const safeFetch = async <T,>(url: string, fallback: T): Promise<T> => {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) return fallback;
+        return await res.json();
+      } catch {
+        return fallback;
+      }
+    };
+
+    const [sD, pD, cD, stD, tD, gD] = await Promise.all([
+      safeFetch('/api/services', { services: [] }),
+      safeFetch('/api/people', { people: [] }),
+      safeFetch('/api/checkin', { checkins: [] }),
+      safeFetch<{settings: (AppSettings & {organization?: Organization}) | null}>('/api/settings', { settings: null }),
+      safeFetch('/api/email/templates', { templates: [] }),
+      safeFetch('/api/giving', { giving: [] }),
+    ]);
+
+    setServices(sD.services||[]); setPeople(pD.people||[]); setCheckins(cD.checkins||[]); setSettings(stD.settings||null); setTemplates(tD.templates||[]); setGiving(gD.giving||[]);
+    const org = stD.settings?.organization;
+    if (org) setBranding({
   org_name: org.name || '',
   tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'' });
-    } catch { setError('Could not refresh dashboard.'); }
+
+    if (!stD.settings) setError('Some dashboard data could not be refreshed — check your connection.');
   }, [session]);
 
   useEffect(() => { if (session) loadData(); }, [session,loadData]);
