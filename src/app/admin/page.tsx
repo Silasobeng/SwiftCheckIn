@@ -394,6 +394,13 @@ export default function AdminPage() {
     if (!q) return [];
     return activePeople.filter(p=>p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)).slice(0,6);
   }, [activePeople, givingPersonQuery]);
+  const currentMonthRangeLabel = (() => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth()+1, 0);
+    const month = first.toLocaleDateString('en-US', {month:'short'});
+    return `${month} 1–${last.getDate()}, ${now.getFullYear()}`;
+  })();
   const givingThisMonth = giving.filter(g=>g.created_at?.startsWith(currentMonthKey));
   const givingTotalThisMonth = givingThisMonth.reduce((sum,g)=>sum+Number(g.amount||0),0);
   const givingPendingCount = giving.filter(g=>g.status==='recorded').length;
@@ -639,7 +646,7 @@ export default function AdminPage() {
                 onClick={()=>setServiceFormOpen(false)}>
                 <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:560,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
                   onClick={e=>e.stopPropagation()}>
-                  <div style={{padding:'24px 28px 20px',borderBottom:'1px solid #E4DFD5',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <div style={{padding:'24px 28px 20px',borderBottom:'1px solid #E4DFD5',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:'#fff',zIndex:1,borderRadius:'20px 20px 0 0'}}>
                     <div>
                       <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',fontWeight:400}}>{editingService?'Edit Service':'New Service'}</h2>
                       <p style={{fontSize:13,color:'#A89D8E',fontWeight:300,marginTop:3}}>Details here will be included in the welcome email sent to first-timers today.</p>
@@ -837,14 +844,15 @@ export default function AdminPage() {
             {/* Stat cards */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,marginBottom:24}}>
               {[
-                {label:'This month',        value:`${(givingThisMonth[0]?.currency)||'GHS'} ${givingTotalThisMonth.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`},
-                {label:'Gifts this month',  value:String(givingThisMonth.length)},
-                {label:'Awaiting receipt',  value:String(givingPendingCount)},
-                {label:'All-time gifts',    value:String(giving.length)},
-              ].map(({label,value})=>(
+                {label:'Revenue this month', sub:currentMonthRangeLabel, value:`${(givingThisMonth[0]?.currency)||'GHS'} ${givingTotalThisMonth.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`},
+                {label:'Gifts this month',   sub:currentMonthRangeLabel, value:String(givingThisMonth.length)},
+                {label:'Awaiting receipt',   sub:null,                  value:String(givingPendingCount)},
+                {label:'All-time total',     sub:'Since you started',   value:String(giving.length)},
+              ].map(({label,sub,value})=>(
                 <div key={label} style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:14,padding:'22px 24px'}}>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',lineHeight:1,marginBottom:6}}>{value}</div>
                   <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{label}</div>
+                  {sub && <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginTop:2}}>{sub}</div>}
                 </div>
               ))}
             </div>
@@ -855,7 +863,7 @@ export default function AdminPage() {
                 onClick={()=>setGivingFormOpen(false)}>
                 <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
                   onClick={e=>e.stopPropagation()}>
-                  <div style={{padding:'24px 28px',borderBottom:'1px solid #E4DFD5'}}>
+                  <div style={{padding:'24px 28px',borderBottom:'1px solid #E4DFD5',position:'sticky',top:0,background:'#fff',zIndex:1,borderRadius:'20px 20px 0 0'}}>
                     <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A'}}>Record a gift</h3>
                   </div>
                   <div style={{padding:'24px 28px',display:'flex',flexDirection:'column',gap:16}}>
@@ -1239,7 +1247,7 @@ export default function AdminPage() {
               <div><h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400,marginBottom:4}}>Settings</h2><p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Set these once and you&apos;re done.</p></div>
               <button onClick={saveBranding} disabled={savingBranding} style={{background:"#C97B1A",color:"#fff",border:"none",borderRadius:10,padding:"10px 22px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",flexShrink:0}}>{savingBranding?'Saving…':'Save Settings'}</button>
             </div>
-            <div className="grid lg:grid-cols-2 gap-5">
+            <div className="grid lg:grid-cols-[1fr_1fr_260px] gap-5 items-start">
               <div className="card space-y-4">
                 <div style={{fontSize:11,letterSpacing:"0.12em",textTransform:"uppercase",color:"#A89D8E",fontWeight:500,marginBottom:4}}>Church Branding</div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Church Name</label><input className="input" placeholder="e.g. Grace Community Church" value={branding.org_name} onChange={e=>setBranding(b=>({...b,org_name:e.target.value}))} /></div>
@@ -1247,13 +1255,15 @@ export default function AdminPage() {
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Host Names</label><input className="input" placeholder="e.g. Pastor John & Lady Mary" value={branding.host_names} onChange={e=>setBranding(b=>({...b,host_names:e.target.value}))} /></div>
                 <div>
                   <label className="block text-sm font-medium text-navy-700 mb-1.5">Church Logo</label>
+                  <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Shown on your kiosk screen and in emails — see the preview →</p>
                   <div className="flex items-start gap-4">
                     {branding.logo_url?<img src={branding.logo_url} alt="Logo" className="w-16 h-16 rounded-xl border border-navy-200 object-cover bg-white flex-shrink-0" />:<div style={{width:64,height:64,borderRadius:12,border:"2px dashed #E4DFD5",background:"#FAF9F6",display:"flex",alignItems:"center",justifyContent:"center",color:"#A89D8E",fontSize:12,flexShrink:0}}>Logo</div>}
                     <div className="flex-1"><input type="file" accept="image/*" className="block w-full text-sm text-navy-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-navy-100 file:text-navy-700 file:text-sm hover:file:bg-navy-200 cursor-pointer" onChange={e=>uploadBrandingImage('logo',e.target.files?.[0]||null)} />{uploading==='logo'&&<p className="text-xs text-navy-400 mt-1.5">Uploading…</p>}</div>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-navy-700 mb-1.5">Accent Color</label>
+                  <label className="block text-sm font-medium text-navy-700 mb-1.5">Your Kiosk & Email Color</label>
+                  <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Colors the screen your visitors check in on and your outgoing emails — not this dashboard.</p>
                   <div className="flex gap-2 items-center">
                     <input type="color" className="h-10 w-12 rounded-lg border border-navy-200 cursor-pointer" value={branding.brand_color||'#102a43'} onChange={e=>setBranding(b=>({...b,brand_color:e.target.value}))} />
                     <input className="input flex-1" value={branding.brand_color} onChange={e=>setBranding(b=>({...b,brand_color:e.target.value}))} />
@@ -1279,6 +1289,29 @@ export default function AdminPage() {
                   </div>
                   <div><label className="block text-xs font-medium text-navy-600 mb-1">Address</label><textarea className="textarea" rows={2} value={branding.address} onChange={e=>setBranding(b=>({...b,address:e.target.value}))} /></div>
                 </div>
+              </div>
+
+              {/* Live kiosk preview — makes the branding fields' purpose obvious */}
+              <div style={{position:'sticky',top:140}}>
+                <div style={{fontSize:11,letterSpacing:"0.12em",textTransform:"uppercase",color:"#A89D8E",fontWeight:500,marginBottom:8}}>What visitors see</div>
+                <div style={{
+                  borderRadius:20,overflow:'hidden',border:'1px solid #E4DFD5',boxShadow:'0 10px 30px -8px rgba(22,36,58,0.15)',
+                  aspectRatio:'9/16',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',padding:20,
+                  background: branding.cover_image_url ? `linear-gradient(rgba(16,20,30,0.55),rgba(16,20,30,0.55)), url(${branding.cover_image_url}) center/cover` : (branding.brand_color||'#102a43'),
+                }}>
+                  {branding.logo_url
+                    ? <img src={branding.logo_url} alt="" style={{width:44,height:44,borderRadius:10,objectFit:'cover',marginBottom:14,background:'#fff'}} />
+                    : <div style={{width:44,height:44,borderRadius:10,background:'rgba(255,255,255,0.15)',marginBottom:14}} />
+                  }
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:'#fff',marginBottom:8,lineHeight:1.3}}>
+                    {branding.kiosk_welcome_heading || 'Welcome to ' + (branding.org_name||'Your Church')}
+                  </div>
+                  <div style={{fontSize:11.5,color:'rgba(255,255,255,0.85)',fontWeight:300,lineHeight:1.5}}>
+                    {branding.kiosk_welcome_subtext || "We're glad you're here today"}
+                  </div>
+                  <div style={{marginTop:18,padding:'8px 20px',borderRadius:20,background:'rgba(255,255,255,0.15)',fontSize:11,color:'#fff'}}>Check In →</div>
+                </div>
+                <p style={{fontSize:11,color:'#A89D8E',marginTop:10,fontWeight:300,lineHeight:1.5}}>This is what someone sees on the tablet when they walk in — updates live as you type.</p>
               </div>
             </div>
 
@@ -1393,7 +1426,7 @@ function WarmEmailCard({title,icon,description,churchName,activeService,showServ
           </div>
 
           {/* Body — shows clean message, saves full template */}
-          <div style={{marginBottom:16}}>
+          <div style={{marginBottom:20}}>
             <label style={labelStyle}>Your message</label>
             <textarea
               value={displayBody}
@@ -1403,25 +1436,9 @@ function WarmEmailCard({title,icon,description,churchName,activeService,showServ
               placeholder="Write your message here in plain English…"
             />
             <div style={{fontSize:12,color:'#A89D8E',marginTop:5}}>
-              Names are added automatically.
+              {showServiceInfo ? 'Names and service info are added automatically.' : 'Names are added automatically.'}
             </div>
           </div>
-
-          {/* Service info badge */}
-          {showServiceInfo && (
-            <div style={{background:'#EDF6F1',border:'1px solid #C6E8D5',borderRadius:10,padding:'10px 14px',marginBottom:16}}>
-              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
-                <svg style={{width:13,height:13,color:'#2E7D4E',flexShrink:0}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
-                <span style={{fontSize:11,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'#2E7D4E'}}>Service info auto-added</span>
-              </div>
-              <p style={{fontSize:12,color:'#2E7D4E',fontWeight:300}}>
-                {activeService?.title
-                  ? <span>{activeService.title}{activeService.theme?` · ${activeService.theme}`:''}{activeService.scripture?` · ${activeService.scripture}`:''}</span>
-                  : "Fill in Today&apos;s Service tab to include service details"
-                }
-              </p>
-            </div>
-          )}
 
           {/* Clean preview — collapsible-lite, de-emphasized */}
           <details style={{marginBottom:20}}>
