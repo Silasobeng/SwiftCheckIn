@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { requireActiveSubscription } from '@/lib/auth';
-import type { GivingType, PaymentMethod } from '@/types';
+import { sendGivingReceipt } from '@/lib/givingReceipt';
+import type { Giving, GivingType, PaymentMethod } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid payment method' }, { status: 400 });
     }
 
+    // If linked to an existing person, verify they belong to this org
     if (person_id) {
       const { data: person, error: personError } = await supabase
         .from('people')
@@ -110,7 +112,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, giving: data });
+    // Auto-send the receipt immediately if we have an email on file.
+    // If sending fails (e.g. Brevo hiccup), the record still saves as
+    // 'recorded' and the admin can retry from the Send Receipt button.
+    let receiptSent = false;
+    let receiptError: string | undefined;
+    if (data.giver_email) {
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('name')
+        .eq('id', auth.session.orgId)
+        .single();
+      const result = await sendGivingReceipt(data as Giving, auth.session.orgId, org?.name || auth.session.orgName);
+      receiptSent = result.success;
+      receiptError = result.error;
+      if (result.success) {
+        data.status = 'sent';
+        data.receipt_sent_at = new Date().toISOString();
+      }
+    }
+
+    return NextResponse.json({ success: true, giving: data, receiptSent, receiptError });
   } catch (error) {
     console.error('Giving POST error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
@@ -160,7 +182,7 @@ export async function PATCH(request: NextRequest) {
       .update(safeUpdates)
       .eq('id', id)
       .eq('org_id', auth.session.orgId)
-      .eq('status', 'recorded');
+      .eq('status', 'recorded'); // lock editing once a receipt has been sent
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
