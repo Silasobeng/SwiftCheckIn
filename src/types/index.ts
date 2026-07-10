@@ -122,6 +122,30 @@ export interface AuthSession {
   exp: number;
 }
 
+export type GivingType = 'tithe' | 'offering' | 'seed' | 'pledge' | 'other';
+export type PaymentMethod = 'cash' | 'mobile_money' | 'bank_transfer' | 'other';
+export type GivingStatus = 'recorded' | 'sent';
+
+export interface Giving {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  org_id: string;
+  person_id: string | null;
+  giver_name: string;
+  giver_email: string | null;
+  amount: number;
+  currency: string;
+  giving_type: GivingType;
+  giving_type_other: string | null;
+  payment_method: PaymentMethod;
+  service_id: string | null;
+  notes: string | null;
+  status: GivingStatus;
+  receipt_sent_at: string | null;
+  person?: Person;
+}
+
 // API Response types
 export interface ApiResponse<T = unknown> {
   success: boolean;
