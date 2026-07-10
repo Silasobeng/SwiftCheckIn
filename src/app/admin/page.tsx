@@ -421,7 +421,11 @@ export default function AdminPage() {
         })});
       const data = await res.json();
       if (!res.ok) { setError(data.error||'Could not record gift.'); return; }
-      setMessage('Gift recorded.');
+      if (data.giving?.giver_email) {
+        setMessage(data.receiptSent ? 'Gift recorded and receipt emailed.' : `Gift recorded, but the receipt email failed (${data.receiptError||'unknown error'}). You can retry from the list.`);
+      } else {
+        setMessage('Gift recorded.');
+      }
       setGivingFormOpen(false); resetGivingForm(); setGivingPersonQuery('');
       loadData();
     } finally { setSavingGiving(false); }
