@@ -354,6 +354,7 @@ export default function AdminPage() {
   }, [templates]);
 
   const [draftTemplates, setDraftTemplates] = useState(EMPTY_TEMPLATES);
+  const [expandedTemplate, setExpandedTemplate] = useState<'welcome'|'birthday'|'missed'|null>('welcome');
   useEffect(() => { setDraftTemplates(templateMap); }, [templateMap]);
 
   const activePeople = people.filter(p=>!p.archived);
@@ -499,12 +500,38 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <nav className="bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-[65px] z-30">
-        <div className="max-w-7xl mx-auto flex gap-0 overflow-x-auto hide-scrollbar">
-          {(['dashboard','services','people','giving','analytics','emails','settings'] as Tab[]).map(t=>(
-            <button key={t} onClick={()=>setTab(t)} className={`tab flex items-center gap-1.5 px-3 sm:px-4 text-sm ${tab===t?'tab-active':'tab-inactive'}`}>
-              {TAB_LABELS[t]}
-            </button>
-          ))}
+        <div className="max-w-7xl mx-auto flex gap-1 overflow-x-auto hide-scrollbar" style={{paddingTop:10,paddingBottom:10}}>
+          {(['dashboard','services','people','giving','analytics','emails','settings'] as Tab[]).map(t=>{
+            const icons: Record<Tab,JSX.Element> = {
+              dashboard: <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>,
+              services: <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>,
+              people: <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-4a4 4 0 10-4-4 4 4 0 004 4zm6 0a4 4 0 10-4-4"/>,
+              giving: <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .672-3 1.5S10.343 11 12 11s3 .672 3 1.5-1.343 1.5-3 1.5m0-6V6m0 8v1.5m0-9.5a9 9 0 100 18 9 9 0 000-18z"/>,
+              analytics: <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2"/>,
+              emails: <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>,
+              settings: <><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></>,
+            };
+            const active = tab===t;
+            return (
+              <button key={t} onClick={()=>setTab(t)}
+                style={{
+                  display:'flex',alignItems:'center',gap:7,
+                  padding:'9px 16px',borderRadius:10,
+                  fontSize:13.5,fontWeight:500,whiteSpace:'nowrap',
+                  fontFamily:"'DM Sans',sans-serif",
+                  background: active ? '#16243A' : 'transparent',
+                  color: active ? '#fff' : '#7A6E60',
+                  border:'none',cursor:'pointer',
+                  transition:'all .15s',
+                }}
+                onMouseEnter={e=>{ if(!active) e.currentTarget.style.background='#F8F4EE'; }}
+                onMouseLeave={e=>{ if(!active) e.currentTarget.style.background='transparent'; }}
+              >
+                <svg style={{width:15,height:15,flexShrink:0,opacity:active?1:0.6}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>{icons[t]}</svg>
+                {TAB_LABELS[t]}
+              </button>
+            );
+          })}
         </div>
       </nav>
 
@@ -1158,11 +1185,11 @@ export default function AdminPage() {
               <p style={{fontSize:13,color:'#8A5A10',lineHeight:1.6}}>Each person receives these emails with <strong>their own name</strong> inserted automatically. You never type individual names.</p>
             </div>
 
-            {/* Three email cards */}
-            <div className="grid lg:grid-cols-3 gap-5">
-              <WarmEmailCard title="Welcome Email" icon="👋" description="Sent after someone's very first visit" churchName={session.orgName} activeService={activeService} showServiceInfo={true} value={draftTemplates.welcome} onChange={next=>setDraftTemplates(p=>({...p,welcome:next}))} onSave={()=>saveTemplate('welcome',draftTemplates.welcome.subject,draftTemplates.welcome.body)} saving={savingTemplate==='welcome'} />
-              <WarmEmailCard title="Birthday Email" icon="🎂" description="Sent automatically on someone's birthday" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.birthday} onChange={next=>setDraftTemplates(p=>({...p,birthday:next}))} onSave={()=>saveTemplate('birthday',draftTemplates.birthday.subject,draftTemplates.birthday.body)} saving={savingTemplate==='birthday'} />
-              <WarmEmailCard title="We Miss You" icon="💛" description="Sent when a member misses 2 or more services" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.missed} onChange={next=>setDraftTemplates(p=>({...p,missed:next}))} onSave={()=>saveTemplate('missed',draftTemplates.missed.subject,draftTemplates.missed.body)} saving={savingTemplate==='missed'} />
+            {/* Three email templates — accordion, one open at a time */}
+            <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,overflow:'hidden'}}>
+              <WarmEmailCard title="Welcome Email" icon="👋" description="Sent after someone's very first visit" churchName={session.orgName} activeService={activeService} showServiceInfo={true} value={draftTemplates.welcome} onChange={next=>setDraftTemplates(p=>({...p,welcome:next}))} onSave={()=>saveTemplate('welcome',draftTemplates.welcome.subject,draftTemplates.welcome.body)} saving={savingTemplate==='welcome'} expanded={expandedTemplate==='welcome'} onToggle={()=>setExpandedTemplate(t=>t==='welcome'?null:'welcome')} isFirst />
+              <WarmEmailCard title="Birthday Email" icon="🎂" description="Sent automatically on someone's birthday" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.birthday} onChange={next=>setDraftTemplates(p=>({...p,birthday:next}))} onSave={()=>saveTemplate('birthday',draftTemplates.birthday.subject,draftTemplates.birthday.body)} saving={savingTemplate==='birthday'} expanded={expandedTemplate==='birthday'} onToggle={()=>setExpandedTemplate(t=>t==='birthday'?null:'birthday')} />
+              <WarmEmailCard title="We Miss You" icon="💛" description="Sent when a member misses 2 or more services" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.missed} onChange={next=>setDraftTemplates(p=>({...p,missed:next}))} onSave={()=>saveTemplate('missed',draftTemplates.missed.subject,draftTemplates.missed.body)} saving={savingTemplate==='missed'} expanded={expandedTemplate==='missed'} onToggle={()=>setExpandedTemplate(t=>t==='missed'?null:'missed')} isLast />
             </div>
 
             {/* Broadcast */}
@@ -1277,13 +1304,14 @@ export default function AdminPage() {
 
 /* ─── Sub-components ─────────────────────────────────────────────────────── */
 
-function WarmEmailCard({title,icon,description,churchName,activeService,showServiceInfo,value,onChange,onSave,saving}:{
+function WarmEmailCard({title,icon,description,churchName,activeService,showServiceInfo,value,onChange,onSave,saving,expanded,onToggle,isFirst,isLast}:{
   title:string;icon:string;description:string;churchName:string;
   activeService?:{title:string|null;theme:string|null;scripture:string|null;message:string|null}|null;
   showServiceInfo:boolean;
   value:{subject:string;body:string};
   onChange:(next:{subject:string;body:string})=>void;
   onSave:()=>void;saving:boolean;
+  expanded:boolean;onToggle:()=>void;isFirst?:boolean;isLast?:boolean;
 }) {
   // Strip greeting/sign-off patterns from body for clean display in textarea
   const cleanBody = (raw:string):string => {
@@ -1337,82 +1365,97 @@ function WarmEmailCard({title,icon,description,churchName,activeService,showServ
   const labelStyle = {fontSize:12,fontWeight:500 as const,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase' as const,display:'block' as const,marginBottom:8};
 
   return (
-    <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'28px 24px'}}>
+    <div style={{borderBottom: isLast ? 'none' : '1px solid #E4DFD5', background: expanded ? '#FDFCFA' : '#fff'}}>
 
-      {/* Header */}
-      <div style={{display:'flex',alignItems:'flex-start',gap:12,marginBottom:20}}>
-        <div style={{fontSize:22,marginTop:2,flexShrink:0}}>{icon}</div>
-        <div>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:'#16243A',marginBottom:3}}>{title}</div>
-          <div style={{fontSize:12,color:'#A89D8E',fontWeight:300,lineHeight:1.5}}>{description}</div>
-        </div>
-      </div>
-
-      {/* Subject — shows real church name, saves with {ORG_NAME} */}
-      <div style={{marginBottom:16}}>
-        <label style={labelStyle}>Subject line</label>
-        <input
-          value={displaySubject}
-          onChange={e => onChange({...value, subject: e.target.value.replace(new RegExp(churchName.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'),'{ORG_NAME}')})}
-          className="input"
-          placeholder={`e.g. Welcome to ${churchName}!`}
-        />
-      </div>
-
-      {/* Body — shows clean message, saves full template */}
-      <div style={{marginBottom:16}}>
-        <label style={labelStyle}>Your message</label>
-        <textarea
-          value={displayBody}
-          onChange={e => onChange({...value, body: fullBody(e.target.value)})}
-          className="textarea"
-          style={{minHeight:110}}
-          placeholder="Write your message here in plain English…"
-        />
-        <div style={{fontSize:12,color:'#A89D8E',marginTop:5}}>
-          We automatically add "Dear [Name]," at the top and a sign-off with your church name at the bottom.
-        </div>
-      </div>
-
-      {/* Service info badge */}
-      {showServiceInfo && (
-        <div style={{background:'#EDF6F1',border:'1px solid #C6E8D5',borderRadius:10,padding:'10px 14px',marginBottom:16}}>
-          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
-            <svg style={{width:13,height:13,color:'#2E7D4E',flexShrink:0}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
-            <span style={{fontSize:11,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'#2E7D4E'}}>Service info auto-added</span>
+      {/* Collapsed / clickable header row — always visible */}
+      <button type="button" onClick={onToggle}
+        style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'20px 24px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left'}}>
+        <div style={{width:40,height:40,borderRadius:11,background:expanded?'#16243A':'#F8F4EE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,transition:'background .2s'}}>{icon}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:'#16243A',marginBottom:2}}>{title}</div>
+          <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>
+            {expanded ? description : (displaySubject || description)}
           </div>
-          <p style={{fontSize:12,color:'#2E7D4E',fontWeight:300}}>
-            {activeService?.title
-              ? <span>{activeService.title}{activeService.theme?` · ${activeService.theme}`:''}{activeService.scripture?` · ${activeService.scripture}`:''}</span>
-              : "Fill in Today&apos;s Service tab to include service details"
-            }
-          </p>
+        </div>
+        <svg style={{width:16,height:16,color:'#A89D8E',flexShrink:0,transform:expanded?'rotate(180deg)':'none',transition:'transform .2s'}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
+      </button>
+
+      {/* Expanded editor */}
+      {expanded && (
+        <div style={{padding:'0 24px 28px'}}>
+
+          {/* Subject — shows real church name, saves with {ORG_NAME} */}
+          <div style={{marginBottom:16}}>
+            <label style={labelStyle}>Subject line</label>
+            <input
+              value={displaySubject}
+              onChange={e => onChange({...value, subject: e.target.value.replace(new RegExp(churchName.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'),'{ORG_NAME}')})}
+              className="input"
+              placeholder={`e.g. Welcome to ${churchName}!`}
+            />
+          </div>
+
+          {/* Body — shows clean message, saves full template */}
+          <div style={{marginBottom:16}}>
+            <label style={labelStyle}>Your message</label>
+            <textarea
+              value={displayBody}
+              onChange={e => onChange({...value, body: fullBody(e.target.value)})}
+              className="textarea"
+              style={{minHeight:110}}
+              placeholder="Write your message here in plain English…"
+            />
+            <div style={{fontSize:12,color:'#A89D8E',marginTop:5}}>
+              We automatically add "Dear [Name]," at the top and a sign-off with your church name at the bottom.
+            </div>
+          </div>
+
+          {/* Service info badge */}
+          {showServiceInfo && (
+            <div style={{background:'#EDF6F1',border:'1px solid #C6E8D5',borderRadius:10,padding:'10px 14px',marginBottom:16}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+                <svg style={{width:13,height:13,color:'#2E7D4E',flexShrink:0}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                <span style={{fontSize:11,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:'#2E7D4E'}}>Service info auto-added</span>
+              </div>
+              <p style={{fontSize:12,color:'#2E7D4E',fontWeight:300}}>
+                {activeService?.title
+                  ? <span>{activeService.title}{activeService.theme?` · ${activeService.theme}`:''}{activeService.scripture?` · ${activeService.scripture}`:''}</span>
+                  : "Fill in Today&apos;s Service tab to include service details"
+                }
+              </p>
+            </div>
+          )}
+
+          {/* Clean preview — collapsible-lite, de-emphasized */}
+          <details style={{marginBottom:20}}>
+            <summary style={{fontSize:12,color:'#7A6E60',cursor:'pointer',listStyle:'none',display:'flex',alignItems:'center',gap:6,userSelect:'none'}}>
+              <svg style={{width:13,height:13}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              Preview how this looks to the reader
+            </summary>
+            <div style={{background:'#FAF9F6',border:'1px solid #E4DFD5',borderRadius:10,padding:'16px',marginTop:10}}>
+              <div style={{fontSize:12,color:'#7A6E60',marginBottom:8}}>
+                <strong style={{color:'#1C2A3A'}}>Subject:</strong> {previewSubject}
+              </div>
+              <div style={{height:1,background:'#E4DFD5',margin:'8px 0 12px'}}/>
+              <div style={{fontSize:13,color:'#3A3020',lineHeight:1.8}}>
+                <div style={{marginBottom:8}}>Dear <strong style={{color:'#1C2A3A'}}>Abena</strong>,</div>
+                <div style={{whiteSpace:'pre-wrap',color:'#4A4038',fontWeight:300,marginBottom:8}}>{previewBody}</div>
+                {showServiceInfo && activeService?.title && (
+                  <div style={{color:'#7A6E60',marginBottom:8,fontStyle:'italic',fontSize:12}}>Today&apos;s gathering: {activeService.title}</div>
+                )}
+                <div style={{color:'#7A6E60',borderTop:'1px solid #E4DFD5',paddingTop:10,marginTop:4}}>
+                  With love,<br/>The {churchName} Family
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <button onClick={onSave} disabled={saving}
+            style={{width:'100%',background:saving?'#B8A898':'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'13px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:saving?'wait':'pointer',transition:'all .2s'}}>
+            {saving ? 'Saving…' : `Save ${title}`}
+          </button>
         </div>
       )}
-
-      {/* Clean preview — no double greeting, no raw {VARS} */}
-      <div style={{background:'#FAF9F6',border:'1px solid #E4DFD5',borderRadius:10,padding:'16px',marginBottom:16}}>
-        <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:12}}>Preview — how it looks to the reader</div>
-        <div style={{fontSize:12,color:'#7A6E60',marginBottom:8}}>
-          <strong style={{color:'#1C2A3A'}}>Subject:</strong> {previewSubject}
-        </div>
-        <div style={{height:1,background:'#E4DFD5',margin:'8px 0 12px'}}/>
-        <div style={{fontSize:13,color:'#3A3020',lineHeight:1.8}}>
-          <div style={{marginBottom:8}}>Dear <strong style={{color:'#1C2A3A'}}>Abena</strong>,</div>
-          <div style={{whiteSpace:'pre-wrap',color:'#4A4038',fontWeight:300,marginBottom:8}}>{previewBody}</div>
-          {showServiceInfo && activeService?.title && (
-            <div style={{color:'#7A6E60',marginBottom:8,fontStyle:'italic',fontSize:12}}>Today&apos;s gathering: {activeService.title}</div>
-          )}
-          <div style={{color:'#7A6E60',borderTop:'1px solid #E4DFD5',paddingTop:10,marginTop:4}}>
-            With love,<br/>The {churchName} Family
-          </div>
-        </div>
-      </div>
-
-      <button onClick={onSave} disabled={saving}
-        style={{width:'100%',background:saving?'#B8A898':'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'13px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:saving?'wait':'pointer',transition:'all .2s'}}>
-        {saving ? 'Saving…' : `Save ${title}`}
-      </button>
     </div>
   );
 }
