@@ -42,8 +42,6 @@ function ResetPasswordForm() {
     finally { setLoading(false); }
   };
 
-  const s = (x: object) => x;
-
   return (
     <div style={{ minHeight:'100vh', background:'#F8F4EE', display:'flex', alignItems:'center', justifyContent:'center', padding:'24px', fontFamily:"'DM Sans',sans-serif" }}>
       <div style={{ background:'#fff', border:'1px solid #E4DFD5', borderRadius:20, padding:'48px 44px', width:'100%', maxWidth:440, boxShadow:'0 10px 40px rgba(22,36,58,0.08)' }}>
