@@ -2,10 +2,11 @@ import { getServerSupabase } from './supabase';
 import type { Organization, Service, Person } from '@/types';
 
 interface EmailRecipient { email: string; name?: string; }
+interface EmailAttachment { content: string; name: string; }
 interface SendEmailResult { success: boolean; error?: string; }
 
 export async function sendBrevoEmail(
-  to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string
+  to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string, attachments?: EmailAttachment[]
 ): Promise<SendEmailResult> {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
@@ -18,7 +19,10 @@ export async function sendBrevoEmail(
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: { 'accept':'application/json', 'api-key':apiKey, 'content-type':'application/json' },
-      body: JSON.stringify({ sender:{ name:senderName, email:senderEmail }, to, subject, htmlContent }),
+      body: JSON.stringify({
+        sender:{ name:senderName, email:senderEmail }, to, subject, htmlContent,
+        ...(attachments && attachments.length > 0 ? { attachment: attachments } : {}),
+      }),
     });
     if (!response.ok) {
       const error = await response.json();
@@ -50,7 +54,6 @@ export function processTemplate(
 ): string {
   const firstName = person.full_name.split(' ')[0];
 
-  // Build SERVICE_INFO block — title, theme, scripture, message (announcements)
   let serviceInfo = '';
   if (service) {
     const parts: string[] = [];
