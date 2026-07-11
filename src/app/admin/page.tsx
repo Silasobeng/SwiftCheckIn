@@ -175,6 +175,7 @@ export default function AdminPage() {
     title:'', service_date:'', service_time:'', theme:'', scripture:'', message:''
   });
   const [savingService, setSavingService]     = useState(false);
+  const [sendingReportId, setSendingReportId] = useState<string|null>(null);
   const [peopleSearch, setPeopleSearch] = useState('');
   const [giving, setGiving] = useState<Giving[]>([]);
   const [givingFormOpen, setGivingFormOpen] = useState(false);
@@ -310,6 +311,16 @@ export default function AdminPage() {
     setMessage(null); setError(null);
     const res=await fetch('/api/services',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({serviceId:id,setActive:true})});
     const data=await res.json(); if(!res.ok){setError(data.error||'Could not activate.');return;} setMessage('Current service updated.'); loadData();
+  };
+
+  const handleEmailReport = async (serviceId:string) => {
+    setSendingReportId(serviceId); setMessage(null); setError(null);
+    try {
+      const res = await fetch(`/api/services/${serviceId}/email-report`, { method:'POST' });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error||'Could not send report.'); return; }
+      setMessage(`Attendance report emailed (${data.count} check-in${data.count===1?'':'s'}).`);
+    } finally { setSendingReportId(null); }
   };
 
   const saveTemplate = async (type:'welcome'|'birthday'|'missed', subject:string, body:string) => {
@@ -751,6 +762,7 @@ export default function AdminPage() {
                         )}
                       </div>
                       <div style={{display:'flex',gap:8,flexShrink:0}}>
+                        <button onClick={()=>handleEmailReport(s.id)} disabled={sendingReportId===s.id} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:sendingReportId===s.id?'wait':'pointer'}}>{sendingReportId===s.id?'Sending…':'Email Report'}</button>
                         <button onClick={()=>openEditService(s)} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Edit</button>
                         {!s.is_active&&<button onClick={()=>setActiveService(s.id)} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Set Active</button>}
                       </div>
@@ -1247,7 +1259,7 @@ export default function AdminPage() {
               <div><h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400,marginBottom:4}}>Settings</h2><p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Set these once and you&apos;re done.</p></div>
               <button onClick={saveBranding} disabled={savingBranding} style={{background:"#C97B1A",color:"#fff",border:"none",borderRadius:10,padding:"10px 22px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",flexShrink:0}}>{savingBranding?'Saving…':'Save Settings'}</button>
             </div>
-            <div className="grid lg:grid-cols-[1fr_1fr_260px] gap-5 items-start">
+            <div className="grid lg:grid-cols-2 gap-5">
               <div className="card space-y-4">
                 <div style={{fontSize:11,letterSpacing:"0.12em",textTransform:"uppercase",color:"#A89D8E",fontWeight:500,marginBottom:4}}>Church Branding</div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Church Name</label><input className="input" placeholder="e.g. Grace Community Church" value={branding.org_name} onChange={e=>setBranding(b=>({...b,org_name:e.target.value}))} /></div>
@@ -1255,15 +1267,15 @@ export default function AdminPage() {
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Host Names</label><input className="input" placeholder="e.g. Pastor John & Lady Mary" value={branding.host_names} onChange={e=>setBranding(b=>({...b,host_names:e.target.value}))} /></div>
                 <div>
                   <label className="block text-sm font-medium text-navy-700 mb-1.5">Church Logo</label>
-                  <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Shown on your kiosk screen and in emails — see the preview →</p>
+                  <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Shown on your kiosk screen.</p>
                   <div className="flex items-start gap-4">
                     {branding.logo_url?<img src={branding.logo_url} alt="Logo" className="w-16 h-16 rounded-xl border border-navy-200 object-cover bg-white flex-shrink-0" />:<div style={{width:64,height:64,borderRadius:12,border:"2px dashed #E4DFD5",background:"#FAF9F6",display:"flex",alignItems:"center",justifyContent:"center",color:"#A89D8E",fontSize:12,flexShrink:0}}>Logo</div>}
                     <div className="flex-1"><input type="file" accept="image/*" className="block w-full text-sm text-navy-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-navy-100 file:text-navy-700 file:text-sm hover:file:bg-navy-200 cursor-pointer" onChange={e=>uploadBrandingImage('logo',e.target.files?.[0]||null)} />{uploading==='logo'&&<p className="text-xs text-navy-400 mt-1.5">Uploading…</p>}</div>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-navy-700 mb-1.5">Your Kiosk & Email Color</label>
-                  <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Colors the screen your visitors check in on and your outgoing emails — not this dashboard.</p>
+                  <label className="block text-sm font-medium text-navy-700 mb-1.5">Your Kiosk Color</label>
+                  <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Colors the screen your visitors check in on — not this dashboard.</p>
                   <div className="flex gap-2 items-center">
                     <input type="color" className="h-10 w-12 rounded-lg border border-navy-200 cursor-pointer" value={branding.brand_color||'#102a43'} onChange={e=>setBranding(b=>({...b,brand_color:e.target.value}))} />
                     <input className="input flex-1" value={branding.brand_color} onChange={e=>setBranding(b=>({...b,brand_color:e.target.value}))} />
@@ -1289,29 +1301,6 @@ export default function AdminPage() {
                   </div>
                   <div><label className="block text-xs font-medium text-navy-600 mb-1">Address</label><textarea className="textarea" rows={2} value={branding.address} onChange={e=>setBranding(b=>({...b,address:e.target.value}))} /></div>
                 </div>
-              </div>
-
-              {/* Live kiosk preview — makes the branding fields' purpose obvious */}
-              <div style={{position:'sticky',top:140}}>
-                <div style={{fontSize:11,letterSpacing:"0.12em",textTransform:"uppercase",color:"#A89D8E",fontWeight:500,marginBottom:8}}>What visitors see</div>
-                <div style={{
-                  borderRadius:20,overflow:'hidden',border:'1px solid #E4DFD5',boxShadow:'0 10px 30px -8px rgba(22,36,58,0.15)',
-                  aspectRatio:'9/16',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',padding:20,
-                  background: branding.cover_image_url ? `linear-gradient(rgba(16,20,30,0.55),rgba(16,20,30,0.55)), url(${branding.cover_image_url}) center/cover` : (branding.brand_color||'#102a43'),
-                }}>
-                  {branding.logo_url
-                    ? <img src={branding.logo_url} alt="" style={{width:44,height:44,borderRadius:10,objectFit:'cover',marginBottom:14,background:'#fff'}} />
-                    : <div style={{width:44,height:44,borderRadius:10,background:'rgba(255,255,255,0.15)',marginBottom:14}} />
-                  }
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:'#fff',marginBottom:8,lineHeight:1.3}}>
-                    {branding.kiosk_welcome_heading || 'Welcome to ' + (branding.org_name||'Your Church')}
-                  </div>
-                  <div style={{fontSize:11.5,color:'rgba(255,255,255,0.85)',fontWeight:300,lineHeight:1.5}}>
-                    {branding.kiosk_welcome_subtext || "We're glad you're here today"}
-                  </div>
-                  <div style={{marginTop:18,padding:'8px 20px',borderRadius:20,background:'rgba(255,255,255,0.15)',fontSize:11,color:'#fff'}}>Check In →</div>
-                </div>
-                <p style={{fontSize:11,color:'#A89D8E',marginTop:10,fontWeight:300,lineHeight:1.5}}>This is what someone sees on the tablet when they walk in — updates live as you type.</p>
               </div>
             </div>
 
