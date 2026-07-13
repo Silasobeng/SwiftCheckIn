@@ -1,101 +1,110 @@
-import { getServerSupabase } from '@/lib/supabase';
-import { sendBrevoEmail, readableTextColor } from '@/lib/email';
-import type { Giving } from '@/types';
+import { getServerSupabase } from './supabase';
+import type { Organization, Service, Person } from '@/types';
 
-const GIVING_TYPE_LABELS: Record<string, string> = {
-  tithe: 'Tithe',
-  offering: 'Offering',
-  seed: 'Seed Offering',
-  pledge: 'Pledge',
-  other: 'Gift',
-};
+interface EmailRecipient { email: string; name?: string; }
+interface EmailAttachment { content: string; name: string; }
+interface SendEmailResult { success: boolean; error?: string; }
 
-function buildReceiptHtml(giving: Giving, orgName: string, brandColor?: string): string {
-  const label = giving.giving_type === 'other'
-    ? (giving.giving_type_other || 'Gift')
-    : GIVING_TYPE_LABELS[giving.giving_type];
-
-  const formattedAmount = `${giving.currency} ${Number(giving.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const formattedDate = new Date(giving.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const firstName = giving.giver_name.split(' ')[0];
-  const bannerColor = (brandColor && /^#[0-9a-fA-F]{6}$/.test(brandColor)) ? brandColor : '#16243A';
-  const textColor = readableTextColor(bannerColor);
-
-  return `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-      <div style="background:${bannerColor}; border-radius: 12px 12px 0 0; padding: 24px 32px; text-align: center;">
-        <h1 style="color: ${textColor}; font-size: 24px; margin: 0;">${orgName}</h1>
-      </div>
-      <div style="background: #ffffff; border-radius: 0 0 12px 12px; padding: 32px; border: 1px solid #E4DFD5; border-top: none;">
-        <h2 style="color: #16243A; font-size: 20px; margin-top: 0;">Thank you, ${firstName}!</h2>
-        <p style="color: #486581; font-size: 15px; line-height: 1.7;">
-          We're writing to confirm that we've received your ${label.toLowerCase()}. This email serves as your receipt.
-        </p>
-        <div style="background: #F8F4EE; border-radius: 10px; padding: 20px 24px; margin: 24px 0;">
-          <div style="font-size: 26px; color: #16243A; font-weight: 700; margin-bottom: 4px;">${formattedAmount}</div>
-          <table style="width: 100%; font-size: 14px; color: #16243A; margin-top: 12px;">
-            <tr><td style="padding: 6px 0; color: #7A6E60;">Type</td><td style="padding: 6px 0; text-align: right; font-weight: 600;">${label}</td></tr>
-            <tr><td style="padding: 6px 0; color: #7A6E60;">Date</td><td style="padding: 6px 0; text-align: right; font-weight: 600;">${formattedDate}</td></tr>
-          </table>
-        </div>
-        <p style="color: #829ab1; font-size: 13px; line-height: 1.6;">
-          If you believe this was recorded in error, please reach out to us directly.
-        </p>
-      </div>
-      <p style="text-align: center; color: #829ab1; font-size: 12px; margin-top: 24px;">
-        © ${new Date().getFullYear()} ${orgName}
-      </p>
-    </div>
-  `;
+export async function sendBrevoEmail(
+  to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string, attachments?: EmailAttachment[]
+): Promise<SendEmailResult> {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    console.warn('BREVO_API_KEY not configured - email not sent');
+    return { success: false, error: 'Email not configured' };
+  }
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@swiftentrypro.com';
+  const senderName  = orgName || process.env.BREVO_SENDER_NAME || 'SwiftEntryPro';
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'accept':'application/json', 'api-key':apiKey, 'content-type':'application/json' },
+      body: JSON.stringify({
+        sender:{ name:senderName, email:senderEmail }, to, subject, htmlContent,
+        ...(attachments && attachments.length > 0 ? { attachment: attachments } : {}),
+      }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      return { success: false, error: error.message || 'Failed to send email' };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: 'Failed to send email' };
+  }
 }
 
-/**
- * Sends the giving receipt email, updates the record's status to 'sent',
- * and logs the attempt. Used both right after recording a gift (auto-send)
- * and for manual resend. Returns { success, error? } — never throws.
- */
-export async function sendGivingReceipt(
-  giving: Giving,
-  orgId: string,
-  orgName: string,
-  brandColor?: string
-): Promise<{ success: boolean; error?: string }> {
-  if (!giving.giver_email) {
-    return { success: false, error: 'No email address on file' };
+// Picks readable text color (white or navy) against an arbitrary brand color background
+export function readableTextColor(hex?: string): string {
+  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return '#ffffff';
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+  return luminance > 0.6 ? '#16243A' : '#ffffff';
+}
+
+export function textToHtml(text: string, orgName: string, brandColor?: string): string {
+  const escaped = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>');
+  const bannerColor = (brandColor && /^#[0-9a-fA-F]{6}$/.test(brandColor)) ? brandColor : '#16243A';
+  const textColor = readableTextColor(bannerColor);
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.7;color:#1f2937;max-width:600px;margin:0 auto;padding:20px;background:#f9fafb;">
+  <div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+    <div style="background:${bannerColor};padding:28px 32px;text-align:center;">
+      <h1 style="margin:0;font-size:22px;font-family:Georgia,serif;color:${textColor};">${orgName}</h1>
+    </div>
+    <div style="padding:32px;">
+      <div style="color:#374151;">${escaped}</div>
+    </div>
+  </div>
+  <p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:24px;">Powered by SwiftEntryPro</p>
+</body></html>`;
+}
+
+export function processTemplate(
+  template: string, person: Person, org: Organization, service?: Service | null
+): string {
+  const firstName = person.full_name.split(' ')[0];
+
+  // Build SERVICE_INFO block — title, theme, scripture, message (announcements)
+  let serviceInfo = '';
+  if (service) {
+    const parts: string[] = [];
+    if (service.title)     parts.push(`Today\'s gathering: ${service.title}`);
+    if (service.theme)     parts.push(`Theme: ${service.theme}`);
+    if (service.scripture) parts.push(`Scripture: ${service.scripture}`);
+    if (service.message)   parts.push(service.message);
+    if (parts.length > 0)  serviceInfo = '\n' + parts.join('\n') + '\n';
   }
 
-  const supabase = getServerSupabase();
-  const label = giving.giving_type === 'other' ? (giving.giving_type_other || 'Gift') : GIVING_TYPE_LABELS[giving.giving_type];
+  return template
+    .replace(/\{NAME\}/g,         firstName)
+    .replace(/\{FULL_NAME\}/g,    person.full_name)
+    .replace(/\{ORG_NAME\}/g,     org.name)
+    .replace(/\{SERVICE_INFO\}/g, serviceInfo);
+}
 
-  const result = await sendBrevoEmail(
-    [{ email: giving.giver_email, name: giving.giver_name }],
-    `Your ${label} Receipt - ${orgName}`,
-    buildReceiptHtml(giving, orgName, brandColor),
-    orgName
-  );
+export async function sendWelcomeEmail(
+  person: Person, orgId: string, service?: Service | null
+): Promise<SendEmailResult> {
+  if (!person.email) return { success: false, error: 'No email address' };
+  const supabase = getServerSupabase();
+  const { data: org }      = await supabase.from('organizations').select('*').eq('id', orgId).single();
+  if (!org) return { success: false, error: 'Organization not found' };
+  const { data: template } = await supabase.from('email_templates').select('*').eq('org_id', orgId).eq('template_type', 'welcome').single();
+  if (!template) return { success: false, error: 'Template not found' };
+
+  const subject = processTemplate(template.subject, person, org, service);
+  const body    = processTemplate(template.body,    person, org, service);
+  const html    = textToHtml(body, org.name, org.brand_color);
+  const result  = await sendBrevoEmail([{ email: person.email, name: person.full_name }], subject, html, org.name);
 
   await supabase.from('email_logs').insert({
-    org_id: orgId,
-    person_id: giving.person_id,
-    email_type: 'giving_receipt',
-    subject: `Your ${label} Receipt`,
-    recipient_email: giving.giver_email,
+    org_id: orgId, person_id: person.id, email_type: 'welcome',
+    subject, recipient_email: person.email,
     status: result.success ? 'sent' : 'failed',
   });
-
-  if (!result.success) {
-    return { success: false, error: result.error || 'Failed to send receipt email' };
-  }
-
-  const { error: updateError } = await supabase
-    .from('giving')
-    .update({ status: 'sent', receipt_sent_at: new Date().toISOString() })
-    .eq('id', giving.id)
-    .eq('org_id', orgId);
-
-  if (updateError) {
-    return { success: false, error: 'Receipt sent, but failed to update record status' };
-  }
-
-  return { success: true };
+  return result;
 }
