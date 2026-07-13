@@ -120,10 +120,10 @@ export async function POST(request: NextRequest) {
     if (data.giver_email) {
       const { data: org } = await supabase
         .from('organizations')
-        .select('name')
+        .select('name, brand_color')
         .eq('id', auth.session.orgId)
         .single();
-      const result = await sendGivingReceipt(data as Giving, auth.session.orgId, org?.name || auth.session.orgName);
+      const result = await sendGivingReceipt(data as Giving, auth.session.orgId, org?.name || auth.session.orgName, org?.brand_color);
       receiptSent = result.success;
       receiptError = result.error;
       if (result.success) {
