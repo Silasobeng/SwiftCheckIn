@@ -1,139 +1,110 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSupabase } from '@/lib/supabase';
-import { requireActiveSubscription } from '@/lib/auth';
-import { sendBrevoEmail } from '@/lib/email';
-import { buildCsv } from '@/lib/csv';
+import { getServerSupabase } from './supabase';
+import type { Organization, Service, Person } from '@/types';
 
-export const dynamic = 'force-dynamic';
+interface EmailRecipient { email: string; name?: string; }
+interface EmailAttachment { content: string; name: string; }
+interface SendEmailResult { success: boolean; error?: string; }
 
-// POST - Email a CSV attendance report for one service to the org's admin email.
-// Never downloads to the device — safe to trigger from a shared kiosk tablet too.
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireActiveSubscription();
-  if ('error' in auth) return auth.error;
-
-  try {
-    const supabase = getServerSupabase();
-    const { id: serviceId } = params;
-
-    const { data: service, error: serviceError } = await supabase
-      .from('services')
-      .select('*')
-      .eq('id', serviceId)
-      .eq('org_id', auth.session.orgId)
-      .single();
-
-    if (serviceError || !service) {
-      return NextResponse.json({ error: 'Service not found' }, { status: 404 });
-    }
-
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('name, admin_email')
-      .eq('id', auth.session.orgId)
-      .single();
-
-    if (!org?.admin_email) {
-      return NextResponse.json({ error: 'No admin email on file for this account' }, { status: 400 });
-    }
-
-    const { data: checkins, error: checkinsError } = await supabase
-      .from('checkins')
-      .select('checked_in_at, is_first_time, person:people(full_name,phone,email,gender,role)')
-      .eq('org_id', auth.session.orgId)
-      .eq('service_id', serviceId)
-      .order('checked_in_at', { ascending: true });
-
-    if (checkinsError) {
-      return NextResponse.json({ error: checkinsError.message }, { status: 500 });
-    }
-
-    const rows: unknown[][] = [
-      ['Checked In At', 'Full Name', 'Phone', 'Email', 'Gender', 'Role', 'First Time'],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ...(checkins ?? []).map((row: any) => [
-        row.checked_in_at,
-        row.person?.full_name ?? '',
-        row.person?.phone ?? '',
-        row.person?.email ?? '',
-        row.person?.gender ?? '',
-        row.person?.role ?? '',
-        row.is_first_time ? 'Yes' : 'No',
-      ]),
-    ];
-
-    const csv = buildCsv(rows);
-    const csvBase64 = Buffer.from(csv, 'utf-8').toString('base64');
-    const serviceDateLabel = new Date(service.service_date).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
-    const filename = `attendance-${service.service_date}.csv`;
-    const count = checkins?.length ?? 0;
-
-    // First-timers — real count from the is_first_time flag already set at check-in
-    const firstTimerCount = (checkins ?? []).filter((c) => c.is_first_time).length;
-
-    // Gender breakdown — real counts from each linked person's gender field
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const maleCount   = (checkins ?? []).filter((c: any) => c.person?.gender === 'male').length;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const femaleCount = (checkins ?? []).filter((c: any) => c.person?.gender === 'female').length;
-
-    // Trend — real count from the most recent previous service, by actual date
-    const { data: prevService } = await supabase
-      .from('services')
-      .select('id')
-      .eq('org_id', auth.session.orgId)
-      .lt('service_date', service.service_date)
-      .order('service_date', { ascending: false })
-      .limit(1)
-      .single();
-
-    let trendLine = '';
-    if (prevService) {
-      const { count: prevCount } = await supabase
-        .from('checkins')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', auth.session.orgId)
-        .eq('service_id', prevService.id);
-
-      if (typeof prevCount === 'number') {
-        const diff = count - prevCount;
-        const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
-        trendLine = ` (${arrow}${Math.abs(diff)} from last service)`;
-      }
-    }
-
-    const html = `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
-        <h2 style="color:#16243A;font-size:20px;">Attendance Report</h2>
-        <p style="color:#486581;font-size:15px;line-height:1.7;">
-          ${service.title || 'Service'} — ${serviceDateLabel}
-        </p>
-        <div style="background:#F8F4EE;border-radius:12px;padding:20px 24px;margin:16px 0;">
-          <div style="font-size:22px;color:#16243A;font-weight:600;margin-bottom:4px;">${count} check-in${count === 1 ? '' : 's'}${trendLine}</div>
-          <div style="font-size:13px;color:#7A6E60;line-height:1.8;margin-top:10px;">
-            ${firstTimerCount} first-time visitor${firstTimerCount === 1 ? '' : 's'}<br/>
-            ${maleCount} male · ${femaleCount} female
-          </div>
-        </div>
-        <p style="color:#829ab1;font-size:13px;">Full details are attached as a CSV file.</p>
-      </div>
-    `;
-
-    const result = await sendBrevoEmail(
-      [{ email: org.admin_email }],
-      `Attendance Report — ${service.title || 'Service'} (${serviceDateLabel})`,
-      html,
-      org.name,
-      [{ content: csvBase64, name: filename }]
-    );
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error || 'Failed to send report email' }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, count });
-  } catch (error) {
-    console.error('Email attendance report error:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+export async function sendBrevoEmail(
+  to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string, attachments?: EmailAttachment[]
+): Promise<SendEmailResult> {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    console.warn('BREVO_API_KEY not configured - email not sent');
+    return { success: false, error: 'Email not configured' };
   }
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@swiftentrypro.com';
+  const senderName  = orgName || process.env.BREVO_SENDER_NAME || 'SwiftEntryPro';
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'accept':'application/json', 'api-key':apiKey, 'content-type':'application/json' },
+      body: JSON.stringify({
+        sender:{ name:senderName, email:senderEmail }, to, subject, htmlContent,
+        ...(attachments && attachments.length > 0 ? { attachment: attachments } : {}),
+      }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      return { success: false, error: error.message || 'Failed to send email' };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: 'Failed to send email' };
+  }
+}
+
+// Picks readable text color (white or navy) against an arbitrary brand color background
+export function readableTextColor(hex?: string): string {
+  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return '#ffffff';
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+  return luminance > 0.6 ? '#16243A' : '#ffffff';
+}
+
+export function textToHtml(text: string, orgName: string, brandColor?: string): string {
+  const escaped = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>');
+  const bannerColor = (brandColor && /^#[0-9a-fA-F]{6}$/.test(brandColor)) ? brandColor : '#16243A';
+  const textColor = readableTextColor(bannerColor);
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.7;color:#1f2937;max-width:600px;margin:0 auto;padding:20px;background:#f9fafb;">
+  <div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+    <div style="background:${bannerColor};padding:28px 32px;text-align:center;">
+      <h1 style="margin:0;font-size:22px;font-family:Georgia,serif;color:${textColor};">${orgName}</h1>
+    </div>
+    <div style="padding:32px;">
+      <div style="color:#374151;">${escaped}</div>
+    </div>
+  </div>
+  <p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:24px;">Powered by SwiftEntryPro</p>
+</body></html>`;
+}
+
+export function processTemplate(
+  template: string, person: Person, org: Organization, service?: Service | null
+): string {
+  const firstName = person.full_name.split(' ')[0];
+
+  // Build SERVICE_INFO block — title, theme, scripture, message (announcements)
+  let serviceInfo = '';
+  if (service) {
+    const parts: string[] = [];
+    if (service.title)     parts.push(`Today\'s gathering: ${service.title}`);
+    if (service.theme)     parts.push(`Theme: ${service.theme}`);
+    if (service.scripture) parts.push(`Scripture: ${service.scripture}`);
+    if (service.message)   parts.push(service.message);
+    if (parts.length > 0)  serviceInfo = '\n' + parts.join('\n') + '\n';
+  }
+
+  return template
+    .replace(/\{NAME\}/g,         firstName)
+    .replace(/\{FULL_NAME\}/g,    person.full_name)
+    .replace(/\{ORG_NAME\}/g,     org.name)
+    .replace(/\{SERVICE_INFO\}/g, serviceInfo);
+}
+
+export async function sendWelcomeEmail(
+  person: Person, orgId: string, service?: Service | null
+): Promise<SendEmailResult> {
+  if (!person.email) return { success: false, error: 'No email address' };
+  const supabase = getServerSupabase();
+  const { data: org }      = await supabase.from('organizations').select('*').eq('id', orgId).single();
+  if (!org) return { success: false, error: 'Organization not found' };
+  const { data: template } = await supabase.from('email_templates').select('*').eq('org_id', orgId).eq('template_type', 'welcome').single();
+  if (!template) return { success: false, error: 'Template not found' };
+
+  const subject = processTemplate(template.subject, person, org, service);
+  const body    = processTemplate(template.body,    person, org, service);
+  const html    = textToHtml(body, org.name, org.brand_color);
+  const result  = await sendBrevoEmail([{ email: person.email, name: person.full_name }], subject, html, org.name);
+
+  await supabase.from('email_logs').insert({
+    org_id: orgId, person_id: person.id, email_type: 'welcome',
+    subject, recipient_email: person.email,
+    status: result.success ? 'sent' : 'failed',
+  });
+  return result;
 }
