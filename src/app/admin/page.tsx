@@ -1290,7 +1290,11 @@ export default function AdminPage() {
                 <div>
                   <label className="block text-sm font-medium text-navy-700 mb-1.5">Background Image</label>
                   {branding.cover_image_url?<img src={branding.cover_image_url} alt="Background" className="w-full h-28 rounded-xl border border-navy-200 object-cover mb-2" />:<div style={{width:"100%",height:112,borderRadius:12,border:"2px dashed #E4DFD5",background:"#FAF9F6",display:"flex",alignItems:"center",justifyContent:"center",color:"#A89D8E",fontSize:14,marginBottom:8}}>No background image</div>}
-                  <input type="file" accept="image/*" className="block w-full text-sm text-navy-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-navy-100 file:text-navy-700 file:text-sm hover:file:bg-navy-200 cursor-pointer" onChange={e=>uploadBrandingImage('cover',e.target.files?.[0]||null)} />
+                  <div className="flex items-center gap-3">
+                    <input type="file" accept="image/*" className="block flex-1 text-sm text-navy-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-navy-100 file:text-navy-700 file:text-sm hover:file:bg-navy-200 cursor-pointer" onChange={e=>uploadBrandingImage('cover',e.target.files?.[0]||null)} />
+                    {branding.cover_image_url && <button type="button" onClick={()=>setBranding(b=>({...b,cover_image_url:''}))} style={{fontSize:12,color:'#B23B3B',background:'none',border:'none',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>Remove</button>}
+                  </div>
+                  {branding.cover_image_url && <p style={{fontSize:11,color:'#A89D8E',marginTop:5,fontWeight:300}}>Remove the image to use your kiosk color instead — save settings to apply.</p>}
                   {uploading==='cover'&&<p className="text-xs text-navy-400 mt-1.5">Uploading…</p>}
                 </div>
                 <div>
