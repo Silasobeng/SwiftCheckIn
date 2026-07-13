@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         batch.map(async (person) => {
           const finalSubject = processTemplate(subject.trim(), person, org as Organization, null);
           const finalBody    = processTemplate(message.trim(), person, org as Organization, null);
-          const html         = textToHtml(finalBody, org.name);
+          const html         = textToHtml(finalBody, org.name, org.brand_color);
           const result       = await sendBrevoEmail(
             [{ email: person.email as string, name: person.full_name }],
             finalSubject, html, org.name
