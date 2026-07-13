@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { requireActiveSubscription } from '@/lib/auth';
-import { processTemplate, sendBrevoEmail, textToHtml } from '@/lib/email';
+import { processTemplate, sendBrevoEmail } from '@/lib/email';
+import { buildBrandedEmail } from '@/lib/emailTemplate';
 import type { Organization, Person } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
         batch.map(async (person) => {
           const finalSubject = processTemplate(subject.trim(), person, org as Organization, null);
           const finalBody    = processTemplate(message.trim(), person, org as Organization, null);
-          const html         = textToHtml(finalBody, org.name, org.brand_color);
+          const html         = buildBrandedEmail({ orgName: org.name, brandColor: org.brand_color, logoUrl: org.logo_url, greeting: '', body: finalBody, address: org.address, phone: org.phone, email: org.email });
           const result       = await sendBrevoEmail(
             [{ email: person.email as string, name: person.full_name }],
             finalSubject, html, org.name
