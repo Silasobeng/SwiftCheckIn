@@ -1,5 +1,6 @@
 import { getServerSupabase } from './supabase';
 import type { Organization, Service, Person } from '@/types';
+import { buildBrandedEmail } from './emailTemplate';
 
 interface EmailRecipient { email: string; name?: string; }
 interface EmailAttachment { content: string; name: string; }
@@ -34,45 +35,18 @@ export async function sendBrevoEmail(
   }
 }
 
-// Picks readable text color (white or navy) against an arbitrary brand color background
-export function readableTextColor(hex?: string): string {
-  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return '#ffffff';
-  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-  const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
-  return luminance > 0.6 ? '#16243A' : '#ffffff';
-}
-
-export function textToHtml(text: string, orgName: string, brandColor?: string): string {
-  const escaped = text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\n/g,'<br>');
-  const bannerColor = (brandColor && /^#[0-9a-fA-F]{6}$/.test(brandColor)) ? brandColor : '#16243A';
-  const textColor = readableTextColor(bannerColor);
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.7;color:#1f2937;max-width:600px;margin:0 auto;padding:20px;background:#f9fafb;">
-  <div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-    <div style="background:${bannerColor};padding:28px 32px;text-align:center;">
-      <h1 style="margin:0;font-size:22px;font-family:Georgia,serif;color:${textColor};">${orgName}</h1>
-    </div>
-    <div style="padding:32px;">
-      <div style="color:#374151;">${escaped}</div>
-    </div>
-  </div>
-  <p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:24px;">Powered by SwiftEntryPro</p>
-</body></html>`;
-}
+// Re-export for backward compat — other files import this from here
+export { readableTextColor } from './emailTemplate';
 
 export function processTemplate(
   template: string, person: Person, org: Organization, service?: Service | null
 ): string {
   const firstName = person.full_name.split(' ')[0];
 
-  // Build SERVICE_INFO block — title, theme, scripture, message (announcements)
   let serviceInfo = '';
   if (service) {
     const parts: string[] = [];
-    if (service.title)     parts.push(`Today\'s gathering: ${service.title}`);
+    if (service.title)     parts.push(`Today's gathering: ${service.title}`);
     if (service.theme)     parts.push(`Theme: ${service.theme}`);
     if (service.scripture) parts.push(`Scripture: ${service.scripture}`);
     if (service.message)   parts.push(service.message);
@@ -84,6 +58,87 @@ export function processTemplate(
     .replace(/\{FULL_NAME\}/g,    person.full_name)
     .replace(/\{ORG_NAME\}/g,     org.name)
     .replace(/\{SERVICE_INFO\}/g, serviceInfo);
+}
+
+/**
+ * Build a premium branded HTML email from a processed template body.
+ * Parses the "Dear X, ... With love, The Y Family" structure into
+ * greeting / body / service card / sign-off sections.
+ */
+export function buildPremiumHtml(
+  processedBody: string,
+  org: { name: string; brand_color?: string | null; logo_url?: string | null; address?: string | null; phone?: string | null; email?: string | null },
+  service?: { title?: string | null } | null
+): string {
+  let text = processedBody.trim();
+
+  // Extract greeting (first line like "Dear X,")
+  let greeting = '';
+  const greetingMatch = text.match(/^Dear\s+([^,\n]+),?\s*/i);
+  if (greetingMatch) {
+    greeting = `Hi ${greetingMatch[1].trim()},`;
+    text = text.slice(greetingMatch[0].length).trim();
+  }
+
+  // Extract sign-off (everything from "With love," to end)
+  let signOff = '';
+  const signOffIdx = text.search(/\n\s*With love,/i);
+  if (signOffIdx !== -1) {
+    signOff = text.slice(signOffIdx).trim();
+    text = text.slice(0, signOffIdx).trim();
+  }
+
+  // Extract service info block if present in the remaining text
+  // (it's the text inserted by {SERVICE_INFO} — starts with "Today's gathering:")
+  let serviceTitle: string | null = null;
+  const serviceMatch = text.match(/\n?\s*Today'?s gathering:\s*(.+?)(\n|$)/i);
+  if (serviceMatch) {
+    serviceTitle = serviceMatch[1].trim();
+    // Remove the entire service info block (gathering + theme + scripture lines)
+    const serviceBlockStart = text.indexOf(serviceMatch[0]);
+    let serviceBlockEnd = serviceBlockStart + serviceMatch[0].length;
+    // Consume subsequent Theme:/Scripture: lines
+    const remaining = text.slice(serviceBlockEnd);
+    const extraLines = remaining.match(/^(\s*(Theme|Scripture|Message):.*(\n|$))*/i);
+    if (extraLines) serviceBlockEnd += extraLines[0].length;
+    text = (text.slice(0, serviceBlockStart) + text.slice(serviceBlockEnd)).trim();
+  }
+  // Fall back to the service object's title if template didn't include {SERVICE_INFO}
+  if (!serviceTitle && service?.title) {
+    serviceTitle = service.title;
+  }
+
+  // Extract first sentence as headline (bold line)
+  let headline = '';
+  const firstSentenceEnd = text.search(/[.!]\s/);
+  if (firstSentenceEnd > 0 && firstSentenceEnd < 120) {
+    headline = text.slice(0, firstSentenceEnd + 1).trim();
+    text = text.slice(firstSentenceEnd + 1).trim();
+  }
+
+  return buildBrandedEmail({
+    orgName: org.name,
+    brandColor: org.brand_color || undefined,
+    logoUrl: org.logo_url,
+    greeting: greeting || 'Hello,',
+    headline: headline || undefined,
+    body: text,
+    serviceCard: serviceTitle ? { label: "Today's Gathering", value: serviceTitle } : null,
+    signOff: signOff || `We look forward to seeing you again soon.\n\nWith love,\nThe ${org.name} Family`,
+    address: org.address,
+    phone: org.phone,
+    email: org.email,
+  });
+}
+
+// Keep textToHtml for backward compat (custom/bulk emails still use it)
+export function textToHtml(text: string, orgName: string, brandColor?: string): string {
+  return buildBrandedEmail({
+    orgName,
+    brandColor,
+    greeting: '',
+    body: text,
+  });
 }
 
 export async function sendWelcomeEmail(
@@ -98,7 +153,7 @@ export async function sendWelcomeEmail(
 
   const subject = processTemplate(template.subject, person, org, service);
   const body    = processTemplate(template.body,    person, org, service);
-  const html    = textToHtml(body, org.name, org.brand_color);
+  const html    = buildPremiumHtml(body, org, service);
   const result  = await sendBrevoEmail([{ email: person.email, name: person.full_name }], subject, html, org.name);
 
   await supabase.from('email_logs').insert({
