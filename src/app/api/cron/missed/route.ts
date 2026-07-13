@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase, isSubscriptionValid } from '@/lib/supabase';
-import { sendBrevoEmail, textToHtml, processTemplate } from '@/lib/email';
+import { sendBrevoEmail, processTemplate } from '@/lib/email';
+import { buildBrandedEmail } from '@/lib/emailTemplate';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     // Get all active organizations
     const { data: orgs } = await supabase
       .from('organizations')
-      .select('id, name, brand_color, subscription_status, subscription_end_date');
+      .select('id, name, brand_color, logo_url, address, phone, email, subscription_status, subscription_end_date');
 
     if (!orgs) {
       return NextResponse.json({ success: true, sent: 0 });
@@ -97,7 +98,14 @@ export async function GET(request: NextRequest) {
 
         const subject = processTemplate(template.subject, person, org as any);
         const body = processTemplate(template.body, person, org as any);
-        const html = textToHtml(body, org.name, org.brand_color);
+        let text = body.trim();
+        let greeting = '';
+        const gm = text.match(/^Dear\s+([^,\n]+),?\s*/i);
+        if (gm) { greeting = `Hi ${gm[1].trim()},`; text = text.slice(gm[0].length).trim(); }
+        let signOff = '';
+        const si = text.search(/\n\s*With love,/i);
+        if (si !== -1) { signOff = text.slice(si).trim(); text = text.slice(0, si).trim(); }
+        const html = buildBrandedEmail({ orgName: org.name, brandColor: org.brand_color, logoUrl: org.logo_url, greeting: greeting || 'Hi there,', body: text, signOff: signOff || `With love,\nThe ${org.name} Family`, address: org.address, phone: org.phone, email: org.email });
 
         const result = await sendBrevoEmail(
           [{ email: person.email, name: person.full_name }],
