@@ -28,11 +28,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const { data: org } = await supabase
       .from('organizations')
-      .select('name')
+      .select('name, brand_color')
       .eq('id', auth.session.orgId)
       .single();
 
-    const result = await sendGivingReceipt(giving as Giving, auth.session.orgId, org?.name || auth.session.orgName);
+    const result = await sendGivingReceipt(giving as Giving, auth.session.orgId, org?.name || auth.session.orgName, org?.brand_color);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error || 'Failed to send receipt email' }, { status: 500 });
