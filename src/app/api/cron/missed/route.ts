@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     // Get all active organizations
     const { data: orgs } = await supabase
       .from('organizations')
-      .select('id, name, subscription_status, subscription_end_date');
+      .select('id, name, brand_color, subscription_status, subscription_end_date');
 
     if (!orgs) {
       return NextResponse.json({ success: true, sent: 0 });
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 
         const subject = processTemplate(template.subject, person, org as any);
         const body = processTemplate(template.body, person, org as any);
-        const html = textToHtml(body, org.name);
+        const html = textToHtml(body, org.name, org.brand_color);
 
         const result = await sendBrevoEmail(
           [{ email: person.email, name: person.full_name }],
