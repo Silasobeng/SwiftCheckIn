@@ -1,5 +1,6 @@
 import { getServerSupabase } from '@/lib/supabase';
-import { sendBrevoEmail, readableTextColor } from '@/lib/email';
+import { sendBrevoEmail } from '@/lib/email';
+import { buildBrandedEmail } from '@/lib/emailTemplate';
 import type { Giving } from '@/types';
 
 const GIVING_TYPE_LABELS: Record<string, string> = {
@@ -10,7 +11,7 @@ const GIVING_TYPE_LABELS: Record<string, string> = {
   other: 'Gift',
 };
 
-function buildReceiptHtml(giving: Giving, orgName: string, brandColor?: string): string {
+function buildReceiptHtml(giving: Giving, orgName: string, brandColor?: string, logoUrl?: string | null, address?: string | null, phone?: string | null, email?: string | null): string {
   const label = giving.giving_type === 'other'
     ? (giving.giving_type_other || 'Gift')
     : GIVING_TYPE_LABELS[giving.giving_type];
@@ -18,35 +19,19 @@ function buildReceiptHtml(giving: Giving, orgName: string, brandColor?: string):
   const formattedAmount = `${giving.currency} ${Number(giving.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const formattedDate = new Date(giving.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const firstName = giving.giver_name.split(' ')[0];
-  const bannerColor = (brandColor && /^#[0-9a-fA-F]{6}$/.test(brandColor)) ? brandColor : '#16243A';
-  const textColor = readableTextColor(bannerColor);
 
-  return `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-      <div style="background:${bannerColor}; border-radius: 12px 12px 0 0; padding: 24px 32px; text-align: center;">
-        <h1 style="color: ${textColor}; font-size: 24px; margin: 0;">${orgName}</h1>
-      </div>
-      <div style="background: #ffffff; border-radius: 0 0 12px 12px; padding: 32px; border: 1px solid #E4DFD5; border-top: none;">
-        <h2 style="color: #16243A; font-size: 20px; margin-top: 0;">Thank you, ${firstName}!</h2>
-        <p style="color: #486581; font-size: 15px; line-height: 1.7;">
-          We're writing to confirm that we've received your ${label.toLowerCase()}. This email serves as your receipt.
-        </p>
-        <div style="background: #F8F4EE; border-radius: 10px; padding: 20px 24px; margin: 24px 0;">
-          <div style="font-size: 26px; color: #16243A; font-weight: 700; margin-bottom: 4px;">${formattedAmount}</div>
-          <table style="width: 100%; font-size: 14px; color: #16243A; margin-top: 12px;">
-            <tr><td style="padding: 6px 0; color: #7A6E60;">Type</td><td style="padding: 6px 0; text-align: right; font-weight: 600;">${label}</td></tr>
-            <tr><td style="padding: 6px 0; color: #7A6E60;">Date</td><td style="padding: 6px 0; text-align: right; font-weight: 600;">${formattedDate}</td></tr>
-          </table>
-        </div>
-        <p style="color: #829ab1; font-size: 13px; line-height: 1.6;">
-          If you believe this was recorded in error, please reach out to us directly.
-        </p>
-      </div>
-      <p style="text-align: center; color: #829ab1; font-size: 12px; margin-top: 24px;">
-        © ${new Date().getFullYear()} ${orgName}
-      </p>
-    </div>
-  `;
+  return buildBrandedEmail({
+    orgName,
+    brandColor,
+    logoUrl,
+    greeting: `Thank you, ${firstName}!`,
+    headline: `Your ${label.toLowerCase()} has been received.`,
+    body: `This email serves as your receipt.\n\n${label}: ${formattedAmount}\nDate: ${formattedDate}`,
+    signOff: 'If you believe this was recorded in error, please reach out to us directly.',
+    address,
+    phone,
+    email,
+  });
 }
 
 /**
@@ -65,12 +50,16 @@ export async function sendGivingReceipt(
   }
 
   const supabase = getServerSupabase();
+
+  // Fetch full org details for branding (logo, contact info)
+  const { data: org } = await supabase.from('organizations').select('logo_url, address, phone, email').eq('id', orgId).single();
+
   const label = giving.giving_type === 'other' ? (giving.giving_type_other || 'Gift') : GIVING_TYPE_LABELS[giving.giving_type];
 
   const result = await sendBrevoEmail(
     [{ email: giving.giver_email, name: giving.giver_name }],
     `Your ${label} Receipt - ${orgName}`,
-    buildReceiptHtml(giving, orgName, brandColor),
+    buildReceiptHtml(giving, orgName, brandColor, org?.logo_url, org?.address, org?.phone, org?.email),
     orgName
   );
 
