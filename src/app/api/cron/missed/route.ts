@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase, isSubscriptionValid } from '@/lib/supabase';
 import { sendBrevoEmail, processTemplate } from '@/lib/email';
 import { buildBrandedEmail } from '@/lib/emailTemplate';
+import { getRecentServiceDates } from '@/lib/attendance';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,17 +35,21 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Get the 2 most recent services
+      // The 2 most recent service DAYS, not service rows. A church running a
+      // 9am and an 11am on the same Sunday was previously treated as having
+      // held two gatherings, so this fired after one missed Sunday.
+      const recentDates = await getRecentServiceDates(supabase, org.id, 2);
+
+      if (recentDates.length < 2) continue;
+
       const { data: recentServices } = await supabase
         .from('services')
         .select('id')
         .eq('org_id', org.id)
-        .order('service_date', { ascending: false })
-        .limit(2);
+        .in('service_date', recentDates);
 
-      if (!recentServices || recentServices.length < 2) continue;
-
-      const recentServiceIds = recentServices.map((s) => s.id);
+      const recentServiceIds = (recentServices ?? []).map((s) => s.id);
+      if (recentServiceIds.length === 0) continue;
 
       // Get people who checked in to those services
       const { data: recentCheckins } = await supabase

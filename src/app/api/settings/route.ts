@@ -11,6 +11,8 @@ export async function GET() {
 
   try {
     const supabase = getServerSupabase();
+    // The access code is safe to return here — this route is behind the admin
+    // session. It must never be added to the public /api/kiosk payload.
     const { data, error } = await supabase
       .from('app_settings')
       .select('*, active_service:services(*)')
@@ -42,7 +44,20 @@ export async function PATCH(request: NextRequest) {
   try {
     const supabase = getServerSupabase();
     const body = await request.json();
-    const { kiosk_open, active_service_id, org_name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext } = body;
+    const { kiosk_open, active_service_id, org_name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, regenerate_kiosk_code } = body;
+
+    // Rotate the kiosk unlock code (e.g. after a volunteer leaves).
+    if (regenerate_kiosk_code) {
+      const fresh = Math.random().toString(36).replace(/[^a-z0-9]/g, '').slice(0, 6).padEnd(6, '0');
+      const { error: codeError } = await supabase
+        .from('app_settings')
+        .upsert({ org_id: auth.session.orgId, kiosk_access_code: fresh, updated_at: new Date().toISOString() });
+
+      if (codeError) {
+        return NextResponse.json({ error: codeError.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, kiosk_access_code: fresh });
+    }
 
     // If opening kiosk, ensure there's an active service
     if (kiosk_open && !active_service_id) {

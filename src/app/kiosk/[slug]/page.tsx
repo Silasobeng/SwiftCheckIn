@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import {
+  isFullscreenSupported, isStandaloneDisplay, requestFullscreen,
+  exitFullscreen, getFullscreenElement, onFullscreenChange,
+} from '@/lib/fullscreen';
 
 type Screen = 'loading' | 'closed' | 'welcome' | 'returning' | 'new' | 'success' | 'error';
 
@@ -20,18 +24,103 @@ const BLESSINGS = [
   { text:'I can do all things through Christ who strengthens me', ref:'Philippians 4:13' },
 ];
 
-function ExitModal({ onCancel, onConfirm }:{ onCancel:()=>void; onConfirm:()=>void }) {
+/**
+ * Unlock dialog for whoever is running the tablet.
+ *
+ * Deliberately keyboard-free-friendly: a numeric-ish text field plus large
+ * touch targets, because the kiosk is normally a tablet on a stand with no
+ * keyboard attached. The code is verified server-side.
+ */
+function ExitModal({ slug, canExitFullscreen, standalone, onCancel, onUnlocked }:{
+  slug:string; canExitFullscreen:boolean; standalone:boolean;
+  onCancel:()=>void; onUnlocked:()=>void;
+}) {
+  const [code, setCode]       = useState('');
+  const [busy, setBusy]       = useState(false);
+  const [err, setErr]         = useState('');
+
+  const submit = async () => {
+    setBusy(true); setErr('');
+    try {
+      const res  = await fetch('/api/kiosk/exit', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ slug, code }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setErr(json.error || 'Could not unlock.'); return; }
+      onUnlocked();
+    } catch {
+      setErr('No connection. Check the tablet is online.');
+    } finally { setBusy(false); }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/80 backdrop-blur-sm p-6">
-      <div className="w-full max-w-sm rounded-3xl bg-white shadow-soft-xl p-8 text-center animate-scale-in">
-        <h3 className="text-xl font-bold text-navy-900 mb-2">Exit fullscreen?</h3>
-        <p className="text-navy-400 mb-6 text-sm">This returns the tablet to normal browser mode.</p>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-navy-950/85 backdrop-blur-sm p-6"
+      onClick={onCancel}>
+      <div className="w-full max-w-sm rounded-3xl bg-white shadow-soft-xl p-8 animate-scale-in" onClick={e=>e.stopPropagation()}>
+        <h3 className="text-xl font-bold text-navy-900 mb-2">Unlock this tablet</h3>
+        <p className="text-navy-400 mb-5 text-sm leading-relaxed">
+          {standalone
+            ? 'Enter your kiosk code to leave check-in and open the dashboard.'
+            : canExitFullscreen
+              ? 'Enter your kiosk code to leave fullscreen and return to normal browsing.'
+              : 'Enter your kiosk code to leave check-in.'}
+        </p>
+
+        {err && <div className="alert alert-error mb-4"><span>{err}</span></div>}
+
+        <input
+          className="input input-lg text-center tracking-[0.35em] font-semibold"
+          value={code}
+          onChange={e=>setCode(e.target.value)}
+          onKeyDown={e=>{ if(e.key==='Enter' && code.trim() && !busy) submit(); }}
+          placeholder="••••••"
+          inputMode="text"
+          autoComplete="off"
+          autoFocus
+          aria-label="Kiosk access code"
+        />
+        <p className="text-xs text-navy-400 mt-2.5 mb-5">
+          Find this in your dashboard under <strong className="text-navy-700 font-medium">Settings → Kiosk access code</strong>.
+        </p>
+
         <div className="flex gap-3">
           <button onClick={onCancel} className="flex-1 btn btn-secondary">Cancel</button>
-          <button onClick={onConfirm} className="flex-1 btn btn-primary">Exit</button>
+          <button onClick={submit} disabled={busy || !code.trim()} className="flex-1 btn btn-primary">
+            {busy ? 'Checking…' : 'Unlock'}
+          </button>
         </div>
+
+        {standalone && (
+          <p className="text-[11px] text-navy-400 mt-5 leading-relaxed text-center">
+            This tablet opened check-in from its home screen, so the app fills the
+            whole display. Unlocking opens the dashboard — use your device&apos;s
+            home gesture to leave entirely.
+          </p>
+        )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Always-present escape hatch. Faint enough that a visitor scanning the screen
+ * won't reach for it, findable by anyone who is actually looking. It is NOT
+ * gated on fullscreen state — the devices most in need of an exit are the ones
+ * where the Fullscreen API never engaged.
+ */
+function ExitHandle({ onActivate }:{ onActivate:()=>void }) {
+  return (
+    <button
+      onClick={onActivate}
+      aria-label="Unlock kiosk"
+      className="fixed bottom-4 right-4 z-40 flex items-center justify-center rounded-full transition-all duration-200 hover:bg-white/20 active:scale-95"
+      style={{ width:44, height:44, background:'rgba(255,255,255,0.09)', border:'1px solid rgba(255,255,255,0.14)' }}
+    >
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.5)" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+      </svg>
+    </button>
   );
 }
 
@@ -47,6 +136,10 @@ export default function KioskPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [exitTapCount, setExitTapCount] = useState(0);
+  // Capability flags resolve after mount so server and client markup match.
+  const [fsSupported, setFsSupported] = useState(false);
+  const [standalone, setStandalone]   = useState(false);
+  const [fsNotice, setFsNotice]       = useState('');
   const [newForm, setNewForm]           = useState({ full_name:'', phone:'', gender:'', email:'' });
   const [newErrors, setNewErrors]       = useState({ full_name:'', phone:'' });
   const [search, setSearch]             = useState('');
@@ -68,14 +161,38 @@ export default function KioskPage() {
     return () => { if(idleTimerRef.current) clearTimeout(idleTimerRef.current); window.removeEventListener('touchstart',h); window.removeEventListener('click',h); window.removeEventListener('keydown',h); };
   }, [resetIdleTimer]);
 
-  const enterFullscreen = async () => { try { await document.documentElement.requestFullscreen(); setIsFullscreen(true); } catch {} };
-  const exitFullscreen  = async () => { try { if(document.fullscreenElement) await document.exitFullscreen(); setIsFullscreen(false); setShowExitModal(false); setExitTapCount(0); } catch {} };
-
+  // Detect what this particular tablet can actually do, once, on the client.
   useEffect(() => {
-    const h = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange',h);
-    return () => document.removeEventListener('fullscreenchange',h);
+    setFsSupported(isFullscreenSupported());
+    setStandalone(isStandaloneDisplay());
+    setIsFullscreen(getFullscreenElement() !== null);
   }, []);
+
+  useEffect(() => onFullscreenChange(() => setIsFullscreen(getFullscreenElement() !== null)), []);
+
+  const enterFullscreen = async () => {
+    const ok = await requestFullscreen();
+    setIsFullscreen(getFullscreenElement() !== null);
+    // Previously this failure was swallowed, so on browsers without the
+    // Fullscreen API the button looked broken rather than unavailable.
+    if (!ok) {
+      setFsSupported(false);
+      setFsNotice('This browser will not allow fullscreen. Check-in still works normally.');
+      setTimeout(() => setFsNotice(''), 5000);
+    }
+  };
+
+  /** Called once the access code has been accepted. */
+  const handleUnlocked = async () => {
+    setShowExitModal(false);
+    setExitTapCount(0);
+    const left = await exitFullscreen();
+    setIsFullscreen(getFullscreenElement() !== null);
+    // Home-screen installs cannot be exited by script, and a browser that
+    // refused exitFullscreen leaves us nowhere useful — send them somewhere
+    // they can actually act instead of appearing to do nothing.
+    if (standalone || !left) window.location.href = '/admin';
+  };
 
   const handleHiddenExitTap = () => {
     setExitTapCount(c => {
@@ -123,6 +240,32 @@ export default function KioskPage() {
     ? { backgroundImage:`linear-gradient(rgba(7,21,38,0.82),rgba(7,21,38,0.92)),url(${data.org.cover_image_url})`, backgroundSize:'cover', backgroundPosition:'center' }
     : { background:`linear-gradient(160deg,${brand} 0%,#060d18 100%)` };
 
+  // One escape hatch, rendered identically on every kiosk screen. Two ways in:
+  // the visible corner handle, and the legacy 3-tap corner for anyone already
+  // trained on it. Neither depends on fullscreen having engaged.
+  const kioskChrome = (
+    <>
+      {showExitModal && (
+        <ExitModal
+          slug={slug}
+          canExitFullscreen={isFullscreen}
+          standalone={standalone}
+          onCancel={() => { setShowExitModal(false); setExitTapCount(0); }}
+          onUnlocked={handleUnlocked}
+        />
+      )}
+      <button aria-label="Unlock kiosk" onClick={handleHiddenExitTap}
+        className="fixed left-0 top-0 h-16 w-16 opacity-0 z-40" />
+      <ExitHandle onActivate={() => setShowExitModal(true)} />
+      {fsNotice && (
+        <div className="fixed bottom-20 right-4 z-40 max-w-xs rounded-xl px-4 py-3 text-sm"
+          style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.18)', color:'rgba(255,255,255,0.85)' }}>
+          {fsNotice}
+        </div>
+      )}
+    </>
+  );
+
   const glowTop = { position:'absolute' as const, top:'-80px', left:'50%', transform:'translateX(-50%)', width:'700px', height:'500px', background:'radial-gradient(ellipse at center top,rgba(212,160,23,.14) 0%,transparent 65%)', pointerEvents:'none' as const };
   const vignette = { position:'absolute' as const, inset:0, background:'radial-gradient(ellipse at center,transparent 40%,rgba(3,7,13,.55) 100%)', pointerEvents:'none' as const };
 
@@ -139,6 +282,9 @@ export default function KioskPage() {
   /* ERROR */
   if(screen==='error') return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center" style={{ background:'linear-gradient(160deg,#0e2033 0%,#060d18 100%)' }}>
+      {/* A failed load is the state most likely to strand someone in a locked
+          fullscreen tablet, so the unlock has to be reachable from here too. */}
+      {kioskChrome}
       <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-6 animate-scale-in">
         <svg className="w-10 h-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
       </div>
@@ -151,8 +297,7 @@ export default function KioskPage() {
   /* CLOSED */
   if(screen==='closed') return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center relative overflow-hidden" style={darkBg}>
-      {showExitModal && <ExitModal onCancel={() => setShowExitModal(false)} onConfirm={exitFullscreen}/>}
-      {isFullscreen && <button aria-label="Hidden exit" onClick={handleHiddenExitTap} className="fixed left-0 top-0 h-16 w-16 opacity-0 z-50"/>}
+      {kioskChrome}
       <div style={glowTop}/><div style={vignette}/>
       <div className="animate-fade-in relative z-10">
         {data?.org.logo_url && <img src={data.org.logo_url} alt="logo" className="w-20 h-20 rounded-2xl object-cover mx-auto mb-6" style={{ boxShadow:'0 8px 24px rgba(0,0,0,.3)' }}/>}
@@ -169,6 +314,9 @@ export default function KioskPage() {
   /* SUCCESS */
   if(screen==='success') return (
     <div className={`min-h-screen flex flex-col items-center justify-center p-8 text-center relative overflow-hidden ${alreadyCheckedIn ? 'bg-navy-900' : ''}`} style={alreadyCheckedIn ? {} : { background:'radial-gradient(ellipse at center,#0e2918 0%,#060d18 70%)' }}>
+      {/* The success screen used to omit the exit chrome entirely, leaving a
+          ~4.5s window on every check-in with no way out of the kiosk. */}
+      {kioskChrome}
       {/* Rings */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         {[300,500,720].map((size,i) => (
@@ -196,11 +344,12 @@ export default function KioskPage() {
   /* WELCOME */
   if(screen==='welcome') return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center relative overflow-hidden" style={darkBg}>
-      {showExitModal && <ExitModal onCancel={() => setShowExitModal(false)} onConfirm={exitFullscreen}/>}
-      {isFullscreen && <button aria-label="Hidden exit" onClick={handleHiddenExitTap} className="fixed left-0 top-0 h-16 w-16 opacity-0 z-50"/>}
+      {kioskChrome}
       <div style={glowTop}/><div style={vignette}/>
 
-      {!isFullscreen && (
+      {/* Only offered where the browser can actually deliver it — on iPhone
+          Safari and home-screen installs this button could never work. */}
+      {!isFullscreen && fsSupported && !standalone && (
         <button onClick={enterFullscreen} className="absolute top-5 right-5 z-20 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all backdrop-blur-sm hover:bg-white/[0.16] hover:text-white" style={{ background:'rgba(255,255,255,.08)', border:'1px solid rgba(255,255,255,.12)', color:'rgba(255,255,255,.6)' }}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
           Fullscreen
@@ -277,8 +426,7 @@ export default function KioskPage() {
   /* RETURNING */
   if(screen==='returning') return (
     <div className="min-h-screen flex flex-col p-6 sm:p-10 relative overflow-hidden" style={darkBg}>
-      {showExitModal && <ExitModal onCancel={() => setShowExitModal(false)} onConfirm={exitFullscreen}/>}
-      {isFullscreen && <button aria-label="Hidden exit" onClick={handleHiddenExitTap} className="fixed left-0 top-0 h-16 w-16 opacity-0 z-50"/>}
+      {kioskChrome}
       <div style={glowTop}/><div style={vignette}/>
 
       <button onClick={() => { setSearch(''); setScreen('welcome'); }} className="flex items-center gap-2 text-sm font-medium mb-8 self-start transition-colors relative z-10" style={{ color:'rgba(255,255,255,.55)' }}>
@@ -338,8 +486,7 @@ export default function KioskPage() {
   /* NEW VISITOR */
   if(screen==='new') return (
     <div className="min-h-screen flex flex-col p-6 sm:p-10 relative overflow-hidden" style={darkBg}>
-      {showExitModal && <ExitModal onCancel={() => setShowExitModal(false)} onConfirm={exitFullscreen}/>}
-      {isFullscreen && <button aria-label="Hidden exit" onClick={handleHiddenExitTap} className="fixed left-0 top-0 h-16 w-16 opacity-0 z-50"/>}
+      {kioskChrome}
       <div style={glowTop}/><div style={vignette}/>
 
       <button onClick={() => { setNewForm({ full_name:'', phone:'', gender:'', email:'' }); setNewErrors({ full_name:'', phone:'' }); setScreen('welcome'); }} className="flex items-center gap-2 text-sm font-medium mb-8 self-start transition-colors relative z-10" style={{ color:'rgba(255,255,255,.55)' }}>
