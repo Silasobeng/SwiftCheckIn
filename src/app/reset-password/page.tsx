@@ -68,10 +68,11 @@ function ResetPasswordForm() {
             <p style={{ fontSize:14, color:'#7A6E60', marginBottom:32, fontWeight:300 }}>Choose something you&apos;ll remember.</p>
 
             <form onSubmit={handleSubmit}>
+              {/* Same alert treatment as the login and signup screens */}
               {error && (
-                <div style={{ background:'#FDECEA', border:'1px solid #F7C1C1', borderRadius:10, padding:'12px 16px', fontSize:13, color:'#C0392B', marginBottom:20, display:'flex', alignItems:'center', gap:8 }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{flexShrink:0}}><circle cx="7" cy="7" r="6" stroke="#C0392B" strokeWidth="1.3"/><path d="M7 4v3M7 9.5h.01" stroke="#C0392B" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                  {error}
+                <div className="alert alert-error" style={{ marginBottom:20 }}>
+                  <svg width="16" height="16" viewBox="0 0 14 14" fill="none" style={{flexShrink:0,marginTop:2}}><circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3"/><path d="M7 4v3M7 9.5h.01" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                  <span>{error}</span>
                 </div>
               )}
 
@@ -85,8 +86,8 @@ function ResetPasswordForm() {
                 <input className="input" type="password" placeholder="Repeat your password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required/>
               </div>
 
-              <button type="submit" disabled={loading}
-                style={{ width:'100%', background:loading?'#B8A898':'#C97B1A', color:'#fff', border:'none', borderRadius:11, padding:'15px', fontFamily:"'DM Sans',sans-serif", fontSize:15, fontWeight:500, cursor:loading?'wait':'pointer', transition:'all .2s' }}>
+              <button type="submit" disabled={loading} className="lp-cta"
+                style={{ width:'100%', background:loading?'#B8A898':'#C97B1A', color:'#fff', border:'none', borderRadius:11, padding:'15px', fontFamily:"'DM Sans',sans-serif", fontSize:15, fontWeight:500, cursor:loading?'wait':'pointer' }}>
                 {loading ? 'Resetting…' : 'Reset Password'}
               </button>
             </form>

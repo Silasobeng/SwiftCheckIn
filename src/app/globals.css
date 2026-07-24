@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 :root {
+  --font-sans:  'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+
   --cream:      #F8F4EE;
   --cream-dark: #EDE7DC;
   --cream-mid:  #E5DDD0;
@@ -14,25 +17,43 @@
   --green:      #2E7D4E;
   --green-l:    #EDF6F1;
   --border:     #E4DFD5;
+  --hairline:   #F0EBE3;
   --text:       #1C2A3A;
   --muted:      #7A6E60;
   --light:      #A89D8E;
+
+  /* Vertical rhythm for marketing sections — tightens on small screens */
+  --section-y:  clamp(64px, 9vw, 104px);
+  --ring:       0 0 0 3px rgba(201, 123, 26, 0.25);
 }
 
 html { scroll-behavior: smooth; }
 body {
   background: var(--cream);
   color: var(--text);
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
+.font-display, .font-serif { font-family: var(--font-serif); }
+
 ::selection { background: rgba(201,123,26,0.2); color: var(--navy); }
 ::-webkit-scrollbar { width:6px; height:6px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:var(--cream-mid); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--light); }
 .hide-scrollbar { scrollbar-width:none; -ms-overflow-style:none; }
 .hide-scrollbar::-webkit-scrollbar { display:none; }
+
+/* Consistent keyboard focus across every interactive element, including the
+   many inline-styled buttons that carry no class of their own. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
 
 @layer components {
   .btn {
@@ -41,18 +62,38 @@ body {
   .btn-primary    { @apply bg-navy-900 text-white shadow-soft hover:bg-navy-800 hover:-translate-y-0.5 hover:shadow-soft-md; }
   .btn-secondary  { @apply bg-white text-navy-700 border border-[var(--border)] shadow-soft hover:border-navy-400 hover:shadow-soft-md; }
   .btn-ghost      { @apply bg-transparent text-[var(--muted)] hover:bg-[var(--cream-dark)] hover:text-navy-900; }
-  .btn-success    { @apply bg-emerald-500 text-white shadow-soft hover:bg-emerald-600 hover:-translate-y-0.5; }
+  .btn-gold       { @apply bg-[var(--amber)] text-white shadow-soft hover:bg-[#B36A10] hover:-translate-y-0.5 hover:shadow-soft-md; }
   .btn-danger     { @apply bg-red-500 text-white shadow-soft hover:bg-red-600; }
   .btn-lg         { @apply px-8 py-4 text-base rounded-2xl; }
   .btn-icon       { @apply p-2.5 rounded-xl; }
+  .btn:disabled   { @apply translate-y-0 shadow-soft; }
 
   .input {
     @apply w-full px-4 py-3 rounded-2xl text-navy-900 outline-none transition-all duration-200 placeholder:text-[var(--light)];
     background: #fff;
     border: 1px solid var(--border);
   }
-  .input:focus  { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(201,123,26,0.12); }
-  .input:hover  { border-color: var(--light); }
+  .input:focus  { border-color: var(--amber); box-shadow: var(--ring); outline: none; }
+  .input:hover:not(:focus) { border-color: var(--light); }
+
+  /* Larger touch target for the kiosk, which is driven on a tablet */
+  .input-lg { @apply px-5 py-4 text-lg rounded-2xl; }
+
+  /* Glass input for use on the kiosk's dark backgrounds */
+  .input-dark {
+    @apply w-full rounded-2xl outline-none transition-all duration-200 text-white;
+    background: rgba(255,255,255,0.07);
+    border: 1.5px solid rgba(255,255,255,0.14);
+  }
+  .input-dark::placeholder { color: rgba(255,255,255,0.35); }
+  .input-dark:hover:not(:focus) { border-color: rgba(255,255,255,0.26); }
+  .input-dark:focus {
+    border-color: #f5c842;
+    background: rgba(255,255,255,0.10);
+    box-shadow: 0 0 0 3px rgba(245,200,66,0.18);
+    outline: none;
+  }
+  .input-dark.has-error { border-color: #f87171; }
 
   .select {
     @apply w-full px-4 py-3 rounded-2xl text-navy-900 outline-none transition-all duration-200 cursor-pointer appearance-none;
@@ -64,18 +105,26 @@ body {
     background-size: 1.25rem;
     padding-right: 2.5rem;
   }
-  .select:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(201,123,26,0.12); }
+  .select:focus { border-color: var(--amber); box-shadow: var(--ring); outline: none; }
+  .select:hover:not(:focus) { border-color: var(--light); }
 
   .textarea {
     @apply w-full px-4 py-3 rounded-2xl text-navy-900 outline-none transition-all duration-200 resize-none placeholder:text-[var(--light)] min-h-[120px];
     background: #fff;
     border: 1px solid var(--border);
+    line-height: 1.65;
   }
-  .textarea:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(201,123,26,0.12); }
+  .textarea:focus { border-color: var(--amber); box-shadow: var(--ring); outline: none; }
+  .textarea:hover:not(:focus) { border-color: var(--light); }
 
   .card      { @apply bg-white rounded-2xl shadow-soft border border-[var(--border)] p-6 transition-all duration-300; }
   .card-hover:hover { @apply shadow-soft-md -translate-y-1; }
-  .card-stat { @apply bg-white rounded-2xl border border-[var(--border)] p-6; }
+
+  /* Shared surface for the dashboard's inline-styled panels */
+  .panel { @apply bg-white rounded-2xl border border-[var(--border)] transition-all duration-300; }
+  .panel-label {
+    @apply text-[11px] uppercase tracking-[0.1em] text-[var(--light)] font-medium;
+  }
 
   .badge         { @apply text-xs font-medium px-2.5 py-1 rounded-full inline-flex items-center; }
   .badge-success { @apply bg-[var(--green-l)] text-[var(--green)]; }
@@ -91,14 +140,68 @@ body {
   .alert-error   { @apply bg-red-50 text-red-700 border border-red-200; }
   .alert-warning { @apply bg-[var(--amber-pale)] text-[var(--amber)] border border-gold-200; }
 
-  .table-header  { @apply px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-[var(--muted)]; border-bottom: 1px solid var(--border); }
-  .table-row     { border-bottom: 1px solid var(--cream-dark); @apply transition-colors; }
+  /* Floating notification stack — keeps transient messages from shifting
+     the page content underneath them. */
+  .toast-stack {
+    @apply fixed z-[60] flex flex-col gap-2 pointer-events-none;
+    top: 136px; /* clears the admin header (68px) + tab bar (~57px) */
+    right: 16px;
+    left: 16px;
+    max-width: 420px;
+    margin-left: auto;
+  }
+  .toast-stack > * {
+    @apply pointer-events-auto shadow-soft-md;
+    animation: toastIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Marketing-page interaction states. The landing/auth pages are built with
+     inline styles, which cannot express :hover — these supply it. */
+  .lp-link        { transition: color .2s ease; }
+  .lp-link:hover  { color: var(--navy) !important; }
+  .lp-cta         { transition: transform .2s ease, box-shadow .2s ease, filter .2s ease; }
+  .lp-cta:hover   { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(201,123,26,.30); }
+  .lp-cta-navy:hover { box-shadow: 0 12px 28px rgba(22,36,58,.26); }
+  .lp-cta-ghost   { transition: border-color .2s ease, color .2s ease, background .2s ease; }
+  .lp-cta-ghost:hover { border-color: var(--amber) !important; color: var(--amber) !important; }
+  .lp-cta:disabled, .lp-cta:disabled:hover { transform: none; box-shadow: none; }
+  .lp-faq         { transition: opacity .2s ease; }
+  .lp-faq:hover   { opacity: .72; }
+
+  .table-header  { @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]; border-bottom: 1px solid var(--border); }
+  .table-row     { border-bottom: 1px solid var(--hairline); @apply transition-colors; }
   .table-row:hover { background: var(--cream); }
   .table-row:last-child { border-bottom: none; }
-  .table-cell    { @apply px-4 py-3.5; }
+  .table-cell    { @apply px-4 py-4 align-middle; }
+}
 
-  .tab         { @apply py-4 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap; }
-  .tab-active  { color: var(--navy); border-color: var(--amber); }
-  .tab-inactive { color: var(--muted); border-color: transparent; }
-  .tab-inactive:hover { color: var(--navy); }
+/* ── Keyframes ───────────────────────────────────────────────────────────
+   Declared here rather than in tailwind.config so they are always emitted.
+   Several are referenced from inline `style` attributes, which Tailwind's
+   content scanner cannot see — as class-based animations they were being
+   dropped from the build entirely. */
+@keyframes float      { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes pulseSoft  { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes checkBounce {
+  0%   { transform: scale(0.4); opacity: 0; }
+  55%  { transform: scale(1.12); opacity: 1; }
+  75%  { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes ringOut    { from { transform: scale(0.4); opacity: 0; } 30% { opacity: 1; } to { transform: scale(1); opacity: 0; } }
+@keyframes toastIn    { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+.animate-check-bounce { animation: checkBounce 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-float-slow   { animation: float 5s ease-in-out infinite; }
+.animate-pulse-soft   { animation: pulseSoft 2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* Elements that animate in from opacity:0 must not be left invisible */
+  [class*='animate-fade'], [class*='animate-scale'] { opacity: 1 !important; }
 }

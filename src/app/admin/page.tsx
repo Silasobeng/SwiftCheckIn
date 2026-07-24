@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization } from '@/types';
-import { calculateAge, getAgeGroup } from '@/lib/utils';
+import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
 
 const OWNER_EMAILS = (process.env.NEXT_PUBLIC_OWNER_EMAILS || '').split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
 
@@ -70,11 +70,11 @@ function EditPersonModal({ person, onClose, onSaved }: { person: Person; onClose
           <fieldset>
             <legend className="text-[11px] font-bold uppercase tracking-widest text-navy-400 mb-3">Core Info</legend>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Full Name</label><input className="input" value={form.full_name} onChange={set('full_name')} /></div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Phone</label><input className="input" value={form.phone} onChange={set('phone')} /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Role</label>
                   <select className="select" value={form.role} onChange={set('role')}>
                     <option value="visitor">Visitor</option>
@@ -113,7 +113,7 @@ function EditPersonModal({ person, onClose, onSaved }: { person: Person; onClose
           <fieldset>
             <legend className="text-[11px] font-bold uppercase tracking-widest text-navy-400 mb-3">Background</legend>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Occupation</label><input className="input" value={form.occupation} onChange={set('occupation')} placeholder="e.g. Teacher" /></div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Company</label><input className="input" value={form.company} onChange={set('company')} placeholder="e.g. Vodafone" /></div>
               </div>
@@ -305,8 +305,6 @@ export default function AdminPage() {
     } finally { setSavingService(false); }
   };
 
-  const createService = openNewService; // keep backwards compat
-
   const setActiveService = async (id:string) => {
     setMessage(null); setError(null);
     const res=await fetch('/api/services',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({serviceId:id,setActive:true})});
@@ -484,40 +482,51 @@ export default function AdminPage() {
   );
   if (!session) return null;
 
+  const isOwner = OWNER_EMAILS.includes(session.adminEmail.toLowerCase());
+
   return (
     <div style={{minHeight:"100vh",background:"#F8F4EE"}}>
       {editingPerson && <EditPersonModal person={editingPerson} onClose={()=>setEditingPerson(null)} onSaved={()=>{loadData();setMessage('Profile updated.');}} />}
 
-      {/* Header */}
-      <header className="bg-white border-b border-navy-100 px-4 sm:px-6 py-4 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto flex justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div style={{width:36,height:36,background:"#16243A",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      {/* Header — fixed 68px so the tab bar below can stick flush against it */}
+      <header className="bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto h-[68px] flex justify-between items-center gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div style={{width:36,height:36,background:"#16243A",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
               <svg style={{width:16,height:16,color:"#F0A832"}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
             </div>
-            <div>
-              <h1 className="font-bold text-navy-900 leading-tight">{session.orgName}</h1>
+            <div className="min-w-0">
+              <h1 className="font-semibold text-navy-900 leading-tight truncate">{session.orgName}</h1>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${settings?.kiosk_open?'bg-emerald-500 animate-pulse':'bg-navy-300'}`} />
                 <span className="text-xs text-navy-500">{settings?.kiosk_open?'Check-in open':'Check-in closed'}</span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={loadData} className="btn btn-ghost btn-icon" title="Refresh">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {isOwner && (
+              <Link href="/owner" className="btn btn-ghost text-sm hidden md:flex" title="Developer portal">
+                Developer
+              </Link>
+            )}
+            <button onClick={loadData} className="btn btn-ghost btn-icon" title="Refresh" aria-label="Refresh data">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
-            <Link href={`/kiosk/${session.orgSlug}`} target="_blank" className="btn btn-secondary text-sm">
+            <Link href={`/kiosk/${session.orgSlug}`} target="_blank" className="btn btn-secondary text-sm" title="Open kiosk">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
               <span className="hidden sm:inline">Open Kiosk</span>
             </Link>
+            {/* Logout stays reachable on mobile — icon only to save width */}
+            <button onClick={handleLogout} className="btn btn-ghost btn-icon sm:hidden" title="Logout" aria-label="Logout">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>
+            </button>
             <button onClick={handleLogout} className="btn btn-ghost text-navy-500 text-sm hidden sm:flex">Logout</button>
           </div>
         </div>
       </header>
 
       {/* Tabs */}
-      <nav className="bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-[65px] z-30">
+      <nav className="bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-[68px] z-30">
         <div className="max-w-7xl mx-auto flex gap-1 overflow-x-auto hide-scrollbar" style={{paddingTop:10,paddingBottom:10}}>
           {(['dashboard','services','people','giving','analytics','emails','settings'] as Tab[]).map(t=>{
             const icons: Record<Tab,JSX.Element> = {
@@ -531,7 +540,7 @@ export default function AdminPage() {
             };
             const active = tab===t;
             return (
-              <button key={t} onClick={()=>setTab(t)}
+              <button key={t} onClick={()=>setTab(t)} aria-current={active?'page':undefined}
                 style={{
                   display:'flex',alignItems:'center',gap:7,
                   padding:'9px 16px',borderRadius:10,
@@ -553,10 +562,15 @@ export default function AdminPage() {
         </div>
       </nav>
 
+      {/* Transient feedback floats above the page so it never reflows the
+          content underneath when it appears and auto-dismisses. */}
+      <div className="toast-stack" aria-live="polite">
+        {message && <div className="alert alert-success"><svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg><span>{message}</span></div>}
+        {error && <div className="alert alert-error"><svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span>{error}</span></div>}
+      </div>
+
       {/* Main */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-7 space-y-5">
-        {message && <div className="alert alert-success"><svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg><span>{message}</span></div>}
-        {error && <div className="alert alert-error"><svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span>{error}</span></div>}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-7 sm:py-9 space-y-5">
 
         {/* ── DASHBOARD ── */}
         {tab==='dashboard' && (
@@ -566,7 +580,7 @@ export default function AdminPage() {
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:20,marginBottom:28,flexWrap:'wrap'}}>
               <div>
                 <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',fontWeight:400,marginBottom:4}}>
-                  Good morning, {session.orgName}
+                  {getGreeting()}, {session.orgName}
                 </h2>
                 <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>
                   {settings?.kiosk_open
@@ -591,52 +605,57 @@ export default function AdminPage() {
                 {label:"Visitors",            value:visitors.length},
                 {label:"Total services",      value:services.length},
               ].map(({label,value})=>(
-                <div key={label} style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:14,padding:'22px 24px'}}>
+                <div key={label} className="panel card-hover" style={{padding:'22px 24px'}}>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:34,color:'#16243A',lineHeight:1,marginBottom:6}}>{value}</div>
                   <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{label}</div>
                 </div>
               ))}
             </div>
 
-            {/* Two column grid */}
-            <div style={{display:'grid',gridTemplateColumns:'1.3fr 1fr',gap:20}}>
+            {/* Two column grid — stacks below lg so neither panel gets squeezed */}
+            <div className="grid gap-5 grid-cols-1 lg:grid-cols-[1.3fr_1fr]">
 
               {/* Today&apos;s check-ins */}
-              <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'24px 28px'}}>
-                <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:18}}>Today&apos;s check-ins</div>
+              <div className="panel" style={{padding:'24px 28px'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:18}}>Today&apos;s check-ins</div>
                 {todayCheckins.length===0 ? (
                   <div style={{textAlign:'center',padding:'32px 0',color:'#A89D8E'}}>
                     <div style={{fontSize:32,marginBottom:10,opacity:0.4}}>🕐</div>
                     <div style={{fontSize:14,fontWeight:300}}>Nobody checked in yet</div>
                   </div>
-                ) : (
-                  todayCheckins.slice(0,8).map(c=>(
-                    <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 0',borderBottom:'1px solid #F0EBE3'}}>
+                ) : (<>
+                  {todayCheckins.slice(0,8).map((c,i,arr)=>(
+                    <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 0',borderBottom:i===arr.length-1?'none':'1px solid #F0EBE3'}}>
                       <div style={{width:34,height:34,borderRadius:'50%',background:'#F0EBE3',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:'#7A6048',fontFamily:"'Playfair Display',serif",flexShrink:0}}>
                         {c.person?.full_name?.charAt(0)||'?'}
                       </div>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:14,color:'#1C2A3A',fontWeight:500}}>{c.person?.full_name}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:14,color:'#1C2A3A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.person?.full_name}</div>
                         {c.is_first_time && <div style={{fontSize:11,color:'#2E7D4E',fontWeight:500}}>First visit ✓</div>}
                       </div>
-                      <div style={{fontSize:12,color:'#A89D8E'}}>{new Date(c.checked_in_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
+                      <div style={{fontSize:12,color:'#A89D8E',flexShrink:0}}>{new Date(c.checked_in_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
                     </div>
-                  ))
-                )}
+                  ))}
+                  {todayCheckins.length>8 && (
+                    <div style={{fontSize:12,color:'#A89D8E',fontWeight:300,paddingTop:14,borderTop:'1px solid #F0EBE3',marginTop:4}}>
+                      + {todayCheckins.length-8} more checked in today
+                    </div>
+                  )}
+                </>)}
               </div>
 
               {/* Things to know */}
-              <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'24px 28px'}}>
-                <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:18}}>Things to know</div>
+              <div className="panel" style={{padding:'24px 28px'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:18}}>Things to know</div>
                 {[
                   {label:'Members without birthday on file', value:missingBirthdayCount, action:missingBirthdayCount>0?()=>setTab('people'):undefined, urgent:missingBirthdayCount>5},
                   {label:'Members without email',             value:missingEmailCount,    action:missingEmailCount>0?()=>setTab('people'):undefined,    urgent:missingEmailCount>5},
                   {label:'New visitors this month',           value:firstTimersThisMonth, action:undefined, urgent:false},
                   {label:'Unique attendees this month',       value:currentMonthUnique,   action:undefined, urgent:false},
-                ].map(row=>(
-                  <div key={row.label} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 0',borderBottom:'1px solid #F0EBE3'}}>
+                ].map((row,i,arr)=>(
+                  <div key={row.label} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'12px 0',borderBottom:i===arr.length-1?'none':'1px solid #F0EBE3'}}>
                     <span style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{row.label}</span>
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
                       <span style={{fontSize:15,fontWeight:600,color:row.urgent?'#C97B1A':'#16243A',fontFamily:"'Playfair Display',serif"}}>{row.value}</span>
                       {row.action && row.value>0 && <button onClick={row.action} style={{fontSize:11,color:'#C97B1A',background:'none',border:'none',cursor:'pointer',fontWeight:500}}>Fix →</button>}
                     </div>
@@ -665,7 +684,7 @@ export default function AdminPage() {
                     <button onClick={()=>setServiceFormOpen(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#A89D8E',fontSize:22,lineHeight:1,padding:4}}>×</button>
                   </div>
                   <div style={{padding:'24px 28px'}}>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:16}}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2" style={{gap:14,marginBottom:16}}>
                       <div>
                         <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase' as const,display:'block',marginBottom:8}}>Service Name <span style={{color:'#C97B1A'}}>*</span></label>
                         <input className="input" value={serviceForm.title} onChange={e=>setServiceForm(p=>({...p,title:e.target.value}))} placeholder="e.g. Sunday Morning Service" />
@@ -718,12 +737,12 @@ export default function AdminPage() {
               </div>
             )}
 
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,flexWrap:'wrap',marginBottom:24}}>
               <div>
                 <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400,marginBottom:4}}>Services</h2>
                 <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Create a service before opening check-in. Details go into the welcome email.</p>
               </div>
-              <button onClick={openNewService} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'11px 20px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+              <button onClick={openNewService} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'11px 20px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
                 New Service
               </button>
@@ -739,9 +758,9 @@ export default function AdminPage() {
             ) : (
               <div style={{display:'flex',flexDirection:'column',gap:12}}>
                 {services.map(s=>(
-                  <div key={s.id} style={{background:s.is_active?'#FEFAF4':'#fff',border:`1px solid ${s.is_active?'rgba(201,123,26,0.35)':'#E4DFD5'}`,borderRadius:14,padding:'20px 24px',transition:'all .15s'}}>
-                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
-                      <div style={{flex:1}}>
+                  <div key={s.id} style={{background:s.is_active?'#FEFAF4':'#fff',border:`1px solid ${s.is_active?'rgba(201,123,26,0.35)':'#E4DFD5'}`,borderRadius:16,padding:'20px 24px',transition:'all .15s'}}>
+                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
+                      <div style={{flex:'1 1 260px',minWidth:0}}>
                         <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
                           <span style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:'#16243A'}}>{s.title||'Untitled Service'}</span>
                           {s.is_active&&<span style={{fontSize:11,background:'#FDF3E0',color:'#C97B1A',border:'1px solid rgba(201,123,26,0.25)',borderRadius:20,padding:'2px 10px',fontWeight:500}}>Active</span>}
@@ -823,7 +842,7 @@ export default function AdminPage() {
                               </div>
                             </td>
                             <td className="table-cell hidden sm:table-cell text-navy-500 text-sm">{p.phone}</td>
-                            <td className="table-cell"><span className={`badge text-[11px] ${p.role==='leader'?'badge-purple':p.role==='member'?'badge-primary':'badge-warning'}`}>{p.role}</span></td>
+                            <td className="table-cell"><span className={`badge text-[11px] capitalize ${p.role==='leader'?'badge-purple':p.role==='member'?'badge-primary':'badge-warning'}`}>{p.role}</span></td>
                             <td className="table-cell hidden md:table-cell text-navy-500 text-sm">{p.total_checkins}</td>
                             <td className="table-cell">{missing.length>0?<span className="text-amber-600 text-xs font-medium">{missing.join(', ')}</span>:<span className="text-emerald-600 text-xs">✓ complete</span>}</td>
                             <td className="table-cell text-right"><button onClick={()=>setEditingPerson(p)} className="btn btn-secondary text-xs py-1.5 px-3">Edit</button></td>
@@ -861,8 +880,8 @@ export default function AdminPage() {
                 {label:'Awaiting receipt',   sub:null,                  value:String(givingPendingCount)},
                 {label:'All-time total',     sub:'Since you started',   value:String(giving.length)},
               ].map(({label,sub,value})=>(
-                <div key={label} style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:14,padding:'22px 24px'}}>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',lineHeight:1,marginBottom:6}}>{value}</div>
+                <div key={label} className="panel card-hover" style={{padding:'22px 24px'}}>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',lineHeight:1.15,marginBottom:6}}>{value}</div>
                   <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{label}</div>
                   {sub && <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginTop:2}}>{sub}</div>}
                 </div>
@@ -887,12 +906,13 @@ export default function AdminPage() {
                         onChange={e=>{ setGivingPersonQuery(e.target.value); setGivingForm(f=>({...f, person_id:'', giver_name:e.target.value})); }} />
                       {givingPersonMatches.length>0 && givingForm.person_id==='' && (
                         <div style={{position:'absolute',top:'100%',left:0,right:0,background:'#fff',border:'1px solid #E4DFD5',borderRadius:10,marginTop:4,zIndex:10,boxShadow:'0 8px 24px rgba(22,36,58,0.12)',maxHeight:200,overflowY:'auto'}}>
-                          {givingPersonMatches.map(p=>(
-                            <div key={p.id} onClick={()=>selectGivingPerson(p)}
-                              style={{padding:'10px 14px',cursor:'pointer',fontSize:13,borderBottom:'1px solid #F0EBE3'}}>
+                          {givingPersonMatches.map((p,i,arr)=>(
+                            <button key={p.id} type="button" onClick={()=>selectGivingPerson(p)}
+                              className="w-full text-left transition-colors hover:bg-[var(--cream)]"
+                              style={{padding:'10px 14px',fontSize:13,borderBottom:i===arr.length-1?'none':'1px solid #F0EBE3'}}>
                               <div style={{color:'#16243A',fontWeight:500}}>{p.full_name}</div>
                               <div style={{color:'#A89D8E',fontSize:12}}>{p.phone}{p.email?` · ${p.email}`:''}</div>
-                            </div>
+                            </button>
                           ))}
                         </div>
                       )}
@@ -906,14 +926,14 @@ export default function AdminPage() {
                       <input className="input text-sm" type="email" placeholder="giver@email.com" value={givingForm.giver_email} onChange={e=>setGivingForm(f=>({...f,giver_email:e.target.value}))} />
                     </div>
 
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2" style={{gap:12}}>
                       <div>
                         <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Amount (GHS)</label>
                         <input className="input text-sm" type="number" min="0.01" step="0.01" placeholder="0.00" value={givingForm.amount} onChange={e=>setGivingForm(f=>({...f,amount:e.target.value}))} />
                       </div>
                       <div>
                         <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Type</label>
-                        <select className="input text-sm" value={givingForm.giving_type} onChange={e=>setGivingForm(f=>({...f,giving_type:e.target.value as GivingType}))}>
+                        <select className="select text-sm" value={givingForm.giving_type} onChange={e=>setGivingForm(f=>({...f,giving_type:e.target.value as GivingType}))}>
                           <option value="tithe">Tithe</option>
                           <option value="offering">Offering</option>
                           <option value="seed">Seed</option>
@@ -932,7 +952,7 @@ export default function AdminPage() {
 
                     <div>
                       <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Payment method</label>
-                      <select className="input text-sm" value={givingForm.payment_method} onChange={e=>setGivingForm(f=>({...f,payment_method:e.target.value as PaymentMethod}))}>
+                      <select className="select text-sm" value={givingForm.payment_method} onChange={e=>setGivingForm(f=>({...f,payment_method:e.target.value as PaymentMethod}))}>
                         <option value="cash">Cash</option>
                         <option value="mobile_money">Mobile Money</option>
                         <option value="bank_transfer">Bank Transfer</option>
@@ -942,7 +962,7 @@ export default function AdminPage() {
 
                     <div>
                       <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Notes (optional)</label>
-                      <textarea className="input text-sm" rows={2} value={givingForm.notes} onChange={e=>setGivingForm(f=>({...f,notes:e.target.value}))} />
+                      <textarea className="textarea text-sm" style={{minHeight:80}} rows={2} value={givingForm.notes} onChange={e=>setGivingForm(f=>({...f,notes:e.target.value}))} />
                     </div>
 
                   </div>
@@ -960,8 +980,14 @@ export default function AdminPage() {
             {/* Giving list */}
             <div className="card p-0 overflow-hidden">
               {giving.length===0 ? (
-                <div className="text-center py-16">
-                  <p className="text-navy-400 text-sm">No gifts recorded yet.</p>
+                <div style={{textAlign:'center',padding:'60px 20px'}}>
+                  <div style={{fontSize:40,marginBottom:14,opacity:0.3}}>🤲</div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',marginBottom:8}}>No gifts recorded yet</div>
+                  <div style={{fontSize:14,color:'#A89D8E',fontWeight:300,marginBottom:24}}>Record a tithe, offering or seed and we&apos;ll email the receipt for you.</div>
+                  <button onClick={()=>{resetGivingForm(); setGivingPersonQuery(''); setGivingFormOpen(true);}}
+                    style={{background:'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'12px 28px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:'pointer'}}>
+                    Record your first gift
+                  </button>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -1033,8 +1059,8 @@ export default function AdminPage() {
             </div>
 
             {/* Monthly attendance bar chart */}
-            <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'28px',marginBottom:20}}>
-              <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:24}}>Monthly attendance — last 6 months</div>
+            <div className="panel" style={{padding:'28px',marginBottom:20}}>
+              <div className="panel-label" style={{display:'block',marginBottom:24}}>Monthly attendance — last 6 months</div>
               {monthlyTrend.length===0 ? (
                 <div style={{textAlign:'center',padding:'32px 0',color:'#A89D8E',fontSize:14,fontWeight:300}}>No attendance data yet.</div>
               ) : (
@@ -1056,11 +1082,11 @@ export default function AdminPage() {
             </div>
 
             {/* Insight cards grid */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+            <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
 
               {/* Gender */}
-              <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'24px 28px'}}>
-                <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:16}}>Gender</div>
+              <div className="panel" style={{padding:'24px 28px'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:16}}>Gender</div>
                 {Object.keys(genderCounts).length===0
                   ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No data yet — add genders in People tab</p>
                   : Object.entries(genderCounts).map(([label,count])=>{
@@ -1081,8 +1107,8 @@ export default function AdminPage() {
               </div>
 
               {/* Age groups */}
-              <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'24px 28px'}}>
-                <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:16}}>Age groups</div>
+              <div className="panel" style={{padding:'24px 28px'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:16}}>Age groups</div>
                 {Object.keys(ageGroups).length===0
                   ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No data yet — add birthdays in People tab</p>
                   : Object.entries(ageGroups).map(([label,count])=>{
@@ -1103,8 +1129,8 @@ export default function AdminPage() {
               </div>
 
               {/* Top locations */}
-              <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'24px 28px'}}>
-                <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:16}}>Where people come from</div>
+              <div className="panel" style={{padding:'24px 28px'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:16}}>Where people come from</div>
                 {topLocations.length===0
                   ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No location data yet</p>
                   : topLocations.map(([label,count])=>(
@@ -1117,8 +1143,8 @@ export default function AdminPage() {
               </div>
 
               {/* How they found us */}
-              <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'24px 28px'}}>
-                <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:16}}>How people found you</div>
+              <div className="panel" style={{padding:'24px 28px'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:16}}>How people found you</div>
                 {howFoundUs.length===0
                   ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No data yet</p>
                   : howFoundUs.map(([label,count])=>(
@@ -1131,8 +1157,8 @@ export default function AdminPage() {
               </div>
 
               {/* Occupations */}
-              <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'24px 28px'}}>
-                <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:16}}>Top occupations</div>
+              <div className="panel" style={{padding:'24px 28px'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:16}}>Top occupations</div>
                 {topOccupations.length===0
                   ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No data yet — add occupations in People tab</p>
                   : topOccupations.map(([label,count])=>{
@@ -1153,8 +1179,8 @@ export default function AdminPage() {
               </div>
 
               {/* Retention rate */}
-              <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'24px 28px'}}>
-                <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:16}}>Visitor retention</div>
+              <div className="panel" style={{padding:'24px 28px'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:16}}>Visitor retention</div>
                 {retentionRate === null
                   ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Not enough data yet — needs 2 months of check-ins</p>
                   : <>
@@ -1168,8 +1194,8 @@ export default function AdminPage() {
               </div>
 
               {/* Most consistent attenders */}
-              <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'24px 28px'}}>
-                <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'#A89D8E',marginBottom:16}}>Most faithful attenders</div>
+              <div className="panel" style={{padding:'24px 28px'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:16}}>Most faithful attenders</div>
                 {topAttenders.length===0
                   ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No attendance data yet</p>
                   : topAttenders.map((p,i)=>(
@@ -1196,6 +1222,7 @@ export default function AdminPage() {
             {/* Header */}
             <div>
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',fontWeight:400,marginBottom:4}}>Automatic Emails</h2>
+              <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Write these once — they send themselves, personalised with each person&apos;s name.</p>
             </div>
 
             {/* Three email templates — accordion, one open at a time */}
@@ -1261,7 +1288,7 @@ export default function AdminPage() {
             </div>
             <div className="grid lg:grid-cols-2 gap-5">
               <div className="card space-y-4">
-                <div style={{fontSize:11,letterSpacing:"0.12em",textTransform:"uppercase",color:"#A89D8E",fontWeight:500,marginBottom:4}}>Church Branding</div>
+                <div className="panel-label" style={{display:'block',marginBottom:4}}>Church Branding</div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Church Name</label><input className="input" placeholder="e.g. Grace Community Church" value={branding.org_name} onChange={e=>setBranding(b=>({...b,org_name:e.target.value}))} /></div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Tagline</label><input className="input" placeholder="e.g. A place of worship and community" value={branding.tagline} onChange={e=>setBranding(b=>({...b,tagline:e.target.value}))} /></div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Host Names</label><input className="input" placeholder="e.g. Pastor John & Lady Mary" value={branding.host_names} onChange={e=>setBranding(b=>({...b,host_names:e.target.value}))} /></div>
@@ -1284,7 +1311,7 @@ export default function AdminPage() {
               </div>
 
               <div className="card space-y-4">
-                <div style={{fontSize:11,letterSpacing:"0.12em",textTransform:"uppercase",color:"#A89D8E",fontWeight:500,marginBottom:4}}>Kiosk Welcome Screen</div>
+                <div className="panel-label" style={{display:'block',marginBottom:4}}>Kiosk Welcome Screen</div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Welcome Heading</label><input className="input" placeholder="e.g. Welcome to Grace Church" value={branding.kiosk_welcome_heading} onChange={e=>setBranding(b=>({...b,kiosk_welcome_heading:e.target.value}))} /></div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Welcome Message</label><textarea className="textarea" placeholder="e.g. We're glad you're here today" rows={3} value={branding.kiosk_welcome_subtext} onChange={e=>setBranding(b=>({...b,kiosk_welcome_subtext:e.target.value}))} /></div>
                 <div>
@@ -1299,7 +1326,7 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <h4 className="font-medium text-navy-800 text-sm mb-3 mt-1">Contact Details</h4>
-                  <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                     <div><label className="block text-xs font-medium text-navy-600 mb-1">Phone</label><input className="input" value={branding.phone} onChange={e=>setBranding(b=>({...b,phone:e.target.value}))} /></div>
                     <div><label className="block text-xs font-medium text-navy-600 mb-1">Email</label><input className="input" value={branding.email} onChange={e=>setBranding(b=>({...b,email:e.target.value}))} /></div>
                   </div>
@@ -1309,14 +1336,31 @@ export default function AdminPage() {
             </div>
 
             <div className="card">
-              <h3 className="font-semibold text-navy-900 mb-4 text-xs uppercase tracking-widest text-navy-400">Live Kiosk Preview</h3>
-              <div className="rounded-2xl p-8 min-h-[220px] text-white relative overflow-hidden"
-                style={branding.cover_image_url?{backgroundImage:`linear-gradient(rgba(16,42,67,0.72), rgba(16,42,67,0.85)), url(${branding.cover_image_url})`,backgroundSize:'cover',backgroundPosition:'center'}:{background:`linear-gradient(135deg, ${branding.brand_color||'#102a43'}, #1a3a56)`}}>
-                {branding.logo_url&&<img src={branding.logo_url} alt="Logo" className="w-14 h-14 rounded-xl bg-white/90 p-1.5 object-cover mb-4" />}
-                <div className="text-2xl font-bold">{branding.kiosk_welcome_heading||session.orgName}</div>
-                <div className="text-white/80 mt-2">{branding.kiosk_welcome_subtext||"We're glad you're here today"}</div>
-                {branding.tagline&&<div className="text-yellow-300/70 mt-3 text-sm">{branding.tagline}</div>}
+              <h3 className="panel-label mb-4" style={{display:'block'}}>Live Kiosk Preview</h3>
+              {/* Mirrors the real kiosk welcome screen so the preview is honest */}
+              <div className="rounded-2xl px-6 py-10 text-center text-white relative overflow-hidden"
+                style={branding.cover_image_url
+                  ? {backgroundImage:`linear-gradient(rgba(7,21,38,0.82), rgba(7,21,38,0.92)), url(${branding.cover_image_url})`,backgroundSize:'cover',backgroundPosition:'center'}
+                  : {background:`linear-gradient(160deg, ${branding.brand_color||'#102a43'} 0%, #060d18 100%)`}}>
+                {branding.logo_url && <img src={branding.logo_url} alt="Logo" className="w-14 h-14 rounded-2xl object-cover mx-auto mb-5" />}
+                <div className="mx-auto mb-5" style={{width:40,height:2,borderRadius:1,background:'linear-gradient(90deg,transparent,#d4a017,transparent)'}} />
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,lineHeight:1.15}}>{branding.kiosk_welcome_heading||branding.org_name||session.orgName}</div>
+                <div className="text-white/55 mt-2 text-sm">{branding.kiosk_welcome_subtext||"We're glad you're here"}</div>
+                <div className="grid grid-cols-2 gap-3 mt-7 max-w-sm mx-auto">
+                  <div className="rounded-2xl py-4 text-xs font-semibold uppercase tracking-wider" style={{background:'linear-gradient(145deg,#059669,#10b981)'}}>Returning</div>
+                  <div className="rounded-2xl py-4 text-xs font-semibold uppercase tracking-wider text-navy-900" style={{background:'linear-gradient(145deg,#e8aa18,#d4900a)'}}>First Time</div>
+                </div>
+                {branding.tagline && <div className="text-white/40 mt-6 text-xs italic">{branding.tagline}</div>}
               </div>
+            </div>
+
+            {/* Second save action — the header button scrolls out of reach on
+                this page, which is long on phones. */}
+            <div className="flex justify-end pt-1">
+              <button onClick={saveBranding} disabled={savingBranding}
+                style={{background:savingBranding?'#B8A898':'#C97B1A',color:'#fff',border:'none',borderRadius:10,padding:'12px 28px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:savingBranding?'wait':'pointer'}}>
+                {savingBranding?'Saving…':'Save Settings'}
+              </button>
             </div>
           </div>
         )}

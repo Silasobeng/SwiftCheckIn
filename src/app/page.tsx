@@ -65,14 +65,14 @@ export default function LandingPage() {
             </div>
             <span style={{ fontFamily:"'Playfair Display', serif", fontSize:18, color:'#16243A' }}>SwiftEntryPro</span>
           </Link>
-          <nav style={{ display:'flex', alignItems:'center', gap:28 }} className="hidden md:flex">
+          <nav style={{ alignItems:'center', gap:28 }} className="hidden md:flex">
             {[['#why','Why Us'],['#how','How It Works'],['#pricing','Pricing'],['#faq','FAQ']].map(([h,l])=>(
-              <a key={h} href={h} style={{ fontSize:14, color:'#7A6E60', textDecoration:'none' }}>{l}</a>
+              <a key={h} href={h} className="lp-link" style={{ fontSize:14, color:'#7A6E60', textDecoration:'none' }}>{l}</a>
             ))}
             {isLoggedIn
-              ? <Link href="/admin" style={{ background:'#C97B1A', color:'#fff', padding:'10px 22px', borderRadius:9, fontSize:14, textDecoration:'none', fontWeight:500 }}>Dashboard →</Link>
-              : <><Link href="/login" style={{ fontSize:14, color:'#7A6E60', textDecoration:'none', marginRight:8 }}>Sign in</Link>
-                 <Link href="/signup" style={{ background:'#16243A', color:'#fff', padding:'10px 22px', borderRadius:9, fontSize:14, textDecoration:'none', fontWeight:500 }}>Start Free Trial</Link></>
+              ? <Link href="/admin" className="lp-cta" style={{ background:'#C97B1A', color:'#fff', padding:'10px 22px', borderRadius:9, fontSize:14, textDecoration:'none', fontWeight:500 }}>Dashboard →</Link>
+              : <><Link href="/login" className="lp-link" style={{ fontSize:14, color:'#7A6E60', textDecoration:'none', marginRight:8 }}>Sign in</Link>
+                 <Link href="/signup" className="lp-cta lp-cta-navy" style={{ background:'#16243A', color:'#fff', padding:'10px 22px', borderRadius:9, fontSize:14, textDecoration:'none', fontWeight:500 }}>Start Free Trial</Link></>
             }
           </nav>
           <button onClick={()=>setMobileOpen(o=>!o)} style={{ background:'none', border:'none', cursor:'pointer', padding:8 }} className="md:hidden">
@@ -88,13 +88,23 @@ export default function LandingPage() {
             {[['#why','Why Us'],['#how','How It Works'],['#pricing','Pricing'],['#faq','FAQ']].map(([h,l])=>(
               <a key={h} href={h} onClick={()=>setMobileOpen(false)} style={{ display:'block', padding:'10px 0', color:'#16243A', textDecoration:'none', fontSize:15 }}>{l}</a>
             ))}
-            <Link href="/signup" style={{ display:'block', marginTop:12, background:'#16243A', color:'#fff', padding:'12px 20px', borderRadius:9, textAlign:'center', textDecoration:'none', fontSize:14, fontWeight:500 }}>Start Free Trial</Link>
+            {/* Existing users had no way back to sign-in from the mobile menu */}
+            {isLoggedIn ? (
+              <Link href="/admin" onClick={()=>setMobileOpen(false)} style={{ display:'block', marginTop:12, background:'#C97B1A', color:'#fff', padding:'12px 20px', borderRadius:9, textAlign:'center', textDecoration:'none', fontSize:14, fontWeight:500 }}>Go to Dashboard →</Link>
+            ) : (
+              <>
+                <Link href="/signup" onClick={()=>setMobileOpen(false)} style={{ display:'block', marginTop:12, background:'#16243A', color:'#fff', padding:'12px 20px', borderRadius:9, textAlign:'center', textDecoration:'none', fontSize:14, fontWeight:500 }}>Start Free Trial</Link>
+                <Link href="/login" onClick={()=>setMobileOpen(false)} style={{ display:'block', marginTop:10, padding:'10px 20px', color:'#7A6E60', textAlign:'center', textDecoration:'none', fontSize:14 }}>Sign in</Link>
+              </>
+            )}
           </div>
         )}
       </header>
 
       {/* ── HERO ── */}
-      <section style={{ minHeight:'92vh', display:'grid', gridTemplateColumns:'1fr 1fr', alignItems:'center', maxWidth:1160, margin:'0 auto', padding:'80px 28px 60px', gap:60 }} className="!grid-cols-1 md:!grid-cols-2">
+      {/* Full-height hero only where the illustration is actually visible —
+          on phones it just left a screen of dead space. */}
+      <section style={{ display:'grid', gridTemplateColumns:'1fr 1fr', alignItems:'center', maxWidth:1160, margin:'0 auto', padding:'clamp(48px,8vw,80px) 28px 60px', gap:60 }} className="!grid-cols-1 md:!grid-cols-2 md:min-h-[92vh]">
         <div className="animate-fade-in-up">
           <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'#FDF3E0', border:'1px solid rgba(201,123,26,0.25)', borderRadius:30, padding:'6px 16px', fontSize:13, color:'#C97B1A', fontWeight:500, marginBottom:28 }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:'#F0A832', display:'inline-block', animation:'pulseSoft 2s infinite' }}/>
@@ -107,10 +117,10 @@ export default function LandingPage() {
             SwiftEntryPro makes check-in effortless — so you spend less time taking attendance and more time knowing your people.
           </p>
           <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap', marginBottom:40 }}>
-            <Link href="/signup" style={{ background:'#C97B1A', color:'#fff', padding:'15px 32px', borderRadius:11, fontSize:15, fontWeight:500, textDecoration:'none', transition:'all .2s', display:'inline-flex', alignItems:'center', gap:8 }}>
+            <Link href="/signup" className="lp-cta" style={{ background:'#C97B1A', color:'#fff', padding:'15px 32px', borderRadius:11, fontSize:15, fontWeight:500, textDecoration:'none', transition:'all .2s', display:'inline-flex', alignItems:'center', gap:8 }}>
               Start free for 14 days →
             </Link>
-            <a href="#how" style={{ color:'#7A6E60', fontSize:15, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:6 }}>
+            <a href="#how" className="lp-link" style={{ color:'#7A6E60', fontSize:15, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:6 }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#7A6E60" strokeWidth="1.2"/><path d="M6.5 5.5L10.5 8L6.5 10.5V5.5Z" fill="#7A6E60"/></svg>
               See how it works
             </a>
@@ -127,7 +137,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div style={{ position:'relative', display:'flex', justifyContent:'center', alignItems:'center' }} className="hidden md:flex">
+        <div style={{ position:'relative', justifyContent:'center', alignItems:'center' }} className="hidden md:flex">
           <div style={{ width:380, height:380, borderRadius:'50%', background:'radial-gradient(circle,rgba(201,123,26,0.07) 0%,transparent 70%)', position:'absolute' }}/>
           <div style={{ background:'#16243A', borderRadius:24, padding:'36px 32px', width:300, boxShadow:'0 40px 80px rgba(22,36,58,0.35)', animation:'float 5s ease-in-out infinite', transform:'rotate(-1.5deg)', position:'relative', zIndex:2 }}>
             <div style={{ width:52,height:52,background:'#C97B1A',borderRadius:16,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 18px' }}>
@@ -185,7 +195,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── PAIN ── */}
-      <section id="why" style={{ background:'#16243A', padding:'100px 28px' }}>
+      <section id="why" style={{ background:'#16243A', padding:`var(--section-y) 28px` }}>
         <div style={{ maxWidth:1100, margin:'0 auto' }}>
           <div style={{ fontSize:11, letterSpacing:'0.15em', textTransform:'uppercase', color:'rgba(201,123,26,0.8)', fontWeight:500, marginBottom:14 }}>The problem</div>
           <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,3.5vw,42px)', color:'#fff', lineHeight:1.2, marginBottom:16 }}>Sound familiar?</h2>
@@ -206,7 +216,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FEATURES ── */}
-      <section style={{ background:'#F8F4EE', padding:'100px 28px' }}>
+      <section style={{ background:'#F8F4EE', padding:`var(--section-y) 28px` }}>
         <div style={{ maxWidth:1100, margin:'0 auto' }}>
           <div style={{ fontSize:11, letterSpacing:'0.15em', textTransform:'uppercase', color:'#C97B1A', fontWeight:500, marginBottom:14 }}>What you get</div>
           <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,3.5vw,42px)', color:'#16243A', lineHeight:1.2, marginBottom:60 }}>Everything your church needs.<br/><em style={{ fontStyle:'italic', color:'#C97B1A' }}>Nothing it doesn&apos;t.</em></h2>
@@ -230,7 +240,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── HOW IT WORKS ── */}
-      <section id="how" style={{ background:'#EDE7DC', padding:'100px 28px' }}>
+      <section id="how" style={{ background:'#EDE7DC', padding:`var(--section-y) 28px` }}>
         <div style={{ maxWidth:1100, margin:'0 auto' }}>
           <div style={{ fontSize:11, letterSpacing:'0.15em', textTransform:'uppercase', color:'#C97B1A', fontWeight:500, marginBottom:14 }}>How it works</div>
           <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,3.5vw,42px)', color:'#16243A', lineHeight:1.2, marginBottom:64 }}>Up and running<br/><em style={{ fontStyle:'italic', color:'#C97B1A' }}>in minutes.</em></h2>
@@ -252,7 +262,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── TESTIMONIALS ── */}
-      <section style={{ background:'#fff', padding:'100px 28px' }}>
+      <section style={{ background:'#fff', padding:`var(--section-y) 28px` }}>
         <div style={{ maxWidth:1100, margin:'0 auto' }}>
           <div style={{ fontSize:11, letterSpacing:'0.15em', textTransform:'uppercase', color:'#C97B1A', fontWeight:500, marginBottom:14 }}>What pastors say</div>
           <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,3.5vw,42px)', color:'#16243A', marginBottom:56 }}>Churches that made the switch.</h2>
@@ -276,7 +286,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── PRICING ── */}
-      <section id="pricing" style={{ background:'#F8F4EE', padding:'100px 28px' }}>
+      <section id="pricing" style={{ background:'#F8F4EE', padding:`var(--section-y) 28px` }}>
         <div style={{ maxWidth:1100, margin:'0 auto' }}>
           <div style={{ fontSize:11, letterSpacing:'0.15em', textTransform:'uppercase', color:'#C97B1A', fontWeight:500, marginBottom:14 }}>Pricing</div>
           <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,3.5vw,42px)', color:'#16243A', marginBottom:8 }}>Simple, honest pricing.</h2>
@@ -286,9 +296,14 @@ export default function LandingPage() {
               {name:'Starter',price:'GHS 80',per:'/mo · Up to 100 members',featured:false,features:['Check-in kiosk','Attendance tracking','Automatic welcome email','Basic analytics']},
               {name:'Growth',price:'GHS 150',per:'/mo · Up to 500 members',featured:true,features:['Everything in Starter','Birthday & "we miss you" emails','Broadcast messaging','Full analytics dashboard','Export to Excel/CSV']},
               {name:'Church+',price:'GHS 300',per:'/mo · Unlimited members',featured:false,features:['Everything in Growth','Multiple locations/services','Priority support','Custom branding on kiosk']},
+            // The featured card used transform:scale, which pushed it past the
+            // grid track and got clipped on narrow screens. Depth now comes
+            // from elevation and a ribbon instead.
             ].map((p,i)=>(
-              <div key={i} style={{ background: p.featured?'#16243A':'#fff', border: p.featured?'none':'1px solid #E4DFD5', borderRadius:20, padding:'36px 30px', transform: p.featured?'scale(1.04)':'none', boxShadow: p.featured?'0 24px 60px rgba(22,36,58,0.2)':'none' }}>
-                {p.featured && <div style={{ fontSize:11, letterSpacing:'0.1em', textTransform:'uppercase', color:'#F0A832', fontWeight:500, marginBottom:14 }}>Most popular</div>}
+              <div key={i} style={{ position:'relative', background: p.featured?'#16243A':'#fff', border: p.featured?'none':'1px solid #E4DFD5', borderRadius:20, padding: p.featured?'44px 30px 36px':'36px 30px', boxShadow: p.featured?'0 24px 60px rgba(22,36,58,0.22)':'none' }}>
+                {p.featured && (
+                  <div style={{ position:'absolute', top:0, left:'50%', transform:'translate(-50%,-50%)', background:'#C97B1A', color:'#fff', fontSize:11, letterSpacing:'0.1em', textTransform:'uppercase', fontWeight:500, padding:'6px 16px', borderRadius:30, whiteSpace:'nowrap' }}>Most popular</div>
+                )}
                 <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, color:p.featured?'#fff':'#16243A', marginBottom:8 }}>{p.name}</div>
                 <div style={{ fontFamily:"'Playfair Display',serif", fontSize:44, color:p.featured?'#fff':'#16243A', lineHeight:1, marginBottom:4 }}>{p.price}</div>
                 <div style={{ fontSize:13, color:p.featured?'rgba(255,255,255,0.4)':'#7A6E60', marginBottom:28 }}>{p.per}</div>
@@ -298,7 +313,7 @@ export default function LandingPage() {
                     <span style={{ color:p.featured?'#F0A832':'#2E7D4E', flexShrink:0, marginTop:1 }}>✓</span>{f}
                   </div>
                 ))}
-                <Link href="/signup" style={{ display:'block', textAlign:'center', padding:'14px', borderRadius:10, fontSize:14, fontWeight:500, textDecoration:'none', marginTop:28, background:p.featured?'#C97B1A':'transparent', color:p.featured?'#fff':'#16243A', border:p.featured?'none':'1px solid #E4DFD5', transition:'all .2s' }}>
+                <Link href="/signup" className={p.featured?'lp-cta':'lp-cta-ghost'} style={{ display:'block', textAlign:'center', padding:'14px', borderRadius:10, fontSize:14, fontWeight:500, textDecoration:'none', marginTop:28, background:p.featured?'#C97B1A':'transparent', color:p.featured?'#fff':'#16243A', border:p.featured?'none':'1px solid #E4DFD5' }}>
                   Start free trial
                 </Link>
               </div>
@@ -308,26 +323,26 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" style={{ background:'#EDE7DC', padding:'100px 28px' }}>
+      <section id="faq" style={{ background:'#EDE7DC', padding:`var(--section-y) 28px` }}>
         <div style={{ maxWidth:720, margin:'0 auto' }}>
           <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,3.5vw,42px)', color:'#16243A', marginBottom:48, textAlign:'center' }}>Common questions.</h2>
           {FAQS.map((f,i)=>(
             <div key={i} style={{ borderBottom:'1px solid #E4DFD5' }}>
-              <button onClick={()=>setOpenFaq(openFaq===i?null:i)} style={{ width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 0', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
+              <button onClick={()=>setOpenFaq(openFaq===i?null:i)} className="lp-faq" aria-expanded={openFaq===i} style={{ width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 0', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
                 <span style={{ fontSize:16, color:'#16243A', fontFamily:"'Playfair Display',serif" }}>{f.q}</span>
                 <span style={{ fontSize:20, color:'#C97B1A', marginLeft:16, flexShrink:0, transform: openFaq===i?'rotate(45deg)':'none', transition:'transform .2s' }}>+</span>
               </button>
-              {openFaq===i && <div style={{ paddingBottom:20, fontSize:14, color:'#7A6E60', lineHeight:1.75, fontWeight:300 }}>{f.a}</div>}
+              {openFaq===i && <div className="animate-fade-in" style={{ paddingBottom:20, fontSize:14, color:'#7A6E60', lineHeight:1.75, fontWeight:300, maxWidth:620 }}>{f.a}</div>}
             </div>
           ))}
         </div>
       </section>
 
       {/* ── CTA ── */}
-      <section style={{ background:'#16243A', padding:'120px 28px', textAlign:'center' }}>
+      <section style={{ background:'#16243A', padding:`calc(var(--section-y) * 1.2) 28px`, textAlign:'center' }}>
         <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,3.5vw,44px)', color:'#fff', maxWidth:600, margin:'0 auto 16px', lineHeight:1.2 }}>Your congregation deserves<br/><em style={{ fontStyle:'italic', color:'#F0A832' }}>to feel seen.</em></h2>
         <p style={{ fontSize:16, color:'rgba(255,255,255,0.5)', maxWidth:420, margin:'0 auto 40px', lineHeight:1.75, fontWeight:300 }}>Start your 14-day free trial today. No credit card needed. Setup in minutes.</p>
-        <Link href="/signup" style={{ display:'inline-block', background:'#C97B1A', color:'#fff', padding:'16px 36px', borderRadius:11, fontSize:16, fontWeight:500, textDecoration:'none', transition:'all .2s' }}>
+        <Link href="/signup" className="lp-cta" style={{ display:'inline-block', background:'#C97B1A', color:'#fff', padding:'16px 36px', borderRadius:11, fontSize:16, fontWeight:500, textDecoration:'none', transition:'all .2s' }}>
           Start your free trial →
         </Link>
         <div style={{ fontSize:13, color:'rgba(255,255,255,0.3)', marginTop:20 }}>No credit card · Cancel any time · Setup in 5 minutes</div>
@@ -337,9 +352,9 @@ export default function LandingPage() {
       <footer style={{ background:'#0F1A2C', padding:'48px 28px', display:'flex', flexWrap:'wrap', alignItems:'center', justifyContent:'space-between', gap:20 }}>
         <span style={{ fontFamily:"'Playfair Display',serif", fontSize:18, color:'rgba(255,255,255,0.5)' }}>SwiftEntryPro</span>
         <div style={{ display:'flex', gap:24, flexWrap:'wrap' }}>
-          {['Privacy','Terms','Contact'].map(l=><a key={l} href="#" style={{ fontSize:13, color:'rgba(255,255,255,0.3)', textDecoration:'none' }}>{l}</a>)}
+          {['Privacy','Terms','Contact'].map(l=><a key={l} href="#" className="lp-link" style={{ fontSize:13, color:'rgba(255,255,255,0.3)', textDecoration:'none', transition:'color .2s' }}>{l}</a>)}
         </div>
-        <span style={{ fontSize:12, color:'rgba(255,255,255,0.2)' }}>© 2026 SwiftEntryPro</span>
+        <span style={{ fontSize:12, color:'rgba(255,255,255,0.2)' }}>© {new Date().getFullYear()} SwiftEntryPro</span>
       </footer>
     </div>
   );

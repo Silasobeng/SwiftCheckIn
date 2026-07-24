@@ -53,7 +53,7 @@ export default function LoginPage() {
     <div style={{ minHeight:'100vh', display:'grid', gridTemplateColumns:'1fr 1fr', fontFamily:"'DM Sans',sans-serif" }} className="!grid-cols-1 md:!grid-cols-2">
 
       {/* LEFT */}
-      <div style={{ background:'#16243A', padding:'56px 52px', display:'flex', flexDirection:'column', justifyContent:'space-between', minHeight:'100vh' }} className="hidden md:flex">
+      <div style={{ background:'#16243A', padding:'56px 52px', flexDirection:'column', justifyContent:'space-between', minHeight:'100vh' }} className="hidden md:flex">
         <Link href="/" style={{ display:'flex', alignItems:'center', gap:10, textDecoration:'none' }}>
           <div style={{ width:36,height:36,background:'#C97B1A',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center' }}>
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9.5L7 13.5L15 5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -61,8 +61,9 @@ export default function LoginPage() {
           <span style={{ fontFamily:"'Playfair Display',serif", fontSize:18, color:'#fff' }}>SwiftEntryPro</span>
         </Link>
 
-        <div>
-          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:28, color:'#fff', lineHeight:1.45, fontStyle:'italic', marginBottom:16, transition:'all .4s' }}>
+        {/* keyed so each rotation actually crossfades rather than snapping */}
+        <div key={quoteIdx} className="animate-fade-in">
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:28, color:'#fff', lineHeight:1.45, fontStyle:'italic', marginBottom:16 }}>
             {q.text}
           </div>
           <div style={{ fontSize:14, color:'rgba(255,255,255,0.35)', fontWeight:300 }}>{q.attr}</div>
@@ -79,11 +80,11 @@ export default function LoginPage() {
       </div>
 
       {/* RIGHT */}
-      <div style={{ background:'#F8F4EE', padding:'56px 64px', display:'flex', flexDirection:'column', justifyContent:'center', minHeight:'100vh' }}>
+      <div className="px-6 py-12 sm:px-10 md:px-16 md:py-14" style={{ background:'#F8F4EE', display:'flex', flexDirection:'column', justifyContent:'center', minHeight:'100vh' }}>
         <div style={{ maxWidth:400, width:'100%', margin:'0 auto' }}>
 
           {/* Mobile logo */}
-          <Link href="/" style={{ display:'flex', alignItems:'center', gap:10, textDecoration:'none', marginBottom:40 }} className="md:hidden">
+          <Link href="/" style={{ alignItems:'center', gap:10, textDecoration:'none', marginBottom:40 }} className="flex md:hidden">
             <div style={{ width:32,height:32,background:'#16243A',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center' }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
@@ -108,7 +109,7 @@ export default function LoginPage() {
                 </div>
                 <input className="input" type="password" placeholder="••••••••••" value={form.password} onChange={e=>setForm(p=>({...p,password:e.target.value}))} required/>
               </div>
-              <button type="submit" disabled={loading} style={{ width:'100%', marginTop:24, background:'#C97B1A', color:'#fff', border:'none', borderRadius:11, padding:'15px', fontFamily:"'DM Sans',sans-serif", fontSize:15, fontWeight:500, cursor:loading?'wait':'pointer', transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+              <button type="submit" disabled={loading} className="lp-cta" style={{ width:'100%', marginTop:24, background:'#C97B1A', color:'#fff', border:'none', borderRadius:11, padding:'15px', fontFamily:"'DM Sans',sans-serif", fontSize:15, fontWeight:500, cursor:loading?'wait':'pointer', transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
                 {loading ? 'Signing in…' : <>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Sign In
@@ -132,7 +133,7 @@ export default function LoginPage() {
                 <label style={{ fontSize:12, fontWeight:500, color:'#7A6E60', letterSpacing:'0.06em', textTransform:'uppercase', display:'block', marginBottom:8 }}>Email address</label>
                 <input className="input" type="email" placeholder="you@church.org" value={resetEmail} onChange={e=>setResetEmail(e.target.value)} required/>
               </div>
-              <button type="submit" disabled={loading} style={{ width:'100%', background:'#16243A', color:'#fff', border:'none', borderRadius:11, padding:'15px', fontFamily:"'DM Sans',sans-serif", fontSize:15, fontWeight:500, cursor:loading?'wait':'pointer' }}>
+              <button type="submit" disabled={loading} className="lp-cta lp-cta-navy" style={{ width:'100%', background:'#16243A', color:'#fff', border:'none', borderRadius:11, padding:'15px', fontFamily:"'DM Sans',sans-serif", fontSize:15, fontWeight:500, cursor:loading?'wait':'pointer' }}>
                 {loading ? 'Sending…' : 'Send reset link'}
               </button>
             </form>

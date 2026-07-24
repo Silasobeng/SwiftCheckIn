@@ -114,9 +114,14 @@ export default function KioskPage() {
   };
 
   const filteredPeople = data?.people.filter(p => p.full_name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search)) || [];
+
+  // The org's brand colour drives the kiosk backdrop — the Settings page
+  // promises exactly this ("Colors the screen your visitors check in on")
+  // and shows a live preview of it.
+  const brand = /^#[0-9a-fA-F]{6}$/.test(data?.org.brand_color || '') ? data!.org.brand_color! : '#0e2033';
   const darkBg = data?.org.cover_image_url
     ? { backgroundImage:`linear-gradient(rgba(7,21,38,0.82),rgba(7,21,38,0.92)),url(${data.org.cover_image_url})`, backgroundSize:'cover', backgroundPosition:'center' }
-    : { background:'linear-gradient(160deg,#0e2033 0%,#060d18 100%)' };
+    : { background:`linear-gradient(160deg,${brand} 0%,#060d18 100%)` };
 
   const glowTop = { position:'absolute' as const, top:'-80px', left:'50%', transform:'translateX(-50%)', width:'700px', height:'500px', background:'radial-gradient(ellipse at center top,rgba(212,160,23,.14) 0%,transparent 65%)', pointerEvents:'none' as const };
   const vignette = { position:'absolute' as const, inset:0, background:'radial-gradient(ellipse at center,transparent 40%,rgba(3,7,13,.55) 100%)', pointerEvents:'none' as const };
@@ -185,7 +190,6 @@ export default function KioskPage() {
           }
         </div>
       </div>
-      <style>{`@keyframes ringOut{from{transform:scale(.4);opacity:0}30%{opacity:1}to{transform:scale(1);opacity:0}}`}</style>
     </div>
   );
 
@@ -197,7 +201,7 @@ export default function KioskPage() {
       <div style={glowTop}/><div style={vignette}/>
 
       {!isFullscreen && (
-        <button onClick={enterFullscreen} className="absolute top-5 right-5 z-20 flex items-center gap-2 border rounded-xl px-4 py-2.5 text-sm font-medium transition-all backdrop-blur-sm" style={{ background:'rgba(255,255,255,.08)', border:'1px solid rgba(255,255,255,.12)', color:'rgba(255,255,255,.6)' }}>
+        <button onClick={enterFullscreen} className="absolute top-5 right-5 z-20 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all backdrop-blur-sm hover:bg-white/[0.16] hover:text-white" style={{ background:'rgba(255,255,255,.08)', border:'1px solid rgba(255,255,255,.12)', color:'rgba(255,255,255,.6)' }}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
           Fullscreen
         </button>
@@ -232,7 +236,7 @@ export default function KioskPage() {
           {/* Returning */}
           <button
             onClick={() => { if(!isFullscreen) enterFullscreen(); setScreen('returning'); }}
-            className="group relative flex flex-col items-center justify-center gap-4 rounded-3xl px-6 py-10 text-white transition-all duration-300 active:scale-[.97]"
+            className="group relative flex flex-col items-center justify-center gap-4 rounded-3xl px-6 py-10 text-white transition-all duration-300 active:scale-[.97] hover:-translate-y-1 hover:brightness-105"
             style={{ background:'linear-gradient(145deg,#059669,#10b981)', boxShadow:'0 4px 24px rgba(16,185,129,.35)' }}
           >
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all" style={{ background:'rgba(0,0,0,.15)' }}>
@@ -248,7 +252,7 @@ export default function KioskPage() {
           {/* First Time */}
           <button
             onClick={() => { if(!isFullscreen) enterFullscreen(); setScreen('new'); }}
-            className="group relative flex flex-col items-center justify-center gap-4 rounded-3xl px-6 py-10 text-navy-900 transition-all duration-300 active:scale-[.97]"
+            className="group relative flex flex-col items-center justify-center gap-4 rounded-3xl px-6 py-10 text-navy-900 transition-all duration-300 active:scale-[.97] hover:-translate-y-1 hover:brightness-105"
             style={{ background:'linear-gradient(145deg,#e8aa18,#d4900a)', boxShadow:'0 4px 24px rgba(212,144,10,.45)' }}
           >
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background:'rgba(0,0,0,.12)' }}>
@@ -292,8 +296,7 @@ export default function KioskPage() {
           <input
             type="text" placeholder="Type your name or phone number…"
             value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full text-lg text-white placeholder:text-white/35 outline-none rounded-2xl px-6 py-5 transition-all"
-            style={{ background:'rgba(255,255,255,.07)', border:'1.5px solid rgba(255,255,255,.12)', fontFamily:'var(--font-sans)' }}
+            className="input-dark input-lg"
             autoFocus
           />
         </div>
@@ -312,8 +315,8 @@ export default function KioskPage() {
             <div className="rounded-2xl overflow-hidden" style={{ background:'rgba(255,255,255,.04)', border:'1px solid rgba(255,255,255,.09)' }}>
               {filteredPeople.map((p,i) => (
                 <button key={p.id} onClick={() => handleCheckin(p.id)}
-                  className="w-full text-left px-6 py-5 flex items-center gap-4 transition-all group animate-fade-in-up"
-                  style={{ borderBottom:'1px solid rgba(255,255,255,.06)', animationDelay:`${i*0.04}s`, opacity:0 }}
+                  className="w-full text-left px-6 py-5 flex items-center gap-4 transition-all group animate-fade-in-up hover:bg-white/[0.07] active:bg-white/[0.11]"
+                  style={{ borderBottom: i===filteredPeople.length-1 ? 'none' : '1px solid rgba(255,255,255,.06)', animationDelay:`${i*0.04}s`, opacity:0 }}
                 >
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0" style={{ background:'rgba(255,255,255,.1)', color:'rgba(255,255,255,.7)' }}>
                     {p.full_name.charAt(0)}
@@ -355,7 +358,7 @@ export default function KioskPage() {
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color:'rgba(255,255,255,.5)' }}>Full Name <span className="text-red-400">*</span></label>
-            <input type="text" className={`input input-lg ${newErrors.full_name ? 'border-red-400' : ''}`}
+            <input type="text" className={`input-dark input-lg ${newErrors.full_name ? 'has-error' : ''}`}
               placeholder="Your full name" value={newForm.full_name}
               onChange={e => { setNewForm({...newForm, full_name:e.target.value}); if(e.target.value.trim()) setNewErrors(p=>({...p,full_name:''})); }}
               autoFocus />
@@ -364,7 +367,7 @@ export default function KioskPage() {
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color:'rgba(255,255,255,.5)' }}>Phone Number <span className="text-red-400">*</span></label>
-            <input type="tel" className={`input input-lg ${newErrors.phone ? 'border-red-400' : ''}`}
+            <input type="tel" className={`input-dark input-lg ${newErrors.phone ? 'has-error' : ''}`}
               placeholder="0244 123 456" value={newForm.phone}
               onChange={e => { setNewForm({...newForm, phone:e.target.value}); if(e.target.value.trim()) setNewErrors(p=>({...p,phone:''})); }} />
             {newErrors.phone && <p className="text-red-400 text-sm mt-1.5">{newErrors.phone}</p>}
@@ -387,7 +390,7 @@ export default function KioskPage() {
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color:'rgba(255,255,255,.5)' }}>
               Email <span className="font-normal normal-case text-white/30 tracking-normal text-xs">(optional)</span>
             </label>
-            <input type="email" className="input input-lg" placeholder="your@email.com" value={newForm.email} onChange={e => setNewForm({...newForm, email:e.target.value})}/>
+            <input type="email" className="input-dark input-lg" placeholder="your@email.com" value={newForm.email} onChange={e => setNewForm({...newForm, email:e.target.value})}/>
           </div>
 
           <button
@@ -398,7 +401,7 @@ export default function KioskPage() {
               if(errors.full_name || errors.phone) { setNewErrors(errors); return; }
               handleCheckin(undefined, newForm);
             }}
-            className="w-full py-4 rounded-xl font-bold text-navy-900 text-lg flex items-center justify-center gap-2 transition-all mt-2"
+            className="w-full py-4 rounded-2xl font-bold text-navy-900 text-lg flex items-center justify-center gap-2 transition-all mt-2 hover:brightness-105 active:scale-[.98]"
             style={{ background:'linear-gradient(135deg,#e8aa18,#d4900a)', boxShadow:'0 4px 20px rgba(212,144,10,.4)' }}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
