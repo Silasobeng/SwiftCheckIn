@@ -44,19 +44,37 @@ export async function PATCH(request: NextRequest) {
   try {
     const supabase = getServerSupabase();
     const body = await request.json();
-    const { kiosk_open, active_service_id, org_name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, regenerate_kiosk_code } = body;
+    const { kiosk_open, active_service_id, org_name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, kiosk_access_code } = body;
 
-    // Rotate the kiosk unlock code (e.g. after a volunteer leaves).
-    if (regenerate_kiosk_code) {
-      const fresh = Math.random().toString(36).replace(/[^a-z0-9]/g, '').slice(0, 6).padEnd(6, '0');
+    // The church chooses its own unlock code — it has to be something an usher
+    // can be told once and remember. Letters and digits only, because it gets
+    // typed on a tablet's on-screen keyboard.
+    if (kiosk_access_code !== undefined) {
+      const code = String(kiosk_access_code).trim();
+
+      if (code.length > 0) {
+        if (code.length < 4 || code.length > 12) {
+          return NextResponse.json({ error: 'Kiosk code must be 4 to 12 characters.' }, { status: 400 });
+        }
+        if (!/^[a-zA-Z0-9]+$/.test(code)) {
+          return NextResponse.json({ error: 'Kiosk code can only contain letters and numbers.' }, { status: 400 });
+        }
+      }
+
       const { error: codeError } = await supabase
         .from('app_settings')
-        .upsert({ org_id: auth.session.orgId, kiosk_access_code: fresh, updated_at: new Date().toISOString() });
+        .upsert({
+          org_id: auth.session.orgId,
+          // Empty clears the lock entirely — a deliberate choice for churches
+          // that don't want one. The kiosk unlocks freely when it is null.
+          kiosk_access_code: code.length > 0 ? code : null,
+          updated_at: new Date().toISOString(),
+        });
 
       if (codeError) {
         return NextResponse.json({ error: codeError.message }, { status: 500 });
       }
-      return NextResponse.json({ success: true, kiosk_access_code: fresh });
+      return NextResponse.json({ success: true, kiosk_access_code: code || null });
     }
 
     // If opening kiosk, ensure there's an active service
