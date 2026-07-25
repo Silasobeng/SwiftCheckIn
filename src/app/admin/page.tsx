@@ -206,9 +206,10 @@ export default function AdminPage() {
     fetch('/api/auth/session').then(r=>r.json()).then(d=>{ if(!d.authenticated) router.push('/login'); else { setSession(d.session); setLoading(false); } }).catch(()=>router.push('/login'));
   }, [router]);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (opts?: { background?: boolean }) => {
     if (!session) return;
-    setError(null);
+    const background = opts?.background === true;
+    if (!background) setError(null);
 
     const safeFetch = async <T,>(url: string, fallback: T): Promise<T> => {
       try {
@@ -229,19 +230,25 @@ export default function AdminPage() {
       safeFetch('/api/giving', { giving: [] }),
     ]);
 
+    // Live data always refreshes.
     setServices(sD.services||[]); setPeople(pD.people||[]); setCheckins(cD.checkins||[]); setSettings(stD.settings||null); setTemplates(tD.templates||[]); setGiving(gD.giving||[]);
-    setKioskCode(stD.settings?.kiosk_access_code || '');
     if (stD.settings?.organization?.timezone) setOrgTimezone(stD.settings.organization.timezone);
-    const org = stD.settings?.organization;
-    if (org) setBranding({
-  org_name: org.name || '',
-  tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'' });
 
-    if (!stD.settings) setError('Some dashboard data could not be refreshed — check your connection.');
+    // Form-bound fields are only (re)seeded on a foreground load. A background
+    // poll must never overwrite what the admin is mid-way through typing in
+    // Settings, nor flash a connection error on a transient hiccup.
+    if (!background) {
+      setKioskCode(stD.settings?.kiosk_access_code || '');
+      const org = stD.settings?.organization;
+      if (org) setBranding({
+        org_name: org.name || '',
+        tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'' });
+      if (!stD.settings) setError('Some dashboard data could not be refreshed — check your connection.');
+    }
   }, [session]);
 
   useEffect(() => { if (session) loadData(); }, [session,loadData]);
-  useEffect(() => { if (!session) return; const id=window.setInterval(loadData,30000); return ()=>window.clearInterval(id); }, [session,loadData]);
+  useEffect(() => { if (!session) return; const id=window.setInterval(()=>loadData({background:true}),30000); return ()=>window.clearInterval(id); }, [session,loadData]);
   useEffect(() => { if (!message&&!error) return; const id=window.setTimeout(()=>{setMessage(null);setError(null);},4000); return ()=>window.clearTimeout(id); }, [message,error]);
 
   const handleLogout = async () => { await fetch('/api/auth/logout',{method:'POST'}); router.push('/login'); };
@@ -601,7 +608,7 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={loadData} className="btn btn-ghost btn-icon" title="Refresh" aria-label="Refresh data">
+            <button onClick={()=>loadData()} className="btn btn-ghost btn-icon" title="Refresh" aria-label="Refresh data">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
             <Link href={`/kiosk/${session.orgSlug}`} target="_blank" className="btn btn-secondary text-sm" title="Open kiosk">

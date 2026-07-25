@@ -9,11 +9,16 @@
 // A church in Accra (UTC+0) is unaffected; one in a UTC+2/+3 country no longer
 // sees a late-night record on the 31st fall into the wrong month.
 
-/** Build a reusable formatter for one timezone (cheap to keep, costly to recreate per row). */
+/** Build a reusable formatter for one timezone (cheap to keep, costly to recreate per row).
+ *  Falls back to UTC if the stored timezone is invalid, rather than throwing —
+ *  a bad timezone value must never take the whole dashboard down. */
 export function tzFormatter(timeZone: string): Intl.DateTimeFormat {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
-  });
+  const opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit' };
+  try {
+    return new Intl.DateTimeFormat('en-US', { ...opts, timeZone });
+  } catch {
+    return new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'UTC' });
+  }
 }
 
 function parts(fmt: Intl.DateTimeFormat, value: Date | string) {
