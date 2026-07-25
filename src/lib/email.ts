@@ -5,9 +5,11 @@ import { buildBrandedEmail } from './emailTemplate';
 interface EmailRecipient { email: string; name?: string; }
 interface EmailAttachment { content: string; name: string; }
 interface SendEmailResult { success: boolean; error?: string; }
+interface ReplyTo { email: string; name?: string; }
 
 export async function sendBrevoEmail(
-  to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string, attachments?: EmailAttachment[]
+  to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string,
+  attachments?: EmailAttachment[], replyTo?: ReplyTo
 ): Promise<SendEmailResult> {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
@@ -22,6 +24,9 @@ export async function sendBrevoEmail(
       headers: { 'accept':'application/json', 'api-key':apiKey, 'content-type':'application/json' },
       body: JSON.stringify({
         sender:{ name:senderName, email:senderEmail }, to, subject, htmlContent,
+        // A real reply-to address is a "this came from a person" signal that
+        // helps land in Primary rather than Promotions.
+        ...(replyTo?.email ? { replyTo } : {}),
         ...(attachments && attachments.length > 0 ? { attachment: attachments } : {}),
       }),
     });

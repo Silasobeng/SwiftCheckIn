@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const { data: org } = await supabase
       .from('organizations')
-      .select('name, admin_email')
+      .select('name, admin_email, email')
       .eq('id', auth.session.orgId)
       .single();
 
@@ -103,54 +103,53 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // Longest-away first — the names most worth a call this week.
     const followUp = absent.slice(0, 5);
 
-    const stat = (label: string, value: string | number, tone = '#16243A') => `
-      <td style="padding:0 8px;text-align:center;">
-        <div style="font-family:Georgia,serif;font-size:26px;color:${tone};line-height:1;">${value}</div>
-        <div style="font-size:12px;color:#7A6E60;margin-top:4px;">${label}</div>
-      </td>`;
+    // Deliberately plain, text-forward layout. This is an internal staff
+    // report, not a branded message to a member — the stat-tile "dashboard"
+    // look reads as marketing to Gmail and lands in Promotions. A simple
+    // notification styling stays in Primary and suits the audience.
+    const line = (label: string, value: string | number) =>
+      `<tr><td style="padding:3px 0;font-size:15px;color:#333;">${label}</td><td style="padding:3px 0 3px 24px;font-size:15px;color:#111;font-weight:600;text-align:right;">${value}</td></tr>`;
 
-    const html = `
-      <div style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:600px;margin:0 auto;padding:32px 20px;background:#F8F4EE;">
-        <div style="background:#fff;border:1px solid #E4DFD5;border-radius:16px;padding:28px 24px;">
-          <h2 style="color:#16243A;font-size:20px;margin:0 0 4px;font-family:Georgia,serif;font-weight:normal;">Attendance Report</h2>
-          <p style="color:#7A6E60;font-size:14px;margin:0 0 24px;">
-            ${service.title || 'Service'} — ${serviceDateLabel}${serviceIds.length > 1 ? ` · ${serviceIds.length} services` : ''}
-          </p>
+    const followUpText = followUp.length > 0
+      ? `<p style="font-size:15px;color:#333;line-height:1.6;margin:20px 0 6px;">People worth following up with:</p>
+         <ul style="margin:0 0 4px;padding-left:20px;font-size:15px;color:#333;line-height:1.7;">
+           ${followUp.map((p) => `<li>${p.full_name}${p.phone ? ` — ${p.phone}` : ''} <span style="color:#777;">(${p.weeksSinceLastVisit === null ? 'never visited' : p.weeksSinceLastVisit === 0 ? 'missed today' : `${p.weeksSinceLastVisit} week${p.weeksSinceLastVisit === 1 ? '' : 's'} away`})</span></li>`).join('')}
+         </ul>
+         ${absent.length > followUp.length ? `<p style="font-size:14px;color:#777;margin:4px 0 0;">…and ${absent.length - followUp.length} more in the attached spreadsheet.</p>` : ''}`
+      : `<p style="font-size:15px;color:#333;margin:20px 0 0;">Everyone on your members list attended.</p>`;
 
-          <table style="width:100%;border-collapse:collapse;margin-bottom:24px;"><tr>
-            ${stat('Present', count)}
-            ${stat('Absent', absent.length, absent.length > 0 ? '#C97B1A' : '#16243A')}
-            ${stat('First-timers', firstTimers, '#2E7D4E')}
-            ${attendanceRate !== null ? stat('Turnout', attendanceRate + '%') : ''}
-          </tr></table>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#ffffff;">
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#333;">
+  <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hi,</p>
+  <p style="font-size:15px;line-height:1.6;margin:0 0 18px;">Here is the attendance summary for <strong>${service.title || 'your service'}</strong> on ${serviceDateLabel}${serviceIds.length > 1 ? ` (${serviceIds.length} services combined)` : ''}.</p>
 
-          ${followUp.length > 0 ? `
-            <div style="border-top:1px solid #E4DFD5;padding-top:20px;">
-              <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#A89D8E;margin-bottom:12px;">Worth a call this week</div>
-              ${followUp.map((p) => `
-                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #F0EBE3;font-size:14px;">
-                  <span style="color:#1C2A3A;">${p.full_name}${p.phone ? ` <span style="color:#A89D8E;font-size:12px;">${p.phone}</span>` : ''}</span>
-                  <span style="color:#7A6E60;font-size:13px;">${p.weeksSinceLastVisit === null ? 'never visited' : p.weeksSinceLastVisit === 0 ? 'missed today' : `${p.weeksSinceLastVisit}w away`}</span>
-                </div>`).join('')}
-              ${absent.length > followUp.length ? `<div style="font-size:12px;color:#A89D8E;padding-top:12px;">+ ${absent.length - followUp.length} more in the attached file.</div>` : ''}
-            </div>` : `
-            <div style="border-top:1px solid #E4DFD5;padding-top:20px;font-size:14px;color:#2E7D4E;">
-              Everyone on your members list was here. 🎉
-            </div>`}
+  <table style="border-collapse:collapse;margin:0 0 4px;">
+    ${line('Present', count)}
+    ${line('Absent (members &amp; leaders)', absent.length)}
+    ${line('First-time visitors', firstTimers)}
+    ${attendanceRate !== null ? line('Turnout', attendanceRate + '%') : ''}
+  </table>
 
-          <p style="color:#A89D8E;font-size:12px;margin-top:24px;">
-            The attached CSV lists everyone who came and everyone who didn&rsquo;t. Absentees cover members and leaders only — visitors are left out so the list stays useful.
-          </p>
-        </div>
-      </div>
-    `;
+  ${followUpText}
+
+  <p style="font-size:15px;line-height:1.6;margin:22px 0 0;">The attached spreadsheet lists everyone who came and everyone who was absent. Absentees include members and leaders only, so the list stays useful.</p>
+
+  <p style="font-size:15px;line-height:1.6;margin:22px 0 0;">— ${org?.name || 'Your church'} check-in</p>
+</div>
+</body></html>`;
+
+    // Reply-to the church's own address, so a reply reaches a human — another
+    // Primary-inbox signal, and genuinely useful.
+    const replyEmail = org?.email || org?.admin_email || undefined;
 
     const result = await sendBrevoEmail(
       [{ email: recipient }],
       `Attendance Report — ${service.title || 'Service'} (${serviceDateLabel})`,
       html,
       org?.name || undefined,
-      [{ content: csvBase64, name: filename }]
+      [{ content: csvBase64, name: filename }],
+      replyEmail ? { email: replyEmail, name: org?.name || undefined } : undefined
     );
 
     if (!result.success) {
