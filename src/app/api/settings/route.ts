@@ -21,7 +21,7 @@ export async function GET() {
 
     const { data: organization, error: orgError } = await supabase
       .from('organizations')
-      .select('name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext')
+      .select('name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, timezone')
       .eq('id', auth.session.orgId)
       .single();
 

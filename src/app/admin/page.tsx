@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization } from '@/types';
 import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
+import { tzFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel } from '@/lib/monthWindow';
 
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
 
@@ -196,6 +197,8 @@ export default function AdminPage() {
   tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'' });
   const [savingBranding, setSavingBranding] = useState(false);
   const [uploading, setUploading] = useState<'logo'|'cover'|null>(null);
+  // The church's own timezone drives "this month / today", not the device clock.
+  const [orgTimezone, setOrgTimezone] = useState('Africa/Accra');
   const [kioskCode, setKioskCode] = useState('');
   const [savingKioskCode, setSavingKioskCode] = useState(false);
 
@@ -228,6 +231,7 @@ export default function AdminPage() {
 
     setServices(sD.services||[]); setPeople(pD.people||[]); setCheckins(cD.checkins||[]); setSettings(stD.settings||null); setTemplates(tD.templates||[]); setGiving(gD.giving||[]);
     setKioskCode(stD.settings?.kiosk_access_code || '');
+    if (stD.settings?.organization?.timezone) setOrgTimezone(stD.settings.organization.timezone);
     const org = stD.settings?.organization;
     if (org) setBranding({
   org_name: org.name || '',
@@ -410,14 +414,19 @@ export default function AdminPage() {
   const activePeople = people.filter(p=>!p.archived);
   const visitors = activePeople.filter(p=>p.role==='visitor');
   const members = activePeople.filter(p=>p.role!=='visitor');
-  const today = new Date().toISOString().split('T')[0];
-  const todayCheckins = checkins.filter(c=>c.checked_in_at?.split('T')[0]===today);
   const activeService = services.find(s=>s.is_active)||null;
-  const currentMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
-  const lastMonthDate = new Date(); lastMonthDate.setMonth(lastMonthDate.getMonth()-1);
-  const lastMonthKey = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth()+1).padStart(2,'0')}`;
-  const currentMonthCheckins = checkins.filter(c=>c.checked_in_at?.startsWith(currentMonthKey));
-  const lastMonthCheckins = checkins.filter(c=>c.checked_in_at?.startsWith(lastMonthKey));
+
+  // All "today / this month / last month" figures are reckoned in the church's
+  // own timezone (see monthWindow), not the device clock, so they roll over
+  // correctly and bucket UTC-stored timestamps into the right local month.
+  const tzFmt = useMemo(()=>tzFormatter(orgTimezone), [orgTimezone]);
+  const today = dayKeyOf(tzFmt, new Date());
+  const todayCheckins = checkins.filter(c=>c.checked_in_at && dayKeyOf(tzFmt, c.checked_in_at)===today);
+  const currentMonthKey = monthKeyOf(tzFmt, new Date());
+  const lastMonthKey = prevMonthKey(currentMonthKey);
+  const monthOf = (iso?: string|null) => iso ? monthKeyOf(tzFmt, iso) : '';
+  const currentMonthCheckins = checkins.filter(c=>monthOf(c.checked_in_at)===currentMonthKey);
+  const lastMonthCheckins = checkins.filter(c=>monthOf(c.checked_in_at)===lastMonthKey);
   const currentMonthUnique = new Set(currentMonthCheckins.map(c=>c.person_id)).size;
   const ageGroups = activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.date_of_birth) return a; const g=getAgeGroup(calculateAge(p.date_of_birth)); a[g]=(a[g]||0)+1; return a; },{});
   const genderCounts = activePeople.reduce<Record<string,number>>((a,p)=>{ const k=p.gender||'not set'; a[k]=(a[k]||0)+1; return a; },{});
@@ -429,14 +438,14 @@ export default function AdminPage() {
   // attended three times this month counted as 300%, producing impossible
   // rates like 316%.
   const lastMonthFirstTimers = new Set(
-    checkins.filter(c=>c.is_first_time && c.checked_in_at?.startsWith(lastMonthKey)).map(c=>c.person_id)
+    checkins.filter(c=>c.is_first_time && monthOf(c.checked_in_at)===lastMonthKey).map(c=>c.person_id)
   );
   const currentMonthAttenderIds = new Set(currentMonthCheckins.map(c=>c.person_id));
   const retained = Array.from(lastMonthFirstTimers).filter(id=>currentMonthAttenderIds.has(id)).length;
   const retentionRate = lastMonthFirstTimers.size > 0 ? Math.round((retained / lastMonthFirstTimers.size) * 100) : null;
   // Top attenders
   const topAttenders = [...activePeople].sort((a,b)=>(b.total_checkins||0)-(a.total_checkins||0)).slice(0,5);
-  const monthlyTrend = Object.entries(checkins.reduce<Record<string,number>>((a,c)=>{ const d=c.checked_in_at?.slice(0,7); if(!d) return a; a[d]=(a[d]||0)+1; return a; },{})).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6);
+  const monthlyTrend = Object.entries(checkins.reduce<Record<string,number>>((a,c)=>{ const d=monthOf(c.checked_in_at); if(!d) return a; a[d]=(a[d]||0)+1; return a; },{})).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6);
   const missingBirthdayCount = activePeople.filter(p=>!p.date_of_birth).length;
   const missingEmailCount = activePeople.filter(p=>!p.email).length;
   const firstTimersThisMonth = currentMonthCheckins.filter(c=>c.is_first_time).length;
@@ -448,17 +457,12 @@ export default function AdminPage() {
     if (!q) return [];
     return activePeople.filter(p=>p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)).slice(0,6);
   }, [activePeople, givingPersonQuery]);
-  // A plain "Mar 1–31, 2026" label so every "this month / last month" figure
-  // states exactly which dates it covers (calendar month, 1st to last day).
-  const monthRange = (d: Date) => {
-    const first = new Date(d.getFullYear(), d.getMonth(), 1);
-    const last = new Date(d.getFullYear(), d.getMonth()+1, 0);
-    return `${first.toLocaleDateString('en-US',{month:'short'})} 1–${last.getDate()}, ${d.getFullYear()}`;
-  };
-  const currentMonthRangeLabel = monthRange(new Date());
-  const lastMonthRangeLabel = monthRange(lastMonthDate);
+  // "Mar 1–31, 2026" labels derived from the same church-timezone month keys,
+  // so every "this month / last month" figure states exactly which dates it covers.
+  const currentMonthRangeLabel = monthRangeLabel(currentMonthKey);
+  const lastMonthRangeLabel = monthRangeLabel(lastMonthKey);
 
-  const givingThisMonth = giving.filter(g=>g.created_at?.startsWith(currentMonthKey));
+  const givingThisMonth = giving.filter(g=>monthOf(g.created_at)===currentMonthKey);
   const givingTotalThisMonth = givingThisMonth.reduce((sum,g)=>sum+Number(g.amount||0),0);
   const givingTotalAllTime = giving.reduce((sum,g)=>sum+Number(g.amount||0),0);
   const givingPendingCount = giving.filter(g=>g.status==='recorded').length;
