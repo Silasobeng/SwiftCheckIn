@@ -38,10 +38,21 @@ export async function sendBrevoEmail(
 // Re-export for backward compat — other files import this from here
 export { readableTextColor } from './emailTemplate';
 
+// People often get typed in lowercase at a busy kiosk ("silas obeng"). Names
+// are the one thing an email must never render sloppily, so title-case them
+// at the single point every email flows through. Handles hyphens and
+// apostrophes (e.g. "ama-serwaa", "n'kansah").
+function titleCaseName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/(^|[\s'-])([a-z])/g, (_, sep, ch) => sep + ch.toUpperCase());
+}
+
 export function processTemplate(
   template: string, person: Person, org: Organization, service?: Service | null
 ): string {
-  const firstName = person.full_name.split(' ')[0];
+  const fullName = titleCaseName(person.full_name);
+  const firstName = fullName.split(' ')[0];
 
   let serviceInfo = '';
   if (service) {
@@ -55,7 +66,7 @@ export function processTemplate(
 
   return template
     .replace(/\{NAME\}/g,         firstName)
-    .replace(/\{FULL_NAME\}/g,    person.full_name)
+    .replace(/\{FULL_NAME\}/g,    fullName)
     .replace(/\{ORG_NAME\}/g,     org.name)
     .replace(/\{SERVICE_INFO\}/g, serviceInfo);
 }
@@ -123,6 +134,7 @@ export function buildPremiumHtml(
     greeting: greeting || 'Hello,',
     headline: headline || undefined,
     body: text,
+    preheader: headline || text,
     serviceCard: serviceTitle ? { label: "Today's Gathering", value: serviceTitle } : null,
     signOff: signOff || `We look forward to seeing you again soon.\n\nWith love,\nThe ${org.name} Family`,
     address: org.address,
