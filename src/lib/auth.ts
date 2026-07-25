@@ -9,19 +9,9 @@ import { getServerSupabase, isSubscriptionValid } from './supabase';
 // =============================================================
 
 const COOKIE_NAME = 'swiftcheckin_session';
+const OWNER_COOKIE_NAME = 'swiftcheckin_owner';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
-
-function getOwnerEmails(): string[] {
-  return (process.env.OWNER_EMAILS || process.env.OWNER_EMAIL || '')
-    .split(',')
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-export function isOwnerEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return getOwnerEmails().includes(email.toLowerCase());
-}
+const OWNER_COOKIE_MAX_AGE = 60 * 60 * 12; // 12 hours — the owner portal is high-privilege
 
 /**
  * Get the JWT secret key.
@@ -206,20 +196,90 @@ export async function requireAuth(): Promise<
 }
 
 
-/**
- * Validate session and ensure the logged-in user is the platform owner.
- */
-export async function requireOwner(): Promise<
-  { session: AuthSession } | { error: NextResponse }
-> {
-  const auth = await requireAuth();
-  if ('error' in auth) return auth;
+// =============================================================
+// OWNER PORTAL — STANDALONE PASSWORD, NOT TIED TO ANY CHURCH
+// =============================================================
+// The developer/owner portal spans every church, so it deliberately has its
+// own single-password gate and its own short-lived cookie, independent of any
+// church admin login. There is no "owner" church account any more.
 
-  if (!isOwnerEmail(auth.session.adminEmail)) {
-    return {
-      error: NextResponse.json({ error: 'Owner access required' }, { status: 403 }),
-    };
+/** Constant-time comparison so the password check can't be timed. */
+function safeEqual(a: string, b: string): boolean {
+  const ab = new TextEncoder().encode(a);
+  const bb = new TextEncoder().encode(b);
+  // Compare against a fixed-length digest so differing lengths don't leak.
+  if (ab.length !== bb.length) {
+    // Still walk b to keep timing flat, then fail.
+    let acc = 1;
+    for (let i = 0; i < bb.length; i++) acc |= bb[i];
+    return acc === 0 && ab.length === bb.length;
   }
+  let diff = 0;
+  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i];
+  return diff === 0;
+}
 
-  return auth;
+/** True when the supplied password matches OWNER_PORTAL_PASSWORD. */
+export function verifyOwnerPassword(password: string): boolean {
+  const expected = process.env.OWNER_PORTAL_PASSWORD;
+  if (!expected || expected.length < 8) {
+    // Refuse to authenticate against a missing or weak secret rather than
+    // silently allowing access.
+    return false;
+  }
+  if (typeof password !== 'string' || password.length === 0) return false;
+  return safeEqual(password, expected);
+}
+
+export async function createOwnerToken(): Promise<string> {
+  return new SignJWT({ role: 'owner' })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('12h')
+    .sign(getSecretKey());
+}
+
+export async function setOwnerCookie(token: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(OWNER_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: OWNER_COOKIE_MAX_AGE,
+    path: '/',
+  });
+}
+
+export async function clearOwnerCookie(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(OWNER_COOKIE_NAME);
+}
+
+async function getOwnerSession(): Promise<boolean> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(OWNER_COOKIE_NAME)?.value;
+    if (!token) return false;
+    const { payload } = await jwtVerify(token, getSecretKey());
+    return payload.role === 'owner';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Guard for owner-portal API routes. Requires a valid owner cookie — nothing
+ * to do with church sessions.
+ */
+export async function requireOwner(): Promise<{ ok: true } | { error: NextResponse }> {
+  const isOwner = await getOwnerSession();
+  if (!isOwner) {
+    return { error: NextResponse.json({ error: 'Owner access required' }, { status: 401 }) };
+  }
+  return { ok: true };
+}
+
+/** For the owner page to check whether a password prompt is needed. */
+export async function isOwnerAuthenticated(): Promise<boolean> {
+  return getOwnerSession();
 }

@@ -6,8 +6,6 @@ import Link from 'next/link';
 import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization } from '@/types';
 import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
 
-const OWNER_EMAILS = (process.env.NEXT_PUBLIC_OWNER_EMAILS || '').split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
-
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
 
 interface SessionData {
@@ -176,6 +174,8 @@ export default function AdminPage() {
   });
   const [savingService, setSavingService]     = useState(false);
   const [sendingReportId, setSendingReportId] = useState<string|null>(null);
+  const [reportService, setReportService] = useState<Service|null>(null);
+  const [reportRecipient, setReportRecipient] = useState('');
   const [peopleSearch, setPeopleSearch] = useState('');
   const [giving, setGiving] = useState<Giving[]>([]);
   const [givingFormOpen, setGivingFormOpen] = useState(false);
@@ -314,13 +314,27 @@ export default function AdminPage() {
     const data=await res.json(); if(!res.ok){setError(data.error||'Could not activate.');return;} setMessage('Current service updated.'); loadData();
   };
 
-  const handleEmailReport = async (serviceId:string) => {
-    setSendingReportId(serviceId); setMessage(null); setError(null);
+  const openReportModal = (s: Service) => {
+    // Prefill with the last address used on this browser, else the account email.
+    const remembered = typeof window !== 'undefined' ? window.localStorage.getItem('swiftcheckin_report_email') : null;
+    setReportRecipient(remembered || session?.adminEmail || '');
+    setReportService(s);
+  };
+
+  const sendReport = async () => {
+    if (!reportService) return;
+    const recipient = reportRecipient.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) { setError('Enter a valid email address.'); return; }
+    setSendingReportId(reportService.id); setMessage(null); setError(null);
     try {
-      const res = await fetch(`/api/services/${serviceId}/email-report`, { method:'POST' });
+      const res = await fetch(`/api/services/${reportService.id}/email-report`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ recipient }),
+      });
       const data = await res.json();
       if (!res.ok) { setError(data.error||'Could not send report.'); return; }
-      setMessage(`Report emailed — ${data.count} present, ${data.absent} absent.`);
+      if (typeof window !== 'undefined') window.localStorage.setItem('swiftcheckin_report_email', recipient);
+      setMessage(`Report sent to ${data.recipient} — ${data.count} present, ${data.absent} absent.`);
+      setReportService(null);
     } finally { setSendingReportId(null); }
   };
 
@@ -505,8 +519,6 @@ export default function AdminPage() {
   );
   if (!session) return null;
 
-  const isOwner = OWNER_EMAILS.includes(session.adminEmail.toLowerCase());
-
   return (
     <div style={{minHeight:"100vh",background:"#F8F4EE"}}>
       {editingPerson && <EditPersonModal person={editingPerson} onClose={()=>setEditingPerson(null)} onSaved={()=>{loadData();setMessage('Profile updated.');}} />}
@@ -527,11 +539,6 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {isOwner && (
-              <Link href="/owner" className="btn btn-ghost text-sm hidden md:flex" title="Developer portal">
-                Developer
-              </Link>
-            )}
             <button onClick={loadData} className="btn btn-ghost btn-icon" title="Refresh" aria-label="Refresh data">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
@@ -693,6 +700,31 @@ export default function AdminPage() {
         {tab==='services' && (
           <div className="animate-fade-in" style={{maxWidth:1060,margin:'0 auto'}}>
 
+            {/* Report recipient modal — confirm/redirect where the CSV goes */}
+            {reportService && (
+              <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
+                onClick={()=>setReportService(null)}>
+                <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:440,boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}} onClick={e=>e.stopPropagation()}>
+                  <div style={{padding:'24px 28px 20px'}}>
+                    <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',marginBottom:6}}>Email attendance report</h3>
+                    <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginBottom:20,lineHeight:1.6}}>
+                      Sends the present-and-absent report for <strong style={{color:'#16243A',fontWeight:500}}>{reportService.title||'this service'}</strong> as a CSV. Change the address if it should go to a pastor or secretary.
+                    </p>
+                    <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:8}}>Send to</label>
+                    <input className="input" type="email" value={reportRecipient} onChange={e=>setReportRecipient(e.target.value)}
+                      onKeyDown={e=>{ if(e.key==='Enter') sendReport(); }} placeholder="name@church.org" autoFocus />
+                  </div>
+                  <div style={{padding:'16px 28px 24px',display:'flex',gap:10}}>
+                    <button onClick={()=>setReportService(null)} className="btn btn-secondary" style={{flex:1}}>Cancel</button>
+                    <button onClick={sendReport} disabled={sendingReportId===reportService.id} className="btn btn-primary" style={{flex:1}}>
+                      {sendingReportId===reportService.id?'Sending…':'Send report'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+
             {/* Service form modal */}
             {serviceFormOpen && (
               <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
@@ -804,7 +836,7 @@ export default function AdminPage() {
                         )}
                       </div>
                       <div style={{display:'flex',gap:8,flexShrink:0}}>
-                        <button onClick={()=>handleEmailReport(s.id)} disabled={sendingReportId===s.id} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:sendingReportId===s.id?'wait':'pointer'}}>{sendingReportId===s.id?'Sending…':'Email Report'}</button>
+                        <button onClick={()=>openReportModal(s)} disabled={sendingReportId===s.id} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:sendingReportId===s.id?'wait':'pointer'}}>{sendingReportId===s.id?'Sending…':'Email Report'}</button>
                         <button onClick={()=>openEditService(s)} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Edit</button>
                         {!s.is_active&&<button onClick={()=>setActiveService(s.id)} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Set Active</button>}
                       </div>

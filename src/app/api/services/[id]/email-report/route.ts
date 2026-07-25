@@ -38,8 +38,21 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .eq('id', auth.session.orgId)
       .single();
 
-    if (!org?.admin_email) {
-      return NextResponse.json({ error: 'No admin email on file for this account' }, { status: 400 });
+    // The sender may redirect the report to a pastor/secretary. Fall back to
+    // the account's own admin email when none is supplied.
+    let recipient = org?.admin_email || '';
+    try {
+      const body = await request.json();
+      if (body?.recipient) recipient = String(body.recipient).trim();
+    } catch {
+      // No body — keep the admin-email default.
+    }
+
+    if (!recipient) {
+      return NextResponse.json({ error: 'No email address to send the report to.' }, { status: 400 });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+      return NextResponse.json({ error: 'That recipient email is not valid.' }, { status: 400 });
     }
 
     const { present, absent, serviceIds, expectedCount } = await getDayAttendance(
@@ -133,10 +146,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     `;
 
     const result = await sendBrevoEmail(
-      [{ email: org.admin_email }],
+      [{ email: recipient }],
       `Attendance Report — ${service.title || 'Service'} (${serviceDateLabel})`,
       html,
-      org.name,
+      org?.name || undefined,
       [{ content: csvBase64, name: filename }]
     );
 
@@ -144,7 +157,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: result.error || 'Failed to send report email' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, count, absent: absent.length, firstTimers });
+    return NextResponse.json({ success: true, count, absent: absent.length, firstTimers, recipient });
   } catch (error) {
     console.error('Email attendance report error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

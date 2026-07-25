@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 type OrgRow = {
   id: string;
@@ -15,11 +13,6 @@ type OrgRow = {
   counts: { people: number; services: number; checkins: number };
 };
 
-type SessionData = {
-  adminEmail: string;
-  orgName: string;
-};
-
 const STATUS_BADGE: Record<string, string> = {
   active: 'badge-success',
   trial: 'badge-gold',
@@ -28,8 +21,10 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function OwnerPage() {
-  const router = useRouter();
-  const [session, setSession] = useState<SessionData | null>(null);
+  const [authed, setAuthed] = useState<boolean | null>(null); // null = still checking
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loggingIn, setLoggingIn] = useState(false);
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -41,31 +36,55 @@ export default function OwnerPage() {
 
   const load = async () => {
     setError(null);
-    const [sessionRes, orgRes] = await Promise.all([
-      fetch('/api/auth/session', { cache: 'no-store' }),
-      fetch('/api/owner/orgs', { cache: 'no-store' }),
-    ]);
-    const sessionData = await sessionRes.json();
-    if (!sessionData.authenticated) {
-      router.push('/login');
+    const orgRes = await fetch('/api/owner/orgs', { cache: 'no-store' });
+    if (orgRes.status === 401) {
+      // Owner cookie missing or expired — fall back to the password screen.
+      setAuthed(false);
+      setLoading(false);
       return;
     }
-    setSession(sessionData.session);
     const orgData = await orgRes.json();
     if (!orgRes.ok) {
       setError(orgData.error || 'Could not load owner dashboard.');
     } else {
       setOrgs(orgData.orgs || []);
     }
+    setAuthed(true);
     setLoading(false);
   };
 
   useEffect(() => {
-    load().catch(() => {
-      setError('Could not load owner dashboard.');
-      setLoading(false);
-    });
+    // Check owner auth first; only load data if already signed in.
+    fetch('/api/owner/auth', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.authenticated) return load();
+        setAuthed(false);
+        setLoading(false);
+      })
+      .catch(() => { setAuthed(false); setLoading(false); });
   }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoggingIn(true); setLoginError(null);
+    try {
+      const res = await fetch('/api/owner/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+      const data = await res.json();
+      if (!res.ok) { setLoginError(data.error || 'Could not sign in.'); return; }
+      setPassword('');
+      setLoading(true);
+      await load();
+    } catch {
+      setLoginError('Something went wrong.');
+    } finally { setLoggingIn(false); }
+  };
+
+  const handleOwnerLogout = async () => {
+    await fetch('/api/owner/auth', { method: 'DELETE' });
+    setAuthed(false);
+    setOrgs([]);
+  };
 
   useEffect(() => {
     if (!message && !error) return;
@@ -113,11 +132,47 @@ export default function OwnerPage() {
     setBusy(null);
   };
 
-  if (loading) return (
+  if (authed === null || (loading && authed)) return (
     <div style={{ minHeight:'100vh', background:'#F8F4EE', display:'flex', alignItems:'center', justifyContent:'center' }}>
       <div style={{ textAlign:'center' }}>
         <div style={{ width:44, height:44, border:'3px solid #E4DFD5', borderTopColor:'#C97B1A', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 16px' }} />
         <p style={{ color:'#7A6E60', fontSize:14 }}>Loading…</p>
+      </div>
+    </div>
+  );
+
+  // Standalone password gate — no church login involved.
+  if (!authed) return (
+    <div style={{ minHeight:'100vh', background:'#16243A', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+      <div style={{ width:'100%', maxWidth:380 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, justifyContent:'center', marginBottom:28 }}>
+          <div style={{ width:38, height:38, background:'#C97B1A', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <svg style={{ width:18, height:18, color:'#fff' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+          </div>
+          <span style={{ fontFamily:"'Playfair Display',serif", fontSize:20, color:'#fff' }}>Developer Portal</span>
+        </div>
+        <div style={{ background:'#fff', borderRadius:18, padding:'32px 28px', boxShadow:'0 24px 60px rgba(0,0,0,0.3)' }}>
+          <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:22, color:'#16243A', marginBottom:6 }}>Restricted area</h1>
+          <p style={{ fontSize:13, color:'#7A6E60', fontWeight:300, marginBottom:22 }}>Enter the owner password to manage every church.</p>
+          <form onSubmit={handleLogin}>
+            {loginError && <div className="alert alert-error" style={{ marginBottom:16 }}><span>{loginError}</span></div>}
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Owner password"
+              autoFocus
+              autoComplete="current-password"
+            />
+            <button type="submit" disabled={loggingIn || !password} className="btn btn-primary w-full" style={{ marginTop:16 }}>
+              {loggingIn ? 'Checking…' : 'Enter portal'}
+            </button>
+          </form>
+        </div>
+        <p style={{ fontSize:12, color:'rgba(255,255,255,0.4)', textAlign:'center', marginTop:20, fontWeight:300 }}>
+          This portal is separate from church sign-in.
+        </p>
       </div>
     </div>
   );
@@ -136,14 +191,14 @@ export default function OwnerPage() {
             </div>
             <div className="min-w-0">
               <h1 className="font-semibold text-navy-900 leading-tight">Developer Portal</h1>
-              <p className="text-xs text-navy-500 truncate">{session?.adminEmail}</p>
+              <p className="text-xs text-navy-500 truncate">Platform owner</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={() => load()} className="btn btn-ghost btn-icon" title="Refresh" aria-label="Refresh">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
-            <Link href="/admin" className="btn btn-secondary text-sm">Church Admin</Link>
+            <button onClick={handleOwnerLogout} className="btn btn-secondary text-sm">Sign out</button>
           </div>
         </div>
       </header>
