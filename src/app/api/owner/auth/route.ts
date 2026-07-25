@@ -23,9 +23,18 @@ export async function POST(request: NextRequest) {
   try {
     const { password } = await request.json();
 
-    if (!process.env.OWNER_PORTAL_PASSWORD) {
+    const configured = process.env.OWNER_PORTAL_PASSWORD;
+    if (!configured) {
       return NextResponse.json(
         { error: 'Owner portal is not configured. Set OWNER_PORTAL_PASSWORD.' },
+        { status: 503 }
+      );
+    }
+    // Guard against the silent-lockout trap: a too-short secret can never
+    // authenticate, so say that rather than reporting a wrong password.
+    if (configured.length < 8) {
+      return NextResponse.json(
+        { error: 'OWNER_PORTAL_PASSWORD is set but too short. Use at least 8 characters.' },
         { status: 503 }
       );
     }
