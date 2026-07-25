@@ -424,11 +424,15 @@ export default function AdminPage() {
   const topLocations = Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.location?.trim()) return a; a[p.location.trim()]=(a[p.location.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const topOccupations = Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.occupation?.trim()) return a; a[p.occupation.trim()]=(a[p.occupation.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const howFoundUs = Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.how_found_us?.trim()) return a; a[p.how_found_us.trim()]=(a[p.how_found_us.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  // Retention: first-timers last month who checked in again this month
+  // Retention: of last month's first-timers, how many came back at all this month.
+  // Must be measured per PERSON, not per check-in — otherwise someone who
+  // attended three times this month counted as 300%, producing impossible
+  // rates like 316%.
   const lastMonthFirstTimers = new Set(
     checkins.filter(c=>c.is_first_time && c.checked_in_at?.startsWith(lastMonthKey)).map(c=>c.person_id)
   );
-  const retained = currentMonthCheckins.filter(c=>lastMonthFirstTimers.has(c.person_id)).length;
+  const currentMonthAttenderIds = new Set(currentMonthCheckins.map(c=>c.person_id));
+  const retained = Array.from(lastMonthFirstTimers).filter(id=>currentMonthAttenderIds.has(id)).length;
   const retentionRate = lastMonthFirstTimers.size > 0 ? Math.round((retained / lastMonthFirstTimers.size) * 100) : null;
   // Top attenders
   const topAttenders = [...activePeople].sort((a,b)=>(b.total_checkins||0)-(a.total_checkins||0)).slice(0,5);
@@ -444,17 +448,29 @@ export default function AdminPage() {
     if (!q) return [];
     return activePeople.filter(p=>p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)).slice(0,6);
   }, [activePeople, givingPersonQuery]);
-  const currentMonthRangeLabel = (() => {
-    const now = new Date();
-    const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    const last = new Date(now.getFullYear(), now.getMonth()+1, 0);
-    const month = first.toLocaleDateString('en-US', {month:'short'});
-    return `${month} 1–${last.getDate()}, ${now.getFullYear()}`;
-  })();
+  // A plain "Mar 1–31, 2026" label so every "this month / last month" figure
+  // states exactly which dates it covers (calendar month, 1st to last day).
+  const monthRange = (d: Date) => {
+    const first = new Date(d.getFullYear(), d.getMonth(), 1);
+    const last = new Date(d.getFullYear(), d.getMonth()+1, 0);
+    return `${first.toLocaleDateString('en-US',{month:'short'})} 1–${last.getDate()}, ${d.getFullYear()}`;
+  };
+  const currentMonthRangeLabel = monthRange(new Date());
+  const lastMonthRangeLabel = monthRange(lastMonthDate);
+
   const givingThisMonth = giving.filter(g=>g.created_at?.startsWith(currentMonthKey));
   const givingTotalThisMonth = givingThisMonth.reduce((sum,g)=>sum+Number(g.amount||0),0);
+  const givingTotalAllTime = giving.reduce((sum,g)=>sum+Number(g.amount||0),0);
   const givingPendingCount = giving.filter(g=>g.status==='recorded').length;
+  const givingCurrency = givingThisMonth[0]?.currency || giving[0]?.currency || 'GHS';
   const GIVING_TYPE_LABELS: Record<GivingType,string> = { tithe:'Tithe', offering:'Offering', seed:'Seed', pledge:'Pledge', other:'Other' };
+  // Breakdown by type for the current month — "Tithe: 3 · GHS 450", etc.
+  const givingByType = (['tithe','offering','seed','pledge','other'] as GivingType[])
+    .map(type => {
+      const rows = givingThisMonth.filter(g=>g.giving_type===type);
+      return { type, label: GIVING_TYPE_LABELS[type], count: rows.length, amount: rows.reduce((s,g)=>s+Number(g.amount||0),0) };
+    })
+    .filter(t => t.count > 0);
 
   const resetGivingForm = () => setGivingForm({ person_id:'', giver_name:'', giver_email:'', amount:'', giving_type:'offering', giving_type_other:'', payment_method:'cash', notes:'' });
 
@@ -978,10 +994,10 @@ export default function AdminPage() {
             {/* Stat cards */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,marginBottom:24}}>
               {[
-                {label:'Revenue this month', sub:currentMonthRangeLabel, value:`${(givingThisMonth[0]?.currency)||'GHS'} ${givingTotalThisMonth.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`},
-                {label:'Gifts this month',   sub:currentMonthRangeLabel, value:String(givingThisMonth.length)},
-                {label:'Awaiting receipt',   sub:null,                  value:String(givingPendingCount)},
-                {label:'All-time total',     sub:'Since you started',   value:String(giving.length)},
+                {label:'Received this month', sub:currentMonthRangeLabel,                 value:`${givingCurrency} ${givingTotalThisMonth.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`},
+                {label:'Gifts this month',    sub:`${givingThisMonth.length} record${givingThisMonth.length===1?'':'s'}`, value:String(givingThisMonth.length)},
+                {label:'Awaiting receipt',    sub:'Not yet emailed',                       value:String(givingPendingCount)},
+                {label:'Received all-time',   sub:`Since you started · ${giving.length} gift${giving.length===1?'':'s'}`, value:`${givingCurrency} ${givingTotalAllTime.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}`},
               ].map(({label,sub,value})=>(
                 <div key={label} className="panel card-hover" style={{padding:'22px 24px'}}>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',lineHeight:1.15,marginBottom:6}}>{value}</div>
@@ -989,6 +1005,28 @@ export default function AdminPage() {
                   {sub && <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginTop:2}}>{sub}</div>}
                 </div>
               ))}
+            </div>
+
+            {/* This-month breakdown by giving type — so "13 gifts" becomes
+                "Tithe 3, Offering 5, Seed 4…" with amounts. */}
+            <div className="panel" style={{padding:'20px 24px',marginBottom:24}}>
+              <div className="panel-label" style={{display:'block',marginBottom:2}}>This month by type</div>
+              <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:16}}>{currentMonthRangeLabel}</div>
+              {givingByType.length===0 ? (
+                <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No gifts recorded this month yet.</p>
+              ) : (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:14}}>
+                  {givingByType.map(t=>(
+                    <div key={t.type} style={{borderLeft:'2px solid #EDE7DC',paddingLeft:14}}>
+                      <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:2}}>
+                        <span style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:'#16243A',lineHeight:1}}>{t.count}</span>
+                        <span style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{t.label}{t.count===1?'':'s'}</span>
+                      </div>
+                      <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{givingCurrency} {t.amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Record gift modal */}
@@ -1149,14 +1187,15 @@ export default function AdminPage() {
             {/* Top stat cards */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,marginBottom:24}}>
               {[
-                {label:'This month',        value:currentMonthCheckins.length},
-                {label:'Last month',        value:lastMonthCheckins.length},
-                {label:'New this month',    value:firstTimersThisMonth},
-                {label:'Total congregation',value:activePeople.length},
-              ].map(({label,value})=>(
-                <div key={label} style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:14,padding:'22px 24px'}}>
+                {label:'Check-ins this month', sub:currentMonthRangeLabel,        value:currentMonthCheckins.length},
+                {label:'Check-ins last month', sub:lastMonthRangeLabel,           value:lastMonthCheckins.length},
+                {label:'New this month',       sub:'First-time visitors',         value:firstTimersThisMonth},
+                {label:'Total congregation',   sub:'Active members & visitors',   value:activePeople.length},
+              ].map(({label,sub,value})=>(
+                <div key={label} className="panel card-hover" style={{padding:'22px 24px'}}>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:34,color:'#16243A',lineHeight:1,marginBottom:6}}>{value}</div>
                   <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{label}</div>
+                  <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginTop:2}}>{sub}</div>
                 </div>
               ))}
             </div>
@@ -1285,10 +1324,12 @@ export default function AdminPage() {
               <div className="panel" style={{padding:'24px 28px'}}>
                 <div className="panel-label" style={{display:'block',marginBottom:16}}>Visitor retention</div>
                 {retentionRate === null
-                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Not enough data yet — needs 2 months of check-ins</p>
+                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Not enough data yet — needs first-timers last month to measure.</p>
                   : <>
                       <div style={{fontFamily:"'Playfair Display',serif",fontSize:40,color:retentionRate>=50?'#2E7D4E':'#C97B1A',lineHeight:1,marginBottom:8}}>{retentionRate}%</div>
-                      <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>of last month&apos;s first-timers came back this month</div>
+                      <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.5}}>
+                        <strong style={{color:'#16243A',fontWeight:600}}>{retained} of {lastMonthFirstTimers.size}</strong> first-time visitors from last month ({lastMonthRangeLabel}) came back this month ({currentMonthRangeLabel}).
+                      </div>
                       <div style={{height:8,background:'#F0EBE3',borderRadius:4,overflow:'hidden',marginTop:14}}>
                         <div style={{height:8,width:`${retentionRate}%`,background:retentionRate>=50?'#2E7D4E':'#C97B1A',borderRadius:4,transition:'all .5s'}}/>
                       </div>
