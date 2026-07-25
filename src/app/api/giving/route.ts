@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { requireActiveSubscription } from '@/lib/auth';
 import { sendGivingReceipt } from '@/lib/givingReceipt';
+import { kioskCodeMatches } from '@/lib/confirmCode';
 import type { Giving, GivingType, PaymentMethod } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -209,6 +210,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     const supabase = getServerSupabase();
+
+    const gate = await kioskCodeMatches(supabase, auth.session.orgId, searchParams.get('code'));
+    if (!gate.ok) {
+      return NextResponse.json({ error: 'Enter your kiosk code to confirm deletion.' }, { status: 403 });
+    }
+
     const { error } = await supabase
       .from('giving')
       .delete()

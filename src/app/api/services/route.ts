@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { requireActiveSubscription } from '@/lib/auth';
+import { kioskCodeMatches } from '@/lib/confirmCode';
 
 export const dynamic = 'force-dynamic';
 
@@ -176,6 +177,44 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Services PATCH error:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+// DELETE - Remove a service (and its check-ins). Gated by the kiosk code so a
+// service can't be wiped by accident. If it was the active service, the kiosk's
+// active_service_id is cleared automatically (ON DELETE SET NULL).
+export async function DELETE(request: NextRequest) {
+  const auth = await requireActiveSubscription();
+  if ('error' in auth) return auth.error;
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const serviceId = searchParams.get('id');
+    if (!serviceId) {
+      return NextResponse.json({ error: 'Service ID is required' }, { status: 400 });
+    }
+
+    const supabase = getServerSupabase();
+
+    const gate = await kioskCodeMatches(supabase, auth.session.orgId, searchParams.get('code'));
+    if (!gate.ok) {
+      return NextResponse.json({ error: 'Enter your kiosk code to confirm deletion.' }, { status: 403 });
+    }
+
+    const { error } = await supabase
+      .from('services')
+      .delete()
+      .eq('id', serviceId)
+      .eq('org_id', auth.session.orgId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Services DELETE error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

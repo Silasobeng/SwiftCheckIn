@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { requireActiveSubscription } from '@/lib/auth';
+import { kioskCodeMatches } from '@/lib/confirmCode';
 
 export const dynamic = 'force-dynamic';
 
@@ -154,6 +155,13 @@ export async function DELETE(request: NextRequest) {
     }
 
     const supabase = getServerSupabase();
+
+    // Gate on the kiosk code so records aren't deleted casually.
+    const gate = await kioskCodeMatches(supabase, auth.session.orgId, searchParams.get('code'));
+    if (!gate.ok) {
+      return NextResponse.json({ error: 'Enter your kiosk code to confirm deletion.' }, { status: 403 });
+    }
+
     const { error } = await supabase
       .from('people')
       .delete()
