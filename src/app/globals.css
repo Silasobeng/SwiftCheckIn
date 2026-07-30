@@ -25,6 +25,40 @@
   /* Vertical rhythm for marketing sections — tightens on small screens */
   --section-y:  clamp(64px, 9vw, 104px);
   --ring:       0 0 0 3px rgba(201, 123, 26, 0.25);
+
+  /* ---------------------------------------------------------------
+     CHART PALETTE — validated, not hand-picked.
+     Checked with the dataviz validator against the white panel
+     surface (#FFFFFF), all-pairs, light mode.
+
+     Brand navy (--navy #16243A) CANNOT be a series colour: OKLCH
+     L 0.26 sits below the 0.43–0.77 legibility band and chroma
+     0.046 is under the 0.10 floor, so it reads as grey rather than
+     as an identity. --series-1 is the nearest passing step in the
+     same hue family. Navy stays what it always was: ink.
+
+     If you change any value here, re-run the validator — these
+     clear CVD separation, the normal-vision floor and 3:1 contrast
+     as a set, not individually.
+     --------------------------------------------------------------- */
+  --series-1:  #2F5C99;   /* identity slot 1 — returning, and every single-series bar */
+  --series-2:  #C97B1A;   /* identity slot 2 — first-time visitors */
+  --series-3:  #2E7D4E;   /* identity slot 3 — held in reserve */
+
+  /* Ordinal ramp — for scales whose order carries meaning (age bands).
+     Monotone lightness, single hue, light end clears 2:1 on white. */
+  --ord-1: #8AAAD4;
+  --ord-2: #6B92C7;
+  --ord-3: #4F7CB6;
+  --ord-4: #3A66A4;
+  --ord-5: #2A5288;
+  --ord-6: #1A3D68;
+
+  /* Chart chrome — recessive by design; the data is the only loud thing. */
+  --chart-surface: #FFFFFF;
+  --chart-grid:    #EFEDE7;
+  --chart-axis:    #DDD8CE;
+  --chart-track:   #E8EEF6;  /* meter track: a light step of the series-1 hue */
 }
 
 html { scroll-behavior: smooth; }

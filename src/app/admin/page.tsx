@@ -6,8 +6,14 @@ import Link from 'next/link';
 import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization } from '@/types';
 import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
 import { tzFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel } from '@/lib/monthWindow';
+import { StackedTrend, RankedBars, OrdinalBars, SplitBar } from '@/components/Charts';
 
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
+
+// Age bands in age order — the ordinal ramp is only meaningful if the rows are
+// rendered in the scale's own order, never sorted by count. Must stay in step
+// with getAgeGroup() in lib/utils.
+const AGE_BANDS = ['Under 20', '20-29', '30-39', '40-49', '50-59', '60+'];
 
 interface SessionData {
   orgId: string; orgName: string; orgSlug: string; adminEmail: string;
@@ -452,7 +458,17 @@ export default function AdminPage() {
   const retentionRate = lastMonthFirstTimers.size > 0 ? Math.round((retained / lastMonthFirstTimers.size) * 100) : null;
   // Top attenders
   const topAttenders = [...activePeople].sort((a,b)=>(b.total_checkins||0)-(a.total_checkins||0)).slice(0,5);
-  const monthlyTrend = Object.entries(checkins.reduce<Record<string,number>>((a,c)=>{ const d=monthOf(c.checked_in_at); if(!d) return a; a[d]=(a[d]||0)+1; return a; },{})).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6);
+  // Split each month into returning vs first-time so the trend answers the
+  // question a pastor actually asks — "are we growing, or are the same people
+  // just coming back?" A single total bar cannot tell those apart.
+  const monthlyTrend = Object.entries(
+    checkins.reduce<Record<string,{returning:number;firstTime:number}>>((a,c)=>{
+      const d=monthOf(c.checked_in_at); if(!d) return a;
+      if(!a[d]) a[d]={returning:0,firstTime:0};
+      if(c.is_first_time) a[d].firstTime++; else a[d].returning++;
+      return a;
+    },{})
+  ).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
   const missingBirthdayCount = activePeople.filter(p=>!p.date_of_birth).length;
   const missingEmailCount = activePeople.filter(p=>!p.email).length;
   const firstTimersThisMonth = currentMonthCheckins.filter(c=>c.is_first_time).length;
@@ -1211,27 +1227,25 @@ export default function AdminPage() {
               ))}
             </div>
 
-            {/* Monthly attendance bar chart */}
+            {/* Attendance trend — returning vs first-time, stacked */}
             <div className="panel" style={{padding:'28px',marginBottom:20}}>
-              <div className="panel-label" style={{display:'block',marginBottom:24}}>Monthly attendance — last 6 months</div>
-              {monthlyTrend.length===0 ? (
-                <div style={{textAlign:'center',padding:'32px 0',color:'#A89D8E',fontSize:14,fontWeight:300}}>No attendance data yet.</div>
-              ) : (
-                <div style={{display:'flex',alignItems:'flex-end',gap:12,height:160}}>
-                  {[...monthlyTrend].reverse().map(([month,count])=>{
-                    const maxVal = Math.max(...monthlyTrend.map(([,n])=>n),1);
-                    const pct    = Math.round((count/maxVal)*100);
-                    const isLast = month === monthlyTrend[0]?.[0];
-                    return (
-                      <div key={month} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
-                        <div style={{fontSize:12,color:'#16243A',fontFamily:"'Playfair Display',serif",fontWeight:400}}>{count}</div>
-                        <div style={{width:'100%',background:isLast?'#16243A':'#EDE7DC',borderRadius:'6px 6px 0 0',height:`${Math.max(pct,4)}%`,transition:'all .3s'}}/>
-                        <div style={{fontSize:11,color:'#A89D8E',whiteSpace:'nowrap'}}>{formatMonth(month)}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <div className="panel-label" style={{display:'block',marginBottom:4}}>Monthly attendance — last 6 months</div>
+              <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,margin:'0 0 18px'}}>Each column is one month&apos;s check-ins, split by who was new.</p>
+              <StackedTrend data={monthlyTrend.map(([month,v])=>({label:formatMonth(month),returning:v.returning,firstTime:v.firstTime}))} />
+            </div>
+
+            {/* Giving by type — one series, so every bar takes the same hue */}
+            <div className="panel" style={{padding:'28px',marginBottom:20}}>
+              <div className="panel-label" style={{display:'block',marginBottom:4}}>Giving by type — this month</div>
+              <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,margin:'0 0 18px'}}>{currentMonthRangeLabel}</p>
+              <RankedBars
+                empty="No giving recorded this month yet."
+                rows={givingByType.map(t=>({
+                  label: t.label,
+                  value: t.amount,
+                  display: `${givingCurrency} ${t.amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,
+                }))}
+              />
             </div>
 
             {/* Insight cards grid */}
@@ -1240,45 +1254,28 @@ export default function AdminPage() {
               {/* Gender */}
               <div className="panel" style={{padding:'24px 28px'}}>
                 <div className="panel-label" style={{display:'block',marginBottom:16}}>Gender</div>
-                {Object.keys(genderCounts).length===0
-                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No data yet — add genders in People tab</p>
-                  : Object.entries(genderCounts).map(([label,count])=>{
-                      const max=Math.max(...Object.values(genderCounts),1);
-                      return (
-                        <div key={label} style={{marginBottom:12}}>
-                          <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:5}}>
-                            <span style={{color:'#7A6E60',textTransform:'capitalize',fontWeight:300}}>{label}</span>
-                            <span style={{color:'#16243A',fontFamily:"'Playfair Display',serif"}}>{count}</span>
-                          </div>
-                          <div style={{height:6,background:'#F0EBE3',borderRadius:3,overflow:'hidden'}}>
-                            <div style={{height:6,width:`${(count/max)*100}%`,background:'#16243A',borderRadius:3,transition:'all .3s'}}/>
-                          </div>
-                        </div>
-                      );
-                    })
-                }
+                {/* Part-to-whole, so one split bar rather than a pie — two slices
+                    is the case a pie handles worst, and this survives a phone. */}
+                <SplitBar
+                  empty="No data yet — add genders in People tab"
+                  segments={Object.entries(genderCounts).map(([label,count],i)=>({
+                    label,
+                    value:count,
+                    color:['var(--series-1)','var(--series-2)','var(--series-3)'][i] ?? 'var(--chart-axis)',
+                  }))}
+                />
               </div>
 
               {/* Age groups */}
               <div className="panel" style={{padding:'24px 28px'}}>
                 <div className="panel-label" style={{display:'block',marginBottom:16}}>Age groups</div>
-                {Object.keys(ageGroups).length===0
-                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No data yet — add birthdays in People tab</p>
-                  : Object.entries(ageGroups).map(([label,count])=>{
-                      const max=Math.max(...Object.values(ageGroups),1);
-                      return (
-                        <div key={label} style={{marginBottom:12}}>
-                          <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:5}}>
-                            <span style={{color:'#7A6E60',fontWeight:300}}>{label}</span>
-                            <span style={{color:'#16243A',fontFamily:"'Playfair Display',serif"}}>{count}</span>
-                          </div>
-                          <div style={{height:6,background:'#F0EBE3',borderRadius:3,overflow:'hidden'}}>
-                            <div style={{height:6,width:`${(count/max)*100}%`,background:'#C97B1A',borderRadius:3,transition:'all .3s'}}/>
-                          </div>
-                        </div>
-                      );
-                    })
-                }
+                {/* Age bands have a natural order, so they take the ordinal ramp —
+                    the reader sees young→old in the colour, not just the length.
+                    Bands are listed in age order, never sorted by size. */}
+                <OrdinalBars
+                  empty="No data yet — add birthdays in People tab"
+                  rows={AGE_BANDS.filter(b=>ageGroups[b]).map(b=>({label:b,value:ageGroups[b]}))}
+                />
               </div>
 
               {/* Top locations */}
@@ -1312,23 +1309,13 @@ export default function AdminPage() {
               {/* Occupations */}
               <div className="panel" style={{padding:'24px 28px'}}>
                 <div className="panel-label" style={{display:'block',marginBottom:16}}>Top occupations</div>
-                {topOccupations.length===0
-                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No data yet — add occupations in People tab</p>
-                  : topOccupations.map(([label,count])=>{
-                      const max=Math.max(...topOccupations.map(([,n])=>n),1);
-                      return (
-                        <div key={label} style={{marginBottom:12}}>
-                          <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:5}}>
-                            <span style={{color:'#7A6E60',fontWeight:300,textTransform:'capitalize'}}>{label}</span>
-                            <span style={{color:'#16243A',fontFamily:"'Playfair Display',serif"}}>{count}</span>
-                          </div>
-                          <div style={{height:6,background:'#F0EBE3',borderRadius:3,overflow:'hidden'}}>
-                            <div style={{height:6,width:`${(count/max)*100}%`,background:'#16243A',borderRadius:3,transition:'all .3s'}}/>
-                          </div>
-                        </div>
-                      );
-                    })
-                }
+                {/* Occupations have no inherent order, so every bar wears slot 1.
+                    Shading them by size would spend the colour channel repeating
+                    what the bar length already says. */}
+                <RankedBars
+                  empty="No data yet — add occupations in People tab"
+                  rows={topOccupations.map(([label,count])=>({label,value:count}))}
+                />
               </div>
 
               {/* Retention rate */}
@@ -1341,8 +1328,10 @@ export default function AdminPage() {
                       <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.5}}>
                         <strong style={{color:'#16243A',fontWeight:600}}>{retained} of {lastMonthFirstTimers.size}</strong> first-time visitors from last month ({lastMonthRangeLabel}) came back this month ({currentMonthRangeLabel}).
                       </div>
-                      <div style={{height:8,background:'#F0EBE3',borderRadius:4,overflow:'hidden',marginTop:14}}>
-                        <div style={{height:8,width:`${retentionRate}%`,background:retentionRate>=50?'#2E7D4E':'#C97B1A',borderRadius:4,transition:'all .5s'}}/>
+                      {/* Meter: the unfilled track is a light step of the fill's
+                          own ramp, so the state reads across the whole bar. */}
+                      <div style={{height:8,background:'var(--chart-track)',borderRadius:4,overflow:'hidden',marginTop:14}}>
+                        <div style={{height:8,width:`${retentionRate}%`,background:retentionRate>=50?'var(--series-3)':'var(--series-2)',borderRadius:4,transition:'all .5s'}}/>
                       </div>
                     </>
                 }
