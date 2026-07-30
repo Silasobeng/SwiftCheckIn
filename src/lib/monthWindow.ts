@@ -40,6 +40,17 @@ export function dayKeyOf(fmt: Intl.DateTimeFormat, value: Date | string): string
   return `${y}-${m}-${d}`;
 }
 
+/** Clock-time formatter for one timezone, e.g. '9:20 AM'. Reports are read by
+ *  people, not machines — a raw ISO timestamp in a spreadsheet cell is noise. */
+export function timeFormatter(timeZone: string): Intl.DateTimeFormat {
+  const opts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+  try {
+    return new Intl.DateTimeFormat('en-US', { ...opts, timeZone });
+  } catch {
+    return new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'UTC' });
+  }
+}
+
 /** The month key immediately before the given 'YYYY-MM'. */
 export function prevMonthKey(ym: string): string {
   let [y, m] = ym.split('-').map(Number);

@@ -149,6 +149,12 @@ BEGIN
   -- 10. Giving — spread over the last few weeks, mixed types & methods --------
   --     Wrapped so the seed still succeeds if the giving table isn't present.
   BEGIN
+    -- Giving must land ON the service dates. The service report buckets giving
+    -- by calendar day, so scattering it across random weekdays left the report's
+    -- giving section reading "Total 0" — which is precisely what showed up in
+    -- testing. One pass per Sunday, today included.
+    DELETE FROM giving WHERE org_id = v_org;
+
     INSERT INTO giving (org_id, person_id, giver_name, giver_email, amount, currency,
                         giving_type, payment_method, status, created_at)
     SELECT v_org, pe.id, pe.full_name, pe.email,
@@ -157,9 +163,11 @@ BEGIN
            (ARRAY['tithe','offering','seed','pledge'])[1+floor(random()*4)],
            (ARRAY['cash','mobile_money','bank_transfer'])[1+floor(random()*3)],
            CASE WHEN random() < 0.5 THEN 'sent' ELSE 'recorded' END,
-           now() - (floor(random()*22)||' days')::interval
-    FROM people pe
-    WHERE pe.org_id=v_org AND pe.role IN ('member','leader') AND random() < 0.75;
+           ((v_today - (gw.week_offset * 7))::timestamp
+             + interval '10 hours' + (floor(random()*90)||' minutes')::interval)
+    FROM generate_series(0, 7) AS gw(week_offset)
+    CROSS JOIN people pe
+    WHERE pe.org_id=v_org AND pe.role IN ('member','leader') AND random() < 0.55;
   EXCEPTION WHEN OTHERS THEN
     -- Any mismatch in the giving table (absent, or different columns) just
     -- skips this section rather than failing the whole seed.

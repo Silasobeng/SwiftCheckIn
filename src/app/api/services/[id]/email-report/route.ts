@@ -2,19 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { requireActiveSubscription } from '@/lib/auth';
 import { sendBrevoEmail } from '@/lib/email';
-import { buildCsv } from '@/lib/csv';
 import { getDayAttendance } from '@/lib/attendance';
 import { tzFormatter, dayKeyOf } from '@/lib/monthWindow';
-import type { Giving, GivingType } from '@/types';
-
-const GIVING_TYPE_ORDER: GivingType[] = ['tithe', 'offering', 'seed', 'pledge', 'other'];
-const GIVING_TYPE_LABEL: Record<GivingType, string> = {
-  tithe: 'Tithes',
-  offering: 'Offerings',
-  seed: 'Seed',
-  pledge: 'Pledges',
-  other: 'Other',
-};
+import { buildServiceReportWorkbook, type ReportGivingRow } from '@/lib/serviceReport';
+import { escapeHtml } from '@/lib/emailTemplate';
 
 function money(amount: number, currency: string): string {
   return `${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -22,7 +13,7 @@ function money(amount: number, currency: string): string {
 
 export const dynamic = 'force-dynamic';
 
-// POST - Email a CSV attendance report for one service day to the org's admin.
+// POST - Email an .xlsx service report for one service day to the org's admin.
 // Never downloads to the device — safe to trigger from a shared kiosk tablet too.
 //
 // The report covers the whole service DAY, not the single service row that was
@@ -78,9 +69,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const firstTimers = present.filter((r) => r.is_first_time).length;
     const count = present.length;
-    const members = present.filter((r) => r.person?.role === 'member').length;
-    const leaders = present.filter((r) => r.person?.role === 'leader').length;
-    const visitors = present.filter((r) => r.person?.role === 'visitor').length;
+    const absentMembers = absent.filter((p) => p.role === 'member');
+    const absentLeaders = absent.filter((p) => p.role === 'leader');
     const attendanceRate = expectedCount > 0
       ? Math.round(((expectedCount - absent.length) / expectedCount) * 100)
       : null;
@@ -97,86 +87,38 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .eq('org_id', auth.session.orgId)
       .order('created_at', { ascending: true });
 
-    const dayGiving = ((givingRows ?? []) as Giving[]).filter(
+    const dayGiving = ((givingRows ?? []) as ReportGivingRow[]).filter(
       (g) => dayKeyOf(tzFmt, g.created_at) === service.service_date
     );
 
     const currency = dayGiving[0]?.currency || 'GHS';
     const givingTotal = dayGiving.reduce((sum, g) => sum + Number(g.amount), 0);
-    const givingByType = GIVING_TYPE_ORDER
-      .map((type) => {
-        const rows = dayGiving.filter((g) => g.giving_type === type);
-        return { type, label: GIVING_TYPE_LABEL[type], rows, total: rows.reduce((s, g) => s + Number(g.amount), 0) };
-      })
-      .filter((g) => g.rows.length > 0);
 
-    const serviceDateLabel = new Date(service.service_date).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
-    const generatedLabel = new Date().toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+    const serviceDateLabel = new Date(`${service.service_date}T12:00:00Z`).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric', timeZone:'UTC' });
+    const generatedLabel = new Date().toLocaleString('en-US', {
+      month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit',
+      timeZone: org?.timezone || 'UTC',
+    });
 
-    // Header, summary and giving breakdown up top so the numbers a pastor
-    // actually wants are visible the instant the file opens — the row-by-row
-    // detail follows for anyone who wants to dig further.
-    const rows: unknown[][] = [
-      [`${org?.name || 'Church'} — Service Report`],
-      [`${service.title || 'Service'} — ${serviceDateLabel}`],
-      [`Generated ${generatedLabel}`],
-      [],
-      ['SUMMARY'],
-      ['Total Present', count],
-      ['Members', members],
-      ['Leaders', leaders],
-      ['Visitors', visitors],
-      ['First-time Visitors', firstTimers],
-      ['Absent (members & leaders)', absent.length],
-      ...(attendanceRate !== null ? [['Turnout', `${attendanceRate}%`]] : []),
-      [],
-      ['GIVING SUMMARY'],
-      ['Type', 'Givers', 'Amount'],
-      ...givingByType.map((g) => [g.label, g.rows.length, money(g.total, currency)]),
-      ['Total', dayGiving.length, money(givingTotal, currency)],
-      [],
-      ['GIVING DETAIL'],
-      ['Giver Name', 'Type', 'Amount', 'Payment Method'],
-      ...givingByType.flatMap((g) =>
-        g.rows.map((r) => [
-          r.giver_name,
-          r.giving_type === 'other' ? (r.giving_type_other || 'Other') : g.label,
-          money(Number(r.amount), r.currency),
-          r.payment_method.replace('_', ' '),
-        ])
-      ),
-      [],
-      ['PRESENT'],
-      ['Checked In At', 'Full Name', 'Phone', 'Email', 'Gender', 'Role', 'First Time'],
-      ...present.map((row) => [
-        row.checked_in_at,
-        row.person?.full_name ?? '',
-        row.person?.phone ?? '',
-        row.person?.email ?? '',
-        row.person?.gender ?? '',
-        row.person?.role ?? '',
-        row.is_first_time ? 'Yes' : 'No',
-      ]),
-      [],
-      ['ABSENT (members and leaders only)'],
-      ['Full Name', 'Phone', 'Email', 'Role', 'Last Visit', 'Weeks Away', 'Total Visits'],
-      ...absent.map((p) => [
-        p.full_name,
-        p.phone ?? '',
-        p.email ?? '',
-        p.role,
-        p.last_checkin_at ? p.last_checkin_at.split('T')[0] : 'Never',
-        p.weeksSinceLastVisit ?? '—',
-        p.total_checkins ?? 0,
-      ]),
-    ];
+    const workbook = await buildServiceReportWorkbook({
+      orgName: org?.name || 'Church',
+      serviceTitle: service.title || 'Service',
+      serviceDateLabel,
+      generatedLabel,
+      timeZone: org?.timezone || 'UTC',
+      present,
+      absent,
+      expectedCount,
+      giving: dayGiving,
+      currency,
+    });
+    const attachmentBase64 = workbook.toString('base64');
+    const filename = `service-report-${service.service_date}.xlsx`;
 
-    const csv = buildCsv(rows);
-    const csvBase64 = Buffer.from(csv, 'utf-8').toString('base64');
-    const filename = `service-report-${service.service_date}.csv`;
-
-    // Longest-away first — the names most worth a call this week.
-    const followUp = absent.slice(0, 5);
+    // Members only, longest-away first — the names most worth a call this week.
+    // A missing leader is called out separately below, because burying one
+    // among a dozen absent members is exactly how it gets missed.
+    const followUp = absentMembers.slice(0, 5);
 
     // Deliberately plain, text-forward layout. This is an internal staff
     // report, not a branded message to a member — the stat-tile "dashboard"
@@ -185,13 +127,22 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const line = (label: string, value: string | number) =>
       `<tr><td style="padding:3px 0;font-size:15px;color:#333;">${label}</td><td style="padding:3px 0 3px 24px;font-size:15px;color:#111;font-weight:600;text-align:right;">${value}</td></tr>`;
 
+    // A leader who didn't turn up is a different kind of news from a member who
+    // didn't — it goes first, and by name, however short the list.
+    const leaderText = absentLeaders.length > 0
+      ? `<p style="font-size:15px;color:#333;line-height:1.6;margin:20px 0 6px;">Leaders not present:</p>
+         <ul style="margin:0;padding-left:20px;font-size:15px;color:#333;line-height:1.7;">
+           ${absentLeaders.map((p) => `<li>${escapeHtml(p.full_name)}${p.phone ? ` — ${escapeHtml(p.phone)}` : ''}</li>`).join('')}
+         </ul>`
+      : `<p style="font-size:15px;color:#333;line-height:1.6;margin:20px 0 0;">All leaders were present.</p>`;
+
     const followUpText = followUp.length > 0
-      ? `<p style="font-size:15px;color:#333;line-height:1.6;margin:20px 0 6px;">People worth following up with:</p>
+      ? `<p style="font-size:15px;color:#333;line-height:1.6;margin:20px 0 6px;">Members worth following up with:</p>
          <ul style="margin:0 0 4px;padding-left:20px;font-size:15px;color:#333;line-height:1.7;">
-           ${followUp.map((p) => `<li>${p.full_name}${p.phone ? ` — ${p.phone}` : ''} <span style="color:#777;">(${p.weeksSinceLastVisit === null ? 'never visited' : p.weeksSinceLastVisit === 0 ? 'missed today' : `${p.weeksSinceLastVisit} week${p.weeksSinceLastVisit === 1 ? '' : 's'} away`})</span></li>`).join('')}
+           ${followUp.map((p) => `<li>${escapeHtml(p.full_name)}${p.phone ? ` — ${escapeHtml(p.phone)}` : ''} <span style="color:#777;">(${p.weeksSinceLastVisit === null ? 'never visited' : p.weeksSinceLastVisit === 0 ? 'missed today' : `${p.weeksSinceLastVisit} week${p.weeksSinceLastVisit === 1 ? '' : 's'} away`})</span></li>`).join('')}
          </ul>
-         ${absent.length > followUp.length ? `<p style="font-size:14px;color:#777;margin:4px 0 0;">…and ${absent.length - followUp.length} more in the attached spreadsheet.</p>` : ''}`
-      : `<p style="font-size:15px;color:#333;margin:20px 0 0;">Everyone on your members list attended.</p>`;
+         ${absentMembers.length > followUp.length ? `<p style="font-size:14px;color:#777;margin:4px 0 0;">…and ${absentMembers.length - followUp.length} more on the Follow Up sheet.</p>` : ''}`
+      : `<p style="font-size:15px;color:#333;margin:20px 0 0;">Every member attended.</p>`;
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#ffffff;">
@@ -201,15 +152,18 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
   <table style="border-collapse:collapse;margin:0 0 4px;">
     ${line('Present', count)}
-    ${line('Absent (members &amp; leaders)', absent.length)}
     ${line('First-time visitors', firstTimers)}
+    ${line('Absent members', absentMembers.length)}
+    ${line('Absent leaders', absentLeaders.length)}
     ${attendanceRate !== null ? line('Turnout', attendanceRate + '%') : ''}
     ${line('Total giving', money(givingTotal, currency))}
   </table>
 
+  ${leaderText}
+
   ${followUpText}
 
-  <p style="font-size:15px;line-height:1.6;margin:22px 0 0;">The attached spreadsheet has the full breakdown — attendance, giving by type with every giver's name, and who was absent.</p>
+  <p style="font-size:15px;line-height:1.6;margin:22px 0 0;">The attached workbook has four sheets: <strong>Summary</strong>, <strong>Attendance</strong>, <strong>Follow Up</strong> and <strong>Giving</strong>.</p>
 
   <p style="font-size:15px;line-height:1.6;margin:22px 0 0;">— ${org?.name || 'Your church'} check-in</p>
 </div>
@@ -224,7 +178,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       `Service Report — ${service.title || 'Service'} (${serviceDateLabel})`,
       html,
       org?.name || undefined,
-      [{ content: csvBase64, name: filename }],
+      [{ content: attachmentBase64, name: filename }],
       replyEmail ? { email: replyEmail, name: org?.name || undefined } : undefined
     );
 
