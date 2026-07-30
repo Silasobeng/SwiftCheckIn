@@ -5,7 +5,24 @@ import { buildBrandedEmail } from './emailTemplate';
 interface EmailRecipient { email: string; name?: string; }
 interface EmailAttachment { content: string; name: string; }
 interface SendEmailResult { success: boolean; error?: string; }
-interface ReplyTo { email: string; name?: string; }
+export interface ReplyTo { email: string; name?: string; }
+
+/**
+ * Reply-to for anything sent TO a member.
+ *
+ * Every member-facing email — welcome, birthday, we-miss-you, receipt — goes out
+ * from the shared platform sender. Without a reply-to, a member who hits Reply
+ * (and they do; a birthday email is the kind of message people answer) sends it
+ * into a no-reply mailbox nobody reads. Pointing replies at the church's own
+ * address makes the conversation work, and is a "a person sent this" signal that
+ * helps these land in Primary rather than Promotions.
+ */
+export function orgReplyTo(
+  org: { name?: string | null; email?: string | null; admin_email?: string | null }
+): ReplyTo | undefined {
+  const email = org.email || org.admin_email;
+  return email ? { email, name: org.name || undefined } : undefined;
+}
 
 export async function sendBrevoEmail(
   to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string,
@@ -171,7 +188,10 @@ export async function sendWelcomeEmail(
   const subject = processTemplate(template.subject, person, org, service);
   const body    = processTemplate(template.body,    person, org, service);
   const html    = buildPremiumHtml(body, org, service);
-  const result  = await sendBrevoEmail([{ email: person.email, name: person.full_name }], subject, html, org.name);
+  const result  = await sendBrevoEmail(
+    [{ email: person.email, name: person.full_name }],
+    subject, html, org.name, undefined, orgReplyTo(org)
+  );
 
   await supabase.from('email_logs').insert({
     org_id: orgId, person_id: person.id, email_type: 'welcome',

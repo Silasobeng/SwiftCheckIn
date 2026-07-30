@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase, isSubscriptionValid } from '@/lib/supabase';
-import { sendBrevoEmail, processTemplate } from '@/lib/email';
+import { sendBrevoEmail, processTemplate, orgReplyTo } from '@/lib/email';
 import { buildBrandedEmail } from '@/lib/emailTemplate';
+import { tzFormatter, dayKeyOf } from '@/lib/monthWindow';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,13 +15,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = getServerSupabase();
-    const today = new Date();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day   = String(today.getDate()).padStart(2, '0');
+    // "Today" is deliberately NOT computed here. This cron runs on Vercel, where
+    // the server clock is UTC, so a single shared date sends a church in UTC+3 its
+    // birthday emails on the wrong calendar day for several hours either side of
+    // midnight. Each org's date is resolved below, in that church's own timezone.
+    const now = new Date();
 
     const { data: orgs } = await supabase
       .from('organizations')
-      .select('id, name, brand_color, logo_url, address, phone, email, subscription_status, subscription_end_date');
+      .select('id, name, brand_color, logo_url, address, phone, email, admin_email, timezone, subscription_status, subscription_end_date');
 
     if (!orgs) return NextResponse.json({ success: true, sent: 0 });
 
@@ -33,6 +36,9 @@ export async function GET(request: NextRequest) {
         .from('email_templates').select('*')
         .eq('org_id', org.id).eq('template_type', 'birthday').single();
       if (!template) continue;
+
+      // Today, as this church reckons it.
+      const [, month, day] = dayKeyOf(tzFormatter(org.timezone || 'UTC'), now).split('-');
 
       // ── Fixed: filter birthdays in the database, not in JS ──
       const { data: people } = await supabase
@@ -60,7 +66,7 @@ export async function GET(request: NextRequest) {
         const html = buildBrandedEmail({ orgName: org.name, brandColor: org.brand_color, logoUrl: org.logo_url, greeting: greeting || 'Happy Birthday!', body: text, signOff: signOff || `With love,\nThe ${org.name} Family`, address: org.address, phone: org.phone, email: org.email });
         const result  = await sendBrevoEmail(
           [{ email: person.email, name: person.full_name }],
-          subject, html, org.name
+          subject, html, org.name, undefined, orgReplyTo(org)
         );
         await supabase.from('email_logs').insert({
           org_id: org.id, person_id: person.id,

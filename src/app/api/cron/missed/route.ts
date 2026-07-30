@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase, isSubscriptionValid } from '@/lib/supabase';
-import { sendBrevoEmail, processTemplate } from '@/lib/email';
+import { sendBrevoEmail, processTemplate, orgReplyTo } from '@/lib/email';
 import { buildBrandedEmail } from '@/lib/emailTemplate';
 import { getRecentServiceDates } from '@/lib/attendance';
 
 export const dynamic = 'force-dynamic';
+
+// A serverless invocation has a hard wall-clock limit, and this route used to
+// send one email at a time with no ceiling: a church with 200 absentees meant
+// 200 sequential Brevo round-trips in one request, so the function was killed
+// part-way and the tail of the list silently never heard from anyone.
+//
+// Two changes make that safe. Sends go out in small concurrent batches, and the
+// run stops at a fixed ceiling. Stopping early is not a loss: the 7-day
+// suppression window below means whoever is skipped today is simply first in
+// line tomorrow, so the backlog drains across runs instead of being dropped.
+const MAX_EMAILS_PER_RUN = 120;
+const BATCH_SIZE = 8;
 
 export async function GET(request: NextRequest) {
   // Verify cron secret
@@ -21,13 +33,14 @@ export async function GET(request: NextRequest) {
     // Get all active organizations
     const { data: orgs } = await supabase
       .from('organizations')
-      .select('id, name, brand_color, logo_url, address, phone, email, subscription_status, subscription_end_date');
+      .select('id, name, brand_color, logo_url, address, phone, email, admin_email, subscription_status, subscription_end_date');
 
     if (!orgs) {
       return NextResponse.json({ success: true, sent: 0 });
     }
 
     let totalSent = 0;
+    let capped = false;
 
     for (const org of orgs) {
       // Check subscription
@@ -83,57 +96,74 @@ export async function GET(request: NextRequest) {
 
       const absentees = allMembers.filter((p) => !checkedInPersonIds.has(p.id));
 
-      for (const person of absentees) {
-        if (!person.email) continue;
+      // Who has already had one of these in the last week. Fetched once for the
+      // whole org — this used to be a separate round-trip per absentee, so the
+      // slowest churches paid the largest query cost.
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        // Check if we already sent a missed email recently (within 7 days)
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const { data: recentLogs } = await supabase
+        .from('email_logs')
+        .select('person_id')
+        .eq('org_id', org.id)
+        .eq('email_type', 'missed')
+        .gte('created_at', sevenDaysAgo.toISOString());
 
-        const { data: recentEmail } = await supabase
-          .from('email_logs')
-          .select('id')
-          .eq('org_id', org.id)
-          .eq('person_id', person.id)
-          .eq('email_type', 'missed')
-          .gte('created_at', sevenDaysAgo.toISOString())
-          .maybeSingle();
+      const alreadyEmailed = new Set((recentLogs ?? []).map((l) => l.person_id));
+      const queue = absentees.filter((p) => p.email && !alreadyEmailed.has(p.id));
 
-        if (recentEmail) continue; // Already sent recently
+      const replyTo = orgReplyTo(org);
 
-        const subject = processTemplate(template.subject, person, org as any);
-        const body = processTemplate(template.body, person, org as any);
-        let text = body.trim();
-        let greeting = '';
-        const gm = text.match(/^Dear\s+([^,\n]+),?\s*/i);
-        if (gm) { greeting = `Hi ${gm[1].trim()},`; text = text.slice(gm[0].length).trim(); }
-        let signOff = '';
-        const si = text.search(/\n\s*With love,/i);
-        if (si !== -1) { signOff = text.slice(si).trim(); text = text.slice(0, si).trim(); }
-        const html = buildBrandedEmail({ orgName: org.name, brandColor: org.brand_color, logoUrl: org.logo_url, greeting: greeting || 'Hi there,', body: text, signOff: signOff || `With love,\nThe ${org.name} Family`, address: org.address, phone: org.phone, email: org.email });
+      for (let i = 0; i < queue.length; i += BATCH_SIZE) {
+        if (totalSent >= MAX_EMAILS_PER_RUN) { capped = true; break; }
 
-        const result = await sendBrevoEmail(
-          [{ email: person.email, name: person.full_name }],
-          subject,
-          html,
-          org.name
-        );
+        const batch = queue.slice(i, i + BATCH_SIZE);
+        const outcomes = await Promise.all(batch.map(async (person) => {
+          const subject = processTemplate(template.subject, person, org as any);
+          const body = processTemplate(template.body, person, org as any);
+          let text = body.trim();
+          let greeting = '';
+          const gm = text.match(/^Dear\s+([^,\n]+),?\s*/i);
+          if (gm) { greeting = `Hi ${gm[1].trim()},`; text = text.slice(gm[0].length).trim(); }
+          let signOff = '';
+          const si = text.search(/\n\s*With love,/i);
+          if (si !== -1) { signOff = text.slice(si).trim(); text = text.slice(0, si).trim(); }
+          const html = buildBrandedEmail({ orgName: org.name, brandColor: org.brand_color, logoUrl: org.logo_url, greeting: greeting || 'Hi there,', body: text, signOff: signOff || `With love,\nThe ${org.name} Family`, address: org.address, phone: org.phone, email: org.email });
 
-        // Log the email
-        await supabase.from('email_logs').insert({
+          const result = await sendBrevoEmail(
+            [{ email: person.email as string, name: person.full_name }],
+            subject,
+            html,
+            org.name,
+            undefined,
+            replyTo
+          );
+
+          return { person, subject, result };
+        }));
+
+        // One insert for the batch rather than one per person. Logging every
+        // attempt — including failures — is what keeps the suppression window
+        // honest: a person whose send failed must not be retried tomorrow and
+        // then again the day after.
+        await supabase.from('email_logs').insert(outcomes.map((o) => ({
           org_id: org.id,
-          person_id: person.id,
+          person_id: o.person.id,
           email_type: 'missed',
-          subject,
-          recipient_email: person.email,
-          status: result.success ? 'sent' : 'failed',
-        });
+          subject: o.subject,
+          recipient_email: o.person.email,
+          status: o.result.success ? 'sent' : 'failed',
+        })));
 
-        if (result.success) totalSent++;
+        totalSent += outcomes.filter((o) => o.result.success).length;
       }
+
+      if (capped) break;
     }
 
-    return NextResponse.json({ success: true, sent: totalSent });
+    // `capped` tells you the ceiling was hit and a backlog remains for the next
+    // run — without it a short run looks identical to "nobody needed emailing".
+    return NextResponse.json({ success: true, sent: totalSent, capped });
   } catch (error) {
     console.error('Missed cron error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

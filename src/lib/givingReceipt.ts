@@ -1,5 +1,5 @@
 import { getServerSupabase } from '@/lib/supabase';
-import { sendBrevoEmail } from '@/lib/email';
+import { sendBrevoEmail, orgReplyTo } from '@/lib/email';
 import { buildBrandedEmail } from '@/lib/emailTemplate';
 import type { Giving } from '@/types';
 
@@ -52,7 +52,7 @@ export async function sendGivingReceipt(
   const supabase = getServerSupabase();
 
   // Fetch full org details for branding (logo, contact info)
-  const { data: org } = await supabase.from('organizations').select('logo_url, address, phone, email').eq('id', orgId).single();
+  const { data: org } = await supabase.from('organizations').select('logo_url, address, phone, email, admin_email').eq('id', orgId).single();
 
   const label = giving.giving_type === 'other' ? (giving.giving_type_other || 'Gift') : GIVING_TYPE_LABELS[giving.giving_type];
 
@@ -60,7 +60,11 @@ export async function sendGivingReceipt(
     [{ email: giving.giver_email, name: giving.giver_name }],
     `Your ${label} Receipt - ${orgName}`,
     buildReceiptHtml(giving, orgName, brandColor, org?.logo_url, org?.address, org?.phone, org?.email),
-    orgName
+    orgName,
+    undefined,
+    // A receipt is the email most likely to be queried ("I gave 200, not 100") —
+    // that reply has to reach the church, not a no-reply mailbox.
+    orgReplyTo({ ...org, name: orgName })
   );
 
   await supabase.from('email_logs').insert({
