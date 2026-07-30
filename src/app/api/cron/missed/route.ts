@@ -128,7 +128,18 @@ export async function GET(request: NextRequest) {
           let signOff = '';
           const si = text.search(/\n\s*With love,/i);
           if (si !== -1) { signOff = text.slice(si).trim(); text = text.slice(0, si).trim(); }
-          const html = buildBrandedEmail({ orgName: org.name, brandColor: org.brand_color, logoUrl: org.logo_url, greeting: greeting || 'Hi there,', body: text, signOff: signOff || `With love,\nThe ${org.name} Family`, address: org.address, phone: org.phone, email: org.email });
+          // Sent as a plain note, not a branded card. Someone who has quietly
+          // stopped coming should receive something that reads like a person
+          // noticed — a colour bar and a logo lockup say "mailing list", which
+          // is the opposite of the message.
+          const html = buildBrandedEmail({
+            variant: 'note',
+            orgName: org.name, brandColor: org.brand_color, logoUrl: org.logo_url,
+            greeting: greeting || 'Hi there,',
+            body: text,
+            signOff: signOff || `With love,\nThe ${org.name} Family`,
+            address: org.address, phone: org.phone, email: org.email,
+          });
 
           const result = await sendBrevoEmail(
             [{ email: person.email as string, name: person.full_name }],

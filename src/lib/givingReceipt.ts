@@ -11,6 +11,13 @@ const GIVING_TYPE_LABELS: Record<string, string> = {
   other: 'Gift',
 };
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash: 'Cash',
+  mobile_money: 'Mobile Money',
+  bank_transfer: 'Bank Transfer',
+  other: 'Other',
+};
+
 function buildReceiptHtml(giving: Giving, orgName: string, brandColor?: string, logoUrl?: string | null, address?: string | null, phone?: string | null, email?: string | null): string {
   const label = giving.giving_type === 'other'
     ? (giving.giving_type_other || 'Gift')
@@ -20,14 +27,22 @@ function buildReceiptHtml(giving: Giving, orgName: string, brandColor?: string, 
   const formattedDate = new Date(giving.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const firstName = giving.giver_name.split(' ')[0];
 
+  // The amount is the whole reason this email exists, so it is stated as a
+  // figure above the prose rather than as one line inside a paragraph. Someone
+  // checking a receipt is looking for a number, not reading a message.
   return buildBrandedEmail({
     orgName,
     brandColor,
     logoUrl,
     greeting: `Thank you, ${firstName}!`,
     headline: `Your ${label.toLowerCase()} has been received.`,
-    body: `This email serves as your receipt.\n\n${label}: ${formattedAmount}\nDate: ${formattedDate}`,
-    signOff: 'If you believe this was recorded in error, please reach out to us directly.',
+    body: 'This email is your receipt — keep it for your records.',
+    highlight: {
+      label,
+      value: formattedAmount,
+      sub: `Received ${formattedDate} · ${PAYMENT_METHOD_LABELS[giving.payment_method] ?? 'Recorded'}`,
+    },
+    signOff: 'If anything here looks wrong, just reply to this email and we will put it right.',
     address,
     phone,
     email,

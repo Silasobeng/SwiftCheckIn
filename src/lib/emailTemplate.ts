@@ -57,11 +57,27 @@ export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/**
+ * How much chrome the message carries.
+ *
+ * `card` — the full branded card: colour bar, logo header, bordered surface,
+ *   platform footer. Right for a message the church is *presenting* — a welcome,
+ *   a birthday wish, a receipt.
+ *
+ * `note` — a plain letter on white: no colour bar, no logo lockup, no border,
+ *   no "Powered by". Right for a message that has to read as though one person
+ *   wrote it to another. A "we miss you" wrapped in marketing chrome contradicts
+ *   its own sentiment — it is the one email whose whole job is to feel personal,
+ *   and branding is what makes it feel like a mailshot instead.
+ */
+export type EmailVariant = 'card' | 'note';
+
 export interface BrandedEmailOptions {
   // Org branding
   orgName: string;
   brandColor?: string;
   logoUrl?: string | null;
+  variant?: EmailVariant;  // defaults to 'card'
   // Content
   greeting: string;        // e.g. "Hi Peace,"
   headline?: string;       // bold line under greeting, e.g. "We're so glad you joined us today!"
@@ -69,6 +85,11 @@ export interface BrandedEmailOptions {
   preheader?: string;      // inbox preview line; hidden in the body
   // Optional sections
   serviceCard?: { label: string; value: string } | null;  // e.g. { label: "Today's Gathering", value: "Sunday Service" }
+  /** Centred tinted band above the message — a moment, not data. Birthdays use it. */
+  hero?: { emoji?: string; title: string; sub?: string } | null;
+  /** A figure the message exists to state. Receipts use it: the amount is the
+   *  point, so it gets read before the prose rather than buried inside it. */
+  highlight?: { label: string; value: string; sub?: string } | null;
   signOff?: string;        // e.g. "With love,\nThe Grace Chapel Family"
   // Footer contact
   address?: string | null;
@@ -115,6 +136,28 @@ export function buildBrandedEmail(opts: BrandedEmailOptions): string {
       </td></tr>
     </table>` : '';
 
+  // Celebratory band — centred, tinted, sits above the prose. Deliberately has
+  // no counterpart in the other emails: it is what makes a birthday message
+  // recognisable at a glance rather than "the welcome email with new words".
+  const heroHtml = opts.hero ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+      <tr><td align="center" style="background:${tint};border-radius:14px;padding:26px 20px;">
+        ${opts.hero.emoji ? `<div style="font-size:36px;line-height:1;margin-bottom:10px;">${opts.hero.emoji}</div>` : ''}
+        <div style="font-family:Georgia,'Times New Roman',serif;font-size:23px;color:${brandText};font-weight:600;line-height:1.3;">${escapeHtml(opts.hero.title)}</div>
+        ${opts.hero.sub ? `<div style="font-size:14px;color:#7A6E60;margin-top:7px;line-height:1.5;">${escapeHtml(opts.hero.sub)}</div>` : ''}
+      </td></tr>
+    </table>` : '';
+
+  // The one figure the message exists to state.
+  const highlightHtml = opts.highlight ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0;">
+      <tr><td style="border:1px solid ${tintBorder};border-radius:12px;padding:20px 22px;background:#ffffff;">
+        <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7A6E60;font-weight:600;">${escapeHtml(opts.highlight.label)}</div>
+        <div style="font-size:30px;color:#16243A;font-weight:700;margin-top:6px;line-height:1.15;">${escapeHtml(opts.highlight.value)}</div>
+        ${opts.highlight.sub ? `<div style="font-size:13px;color:#7A6E60;margin-top:6px;">${escapeHtml(opts.highlight.sub)}</div>` : ''}
+      </td></tr>
+    </table>` : '';
+
   // Contact footer — one cell per present item, evenly spaced by a table row.
   const contactCells: string[] = [];
   const contactCell = (icon: string, text: string) => `<td style="padding:0 14px;vertical-align:top;text-align:center;font-size:12px;color:#7A6E60;line-height:1.6;">
@@ -129,13 +172,59 @@ export function buildBrandedEmail(opts: BrandedEmailOptions): string {
       </td></tr>
     </table>` : '';
 
-  return `<!DOCTYPE html>
+  const head = `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="color-scheme" content="light">
 <title>${escapeHtml(opts.orgName)}</title>
-</head>
+</head>`;
+
+  // ---------------------------------------------------------------
+  // NOTE — a letter, not a card.
+  // ---------------------------------------------------------------
+  // Everything decorative is gone on purpose: no colour bar, no logo lockup, no
+  // bordered surface, no platform sign-off. What remains is what a person would
+  // actually send. The contact details stay left-aligned under a hairline rather
+  // than centred under icons, because centred icon rows read as a footer, and a
+  // footer is the tell that something was sent by a system.
+  if (opts.variant === 'note') {
+    const noteContact = [opts.address, opts.phone, opts.email]
+      .filter(Boolean)
+      .map((v) => escapeHtml(String(v)).replace(/\n/g, ' '))
+      .join(' &nbsp;·&nbsp; ');
+
+    return `${head}
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+${preheader}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
+  <tr><td align="center" style="padding:28px 16px 40px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;">
+      <tr><td style="padding:0 4px;">
+
+        <p style="font-size:16px;color:#16243A;line-height:1.6;margin:0 0 16px;">${escapeHtml(opts.greeting)}</p>
+
+        ${opts.headline ? `<p style="font-size:16px;color:#16243A;line-height:1.7;margin:0 0 14px;">${escapeHtml(opts.headline)}</p>` : ''}
+
+        <div style="font-size:16px;color:#333333;line-height:1.75;">${bodyHtml}</div>
+
+        ${signOffHtml ? `<div style="font-size:16px;color:#333333;line-height:1.75;margin-top:24px;">${signOffHtml}</div>` : ''}
+
+        ${noteContact ? `<div style="border-top:1px solid #eee6da;margin-top:30px;padding-top:16px;font-size:12px;color:#7A6E60;line-height:1.7;">
+          ${escapeHtml(opts.orgName)}<br>${noteContact}
+        </div>` : `<div style="margin-top:30px;font-size:12px;color:#7A6E60;">${escapeHtml(opts.orgName)}</div>`}
+
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+  }
+
+  // ---------------------------------------------------------------
+  // CARD — the presented, branded message.
+  // ---------------------------------------------------------------
+  return `${head}
 <body style="margin:0;padding:0;background:#F8F4EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8F4EE;">
@@ -158,11 +247,15 @@ ${preheader}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr><td style="padding:26px 32px 32px;">
 
-            <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:22px;color:${brandText};font-weight:600;margin:0 0 10px;">${escapeHtml(opts.greeting)}</h1>
+            ${heroHtml}
+
+            ${opts.hero ? '' : `<h1 style="font-family:Georgia,'Times New Roman',serif;font-size:22px;color:${brandText};font-weight:600;margin:0 0 10px;">${escapeHtml(opts.greeting)}</h1>`}
 
             ${opts.headline ? `<p style="font-size:16px;color:#16243A;font-weight:600;line-height:1.55;margin:0 0 16px;">${escapeHtml(opts.headline)}</p>` : ''}
 
             <div style="font-size:15px;color:#4b5563;line-height:1.75;">${bodyHtml}</div>
+
+            ${highlightHtml}
 
             ${serviceCardHtml}
 

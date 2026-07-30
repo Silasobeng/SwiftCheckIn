@@ -57,13 +57,23 @@ export async function GET(request: NextRequest) {
         const body    = processTemplate(template.body,    person, org as any);
         // Parse the processed body into greeting/body/sign-off for the premium template
         let text = body.trim();
-        let greeting = '';
+        let firstName = '';
         const gm = text.match(/^Dear\s+([^,\n]+),?\s*/i);
-        if (gm) { greeting = `Happy Birthday, ${gm[1].trim()}! 🎂`; text = text.slice(gm[0].length).trim(); }
+        if (gm) { firstName = gm[1].trim(); text = text.slice(gm[0].length).trim(); }
         let signOff = '';
         const si = text.search(/\n\s*With love,/i);
         if (si !== -1) { signOff = text.slice(si).trim(); text = text.slice(0, si).trim(); }
-        const html = buildBrandedEmail({ orgName: org.name, brandColor: org.brand_color, logoUrl: org.logo_url, greeting: greeting || 'Happy Birthday!', body: text, signOff: signOff || `With love,\nThe ${org.name} Family`, address: org.address, phone: org.phone, email: org.email });
+        const wish = firstName ? `Happy Birthday, ${firstName}!` : 'Happy Birthday!';
+        // The celebratory band is what stops this being the welcome email with
+        // different words — the one email of the set that should read as a moment.
+        const html = buildBrandedEmail({
+          orgName: org.name, brandColor: org.brand_color, logoUrl: org.logo_url,
+          greeting: wish,
+          hero: { emoji: '&#127874;', title: wish, sub: `From everyone at ${org.name}` },
+          body: text,
+          signOff: signOff || `With love,\nThe ${org.name} Family`,
+          address: org.address, phone: org.phone, email: org.email,
+        });
         const result  = await sendBrevoEmail(
           [{ email: person.email, name: person.full_name }],
           subject, html, org.name, undefined, orgReplyTo(org)
