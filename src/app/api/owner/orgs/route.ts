@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { hash } from 'bcryptjs';
 import { requireOwner } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase';
 
@@ -50,12 +51,26 @@ export async function PATCH(request: NextRequest) {
   if ('error' in auth) return auth.error;
 
   try {
-    const { orgId, action } = await request.json();
+    const { orgId, action, newPassword } = await request.json();
     if (!orgId || !action) {
       return NextResponse.json({ error: 'orgId and action are required' }, { status: 400 });
     }
 
     const supabase = getServerSupabase();
+
+    if (action === 'reset_password') {
+      if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+        return NextResponse.json({ error: 'New password must be at least 8 characters.' }, { status: 400 });
+      }
+      const admin_password_hash = await hash(newPassword, 10);
+      const { error } = await supabase
+        .from('organizations')
+        .update({ admin_password_hash, updated_at: new Date().toISOString() })
+        .eq('id', orgId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true });
+    }
+
     let update: Record<string, unknown> = {};
     const now = new Date();
     if (action === 'extend_30_days') {

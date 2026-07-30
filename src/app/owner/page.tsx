@@ -33,6 +33,9 @@ export default function OwnerPage() {
   const [resetOrgId, setResetOrgId] = useState<string | null>(null);
   const [deleteOrgId, setDeleteOrgId] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState('');
+  const [resetPwOrgId, setResetPwOrgId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPw, setShowNewPw] = useState(false);
 
   const load = async () => {
     setError(null);
@@ -129,6 +132,16 @@ export default function OwnerPage() {
     const data = await res.json();
     if (!res.ok) setError(data.error || 'Reset failed.');
     else { setMessage('Church data reset.'); setResetOrgId(null); setConfirmText(''); await load(); }
+    setBusy(null);
+  };
+
+  const resetPassword = async () => {
+    if (!resetPwOrgId) return;
+    setBusy(`${resetPwOrgId}:reset_password`);
+    const res = await fetch('/api/owner/orgs', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId: resetPwOrgId, action: 'reset_password', newPassword }) });
+    const data = await res.json();
+    if (!res.ok) setError(data.error || 'Password reset failed.');
+    else { setMessage('Password updated. Tell the admin their new password.'); setResetPwOrgId(null); setNewPassword(''); }
     setBusy(null);
   };
 
@@ -269,6 +282,7 @@ export default function OwnerPage() {
                           <button onClick={() => patchOrg(org.id, 'extend_30_days')} className="btn btn-secondary text-xs py-1.5 px-3" disabled={busy === `${org.id}:extend_30_days`}>+30 days</button>
                           <button onClick={() => patchOrg(org.id, 'activate_annual')} className="btn btn-secondary text-xs py-1.5 px-3" disabled={busy === `${org.id}:activate_annual`}>Annual</button>
                           <button onClick={() => patchOrg(org.id, 'mark_expired')} className="btn btn-secondary text-xs py-1.5 px-3" disabled={busy === `${org.id}:mark_expired`}>Expire</button>
+                          <button onClick={() => { setResetPwOrgId(org.id); setNewPassword(''); setShowNewPw(false); }} className="btn btn-ghost text-xs py-1.5 px-3">Reset pw</button>
                           <button onClick={() => { setResetOrgId(org.id); setDeleteOrgId(null); setConfirmText(''); }} className="btn btn-ghost text-xs py-1.5 px-3">Reset data</button>
                           <button onClick={() => { setDeleteOrgId(org.id); setResetOrgId(null); setConfirmText(''); }} className="btn btn-ghost text-xs py-1.5 px-3 text-red-500">Delete</button>
                         </div>
@@ -281,6 +295,52 @@ export default function OwnerPage() {
           )}
         </div>
       </main>
+
+      {/* Password reset modal */}
+      {resetPwOrgId && (() => {
+        const org = orgs.find((o) => o.id === resetPwOrgId);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={() => { setResetPwOrgId(null); setNewPassword(''); }}>
+            <div className="absolute inset-0 bg-navy-900/60 backdrop-blur-sm" />
+            <div className="relative bg-white rounded-2xl shadow-soft-xl w-full max-w-md animate-scale-in" onClick={(e) => e.stopPropagation()}>
+              <div className="px-7 pt-7 pb-5">
+                <div style={{ width:44, height:44, borderRadius:12, background:'#EEF2FF', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:16 }}>
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" /></svg>
+                </div>
+                <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:20, color:'#16243A', marginBottom:6 }}>Reset password</h2>
+                <p style={{ fontSize:14, color:'#7A6E60', fontWeight:300, lineHeight:1.7, marginBottom:16 }}>
+                  Set a new password for <strong style={{ color:'#16243A', fontWeight:500 }}>{org?.name}</strong> ({org?.admin_email}). Tell the admin the new password directly — it is not emailed automatically.
+                </p>
+                <div style={{ position:'relative' }}>
+                  <input
+                    className="input"
+                    type={showNewPw ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="New password (min 8 chars)"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPw((v) => !v)}
+                    style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'#7A6E60', fontSize:12 }}>
+                    {showNewPw ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+              <div className="px-7 pb-7 flex gap-3">
+                <button className="btn btn-secondary flex-1" onClick={() => { setResetPwOrgId(null); setNewPassword(''); }}>Cancel</button>
+                <button className="btn btn-primary flex-1"
+                  disabled={newPassword.length < 8 || busy !== null}
+                  onClick={resetPassword}>
+                  {busy ? 'Saving…' : 'Set password'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Destructive-action confirmation — one dialog for both reset and delete
           so the two flows feel the same and both require typing to confirm. */}
