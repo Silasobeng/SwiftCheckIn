@@ -16,7 +16,14 @@ export default function SignupPage() {
     if (form.password.length < 8) { setError('Password must be at least 8 characters'); return; }
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/signup', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(form) });
+      // Take the timezone from the browser rather than asking for it. A church
+      // that never opens Settings would otherwise sit on UTC forever, and every
+      // "today" and "this month" in their reports would quietly be someone
+      // else's day. They can still change it in Settings.
+      let timezone = '';
+      try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* keep empty; server falls back to UTC */ }
+
+      const res = await fetch('/api/auth/signup', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...form, timezone }) });
       const data = await res.json();
       if (!res.ok) { setError(data.error||'Signup failed'); return; }
       router.push('/admin');

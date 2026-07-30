@@ -26,7 +26,17 @@ export async function POST(request: NextRequest) {
     const supabase = getServerSupabase();
     const body = await request.json();
 
-    const { churchName, adminName, email, phone, password } = body;
+    const { churchName, adminName, email, phone, password, timezone } = body;
+
+    // Sent by the browser at signup. Anything unrecognised is dropped rather
+    // than stored — a bad zone here would silently skew every date in the app.
+    let safeTimezone: string | null = null;
+    if (typeof timezone === 'string' && timezone.trim()) {
+      try {
+        new Intl.DateTimeFormat('en-US', { timeZone: timezone });
+        safeTimezone = timezone;
+      } catch { safeTimezone = null; }
+    }
 
     // Validation
     if (!churchName || !adminName || !email || !password) {
@@ -92,6 +102,7 @@ export async function POST(request: NextRequest) {
         admin_email: email.toLowerCase().trim(),
         admin_password_hash: passwordHash,
         phone: phone?.trim() || null,
+        timezone: safeTimezone,
         subscription_status: 'trial',
         subscription_end_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       })
@@ -113,12 +124,18 @@ export async function POST(request: NextRequest) {
       active_service_id: null,
     });
 
-    // Create default email templates
-    await supabase.from('email_templates').insert([
+    // Default email templates.
+    //
+    // Subjects deliberately carry no emoji. Gmail reads emoji in a subject as a
+    // marketing signal and files the message under Promotions, which is exactly
+    // where these must not go — and "We Miss You! 💛" in particular contradicts
+    // the message underneath it, which is written to read as a personal note.
+    // A church can still add emoji from the Emails tab if it wants them.
+    const { error: templateError } = await supabase.from('email_templates').insert([
       {
         org_id: org.id,
         template_type: 'welcome',
-        subject: 'Welcome to {ORG_NAME}! 🙏',
+        subject: 'Welcome to {ORG_NAME}',
         body: `Dear {NAME},
 
 We are so glad you joined us today!
@@ -133,7 +150,7 @@ The {ORG_NAME} Family`,
       {
         org_id: org.id,
         template_type: 'birthday',
-        subject: '🎂 Happy Birthday from {ORG_NAME}!',
+        subject: 'Happy Birthday from {ORG_NAME}',
         body: `Dear {NAME},
 
 Wishing you a blessed and joyful birthday!
@@ -146,7 +163,7 @@ The {ORG_NAME} Family`,
       {
         org_id: org.id,
         template_type: 'missed',
-        subject: 'We Miss You! 💛',
+        subject: 'We have been thinking of you',
         body: `Dear {NAME},
 
 We noticed you have missed the last couple of gatherings. We hope everything is well with you.
@@ -157,6 +174,14 @@ With love,
 The {ORG_NAME} Family`,
       },
     ]);
+
+    // Not fatal — the account is already usable and the Emails tab can recreate
+    // these. But it must not vanish: without templates the welcome, birthday and
+    // we-miss-you sends all return "Template not found" and quietly do nothing,
+    // and the church has no way to tell that from "nobody had a birthday".
+    if (templateError) {
+      console.error(`Default email templates not created for org ${org.id}:`, templateError);
+    }
 
     // Create session
     const token = await createSession(org);

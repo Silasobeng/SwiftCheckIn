@@ -10,6 +10,26 @@ import { StackedTrend, RankedBars, OrdinalBars, SplitBar } from '@/components/Ch
 
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
 
+// Timezones a church using this is plausibly in. A full IANA list is ~600 rows
+// and unusable in a dropdown; the API validates whatever is sent against the
+// platform's own zone database, so this list is a convenience, not the guard.
+const TIMEZONES = [
+  { value: 'Africa/Accra',        label: 'Accra — Ghana (GMT)' },
+  { value: 'Africa/Lagos',        label: 'Lagos — Nigeria (GMT+1)' },
+  { value: 'Africa/Abidjan',      label: 'Abidjan — Côte d’Ivoire (GMT)' },
+  { value: 'Africa/Nairobi',      label: 'Nairobi — Kenya (GMT+3)' },
+  { value: 'Africa/Johannesburg', label: 'Johannesburg — South Africa (GMT+2)' },
+  { value: 'Africa/Cairo',        label: 'Cairo — Egypt (GMT+2)' },
+  { value: 'Europe/London',       label: 'London — United Kingdom' },
+  { value: 'America/New_York',    label: 'New York — US Eastern' },
+  { value: 'America/Chicago',     label: 'Chicago — US Central' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles — US Pacific' },
+  { value: 'America/Toronto',     label: 'Toronto — Canada Eastern' },
+  { value: 'Asia/Dubai',          label: 'Dubai — UAE (GMT+4)' },
+  { value: 'Australia/Sydney',    label: 'Sydney — Australia Eastern' },
+  { value: 'UTC',                 label: 'UTC' },
+];
+
 // Age bands in age order — the ordinal ramp is only meaningful if the rows are
 // rendered in the scale's own order, never sorted by count. Must stay in step
 // with getAgeGroup() in lib/utils.
@@ -200,7 +220,7 @@ export default function AdminPage() {
   });
   const [branding, setBranding] = useState({
   org_name: '',
-  tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'' });
+  tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'', timezone:'' });
   const [savingBranding, setSavingBranding] = useState(false);
   const [uploading, setUploading] = useState<'logo'|'cover'|null>(null);
   // The church's own timezone drives "this month / today", not the device clock.
@@ -248,7 +268,7 @@ export default function AdminPage() {
       const org = stD.settings?.organization;
       if (org) setBranding({
         org_name: org.name || '',
-        tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'' });
+        tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'', timezone:org.timezone||'' });
       if (!stD.settings) setError('Some dashboard data could not be refreshed — check your connection.');
     }
   }, [session]);
@@ -1436,6 +1456,14 @@ export default function AdminPage() {
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Church Name</label><input className="input" placeholder="e.g. Grace Community Church" value={branding.org_name} onChange={e=>setBranding(b=>({...b,org_name:e.target.value}))} /></div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Tagline</label><input className="input" placeholder="e.g. A place of worship and community" value={branding.tagline} onChange={e=>setBranding(b=>({...b,tagline:e.target.value}))} /></div>
                 <div><label className="block text-sm font-medium text-navy-700 mb-1.5">Host Names</label><input className="input" placeholder="e.g. Pastor John & Lady Mary" value={branding.host_names} onChange={e=>setBranding(b=>({...b,host_names:e.target.value}))} /></div>
+                <div>
+                  <label className="block text-sm font-medium text-navy-700 mb-1.5">Time Zone</label>
+                  <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Decides what counts as &ldquo;today&rdquo; and &ldquo;this month&rdquo; in your reports, and which day birthday emails go out on.</p>
+                  <select className="select" value={branding.timezone} onChange={e=>setBranding(b=>({...b,timezone:e.target.value}))}>
+                    <option value="">Not set — using UTC</option>
+                    {TIMEZONES.map(tz=>(<option key={tz.value} value={tz.value}>{tz.label}</option>))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-navy-700 mb-1.5">Church Logo</label>
                   <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Shown on your kiosk screen.</p>
