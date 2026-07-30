@@ -25,13 +25,13 @@ BEGIN
   SELECT id INTO v_org FROM organizations WHERE admin_email = 'silasobeng98@gmail.com';
   IF v_org IS NULL THEN
     INSERT INTO organizations
-      (name, slug, tagline, host_names, address, phone, email, brand_color,
+      (name, slug, tagline, host_names, address, phone, email, brand_color, timezone,
        kiosk_welcome_heading, kiosk_welcome_subtext,
        admin_name, admin_email, admin_password_hash,
        subscription_status, subscription_plan, subscription_start_date, subscription_end_date)
     VALUES
       ('Grace Chapel','grace-chapel','A place of worship and community','Pastor Silas & Lady Ama',
-       '12 Ring Road, East Legon, Accra','024 000 0000','hello@gracechapel.org','#16243A',
+       '12 Ring Road, East Legon, Accra','024 000 0000','hello@gracechapel.org','#16243A','Africa/Accra',
        'Welcome to Grace Chapel','We''re so glad you''re here',
        'Pastor Silas','silasobeng98@gmail.com', v_hash,
        'active','annual', CURRENT_DATE, CURRENT_DATE + INTERVAL '365 days')
@@ -45,6 +45,10 @@ BEGIN
       brand_color='#16243A', tagline='A place of worship and community',
       host_names='Pastor Silas & Lady Ama', address='12 Ring Road, East Legon, Accra',
       phone='024 000 0000', email='hello@gracechapel.org',
+      -- Accra is UTC+0, so this changes no number on screen. It is set anyway so
+      -- the Settings field shows a real value rather than "Not set — using UTC",
+      -- and so the demo reflects how a church outside UTC would be configured.
+      timezone='Africa/Accra',
       kiosk_welcome_heading='Welcome to Grace Chapel', kiosk_welcome_subtext='We''re so glad you''re here'
     WHERE id=v_org;
   END IF;
@@ -58,10 +62,17 @@ BEGIN
   DELETE FROM email_templates WHERE org_id=v_org;
 
   -- 3. Email templates --------------------------------------------------------
+  --    Subjects carry no emoji: Gmail treats emoji in a subject as a marketing
+  --    signal and files the message under Promotions, which is the one place
+  --    these must not land.
+  --
+  --    The "missed" message is sent as a plain note rather than a branded card
+  --    (see emailTemplate.ts), so its wording is written to match — an unhurried
+  --    check-in that asks nothing of the reader, not a summons back to church.
   INSERT INTO email_templates (org_id, template_type, subject, body) VALUES
-   (v_org,'welcome','Welcome to {ORG_NAME}!',  E'Dear {NAME},\n\nWe are so glad you joined us today!\n\n{SERVICE_INFO}\n\nWith love,\nThe {ORG_NAME} Family'),
-   (v_org,'birthday','Happy Birthday from {ORG_NAME}!', E'Dear {NAME},\n\nWishing you a blessed and joyful birthday! May this new year of your life be filled with God''s grace and favour.\n\nWith love,\nThe {ORG_NAME} Family'),
-   (v_org,'missed','We Miss You!', E'Dear {NAME},\n\nWe noticed you''ve missed the last couple of gatherings, and we hope everything is well with you.\n\nWe''d love to see you again soon.\n\nWith love,\nThe {ORG_NAME} Family');
+   (v_org,'welcome','Welcome to {ORG_NAME}',  E'Dear {NAME},\n\nWe are so glad you joined us today!\n\n{SERVICE_INFO}\n\nIf you have any questions at all, just reply to this email — someone will get back to you.\n\nWith love,\nThe {ORG_NAME} Family'),
+   (v_org,'birthday','Happy Birthday from {ORG_NAME}', E'Dear {NAME},\n\nWishing you a blessed and joyful birthday! May this new year of your life be filled with God''s grace and favour.\n\nWith love,\nThe {ORG_NAME} Family'),
+   (v_org,'missed','We have been thinking of you', E'Dear {NAME},\n\nWe noticed you''ve missed the last couple of gatherings, and we wanted to check in. We hope everything is well with you.\n\nThere''s nothing you need to do — we just didn''t want the weeks to pass without saying we''ve been thinking of you.\n\nWe''d love to see you again whenever you''re able.\n\nWith love,\nThe {ORG_NAME} Family');
 
   -- 4. People (leaders, members, visitors) -----------------------------------
   --    Two members are deliberately missing an email / birthday so the
