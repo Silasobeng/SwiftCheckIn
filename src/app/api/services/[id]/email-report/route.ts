@@ -4,6 +4,21 @@ import { requireActiveSubscription } from '@/lib/auth';
 import { sendBrevoEmail } from '@/lib/email';
 import { buildCsv } from '@/lib/csv';
 import { getDayAttendance } from '@/lib/attendance';
+import { tzFormatter, dayKeyOf } from '@/lib/monthWindow';
+import type { Giving, GivingType } from '@/types';
+
+const GIVING_TYPE_ORDER: GivingType[] = ['tithe', 'offering', 'seed', 'pledge', 'other'];
+const GIVING_TYPE_LABEL: Record<GivingType, string> = {
+  tithe: 'Tithes',
+  offering: 'Offerings',
+  seed: 'Seed',
+  pledge: 'Pledges',
+  other: 'Other',
+};
+
+function money(amount: number, currency: string): string {
+  return `${currency} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +49,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const { data: org } = await supabase
       .from('organizations')
-      .select('name, admin_email, email')
+      .select('name, admin_email, email, timezone')
       .eq('id', auth.session.orgId)
       .single();
 
@@ -63,13 +78,74 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const firstTimers = present.filter((r) => r.is_first_time).length;
     const count = present.length;
+    const members = present.filter((r) => r.person?.role === 'member').length;
+    const leaders = present.filter((r) => r.person?.role === 'leader').length;
+    const visitors = present.filter((r) => r.person?.role === 'visitor').length;
     const attendanceRate = expectedCount > 0
       ? Math.round(((expectedCount - absent.length) / expectedCount) * 100)
       : null;
 
-    // Two labelled sections in one file so a pastor can open it in Excel and
-    // work straight down the absent list.
+    // Giving is reckoned by calendar day in the church's own timezone, not by
+    // service_id — givers aren't always tied to a specific check-in session
+    // (mobile money gifts midweek, for example), same day as the service is
+    // the useful bucket. A one-man church needs the full picture, so this is
+    // deliberately not anonymised: every giver's name is shown.
+    const tzFmt = tzFormatter(org?.timezone || 'UTC');
+    const { data: givingRows } = await supabase
+      .from('giving')
+      .select('giver_name, amount, currency, giving_type, giving_type_other, payment_method, created_at')
+      .eq('org_id', auth.session.orgId)
+      .order('created_at', { ascending: true });
+
+    const dayGiving = ((givingRows ?? []) as Giving[]).filter(
+      (g) => dayKeyOf(tzFmt, g.created_at) === service.service_date
+    );
+
+    const currency = dayGiving[0]?.currency || 'GHS';
+    const givingTotal = dayGiving.reduce((sum, g) => sum + Number(g.amount), 0);
+    const givingByType = GIVING_TYPE_ORDER
+      .map((type) => {
+        const rows = dayGiving.filter((g) => g.giving_type === type);
+        return { type, label: GIVING_TYPE_LABEL[type], rows, total: rows.reduce((s, g) => s + Number(g.amount), 0) };
+      })
+      .filter((g) => g.rows.length > 0);
+
+    const serviceDateLabel = new Date(service.service_date).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+    const generatedLabel = new Date().toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+
+    // Header, summary and giving breakdown up top so the numbers a pastor
+    // actually wants are visible the instant the file opens — the row-by-row
+    // detail follows for anyone who wants to dig further.
     const rows: unknown[][] = [
+      [`${org?.name || 'Church'} — Service Report`],
+      [`${service.title || 'Service'} — ${serviceDateLabel}`],
+      [`Generated ${generatedLabel}`],
+      [],
+      ['SUMMARY'],
+      ['Total Present', count],
+      ['Members', members],
+      ['Leaders', leaders],
+      ['Visitors', visitors],
+      ['First-time Visitors', firstTimers],
+      ['Absent (members & leaders)', absent.length],
+      ...(attendanceRate !== null ? [['Turnout', `${attendanceRate}%`]] : []),
+      [],
+      ['GIVING SUMMARY'],
+      ['Type', 'Givers', 'Amount'],
+      ...givingByType.map((g) => [g.label, g.rows.length, money(g.total, currency)]),
+      ['Total', dayGiving.length, money(givingTotal, currency)],
+      [],
+      ['GIVING DETAIL'],
+      ['Giver Name', 'Type', 'Amount', 'Payment Method'],
+      ...givingByType.flatMap((g) =>
+        g.rows.map((r) => [
+          r.giver_name,
+          r.giving_type === 'other' ? (r.giving_type_other || 'Other') : g.label,
+          money(Number(r.amount), r.currency),
+          r.payment_method.replace('_', ' '),
+        ])
+      ),
+      [],
       ['PRESENT'],
       ['Checked In At', 'Full Name', 'Phone', 'Email', 'Gender', 'Role', 'First Time'],
       ...present.map((row) => [
@@ -97,8 +173,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const csv = buildCsv(rows);
     const csvBase64 = Buffer.from(csv, 'utf-8').toString('base64');
-    const serviceDateLabel = new Date(service.service_date).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
-    const filename = `attendance-${service.service_date}.csv`;
+    const filename = `service-report-${service.service_date}.csv`;
 
     // Longest-away first — the names most worth a call this week.
     const followUp = absent.slice(0, 5);
@@ -122,18 +197,19 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 <body style="margin:0;padding:0;background:#ffffff;">
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#333;">
   <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hi,</p>
-  <p style="font-size:15px;line-height:1.6;margin:0 0 18px;">Here is the attendance summary for <strong>${service.title || 'your service'}</strong> on ${serviceDateLabel}${serviceIds.length > 1 ? ` (${serviceIds.length} services combined)` : ''}.</p>
+  <p style="font-size:15px;line-height:1.6;margin:0 0 18px;">Here is the report for <strong>${service.title || 'your service'}</strong> on ${serviceDateLabel}${serviceIds.length > 1 ? ` (${serviceIds.length} services combined)` : ''}.</p>
 
   <table style="border-collapse:collapse;margin:0 0 4px;">
     ${line('Present', count)}
     ${line('Absent (members &amp; leaders)', absent.length)}
     ${line('First-time visitors', firstTimers)}
     ${attendanceRate !== null ? line('Turnout', attendanceRate + '%') : ''}
+    ${line('Total giving', money(givingTotal, currency))}
   </table>
 
   ${followUpText}
 
-  <p style="font-size:15px;line-height:1.6;margin:22px 0 0;">The attached spreadsheet lists everyone who came and everyone who was absent. Absentees include members and leaders only, so the list stays useful.</p>
+  <p style="font-size:15px;line-height:1.6;margin:22px 0 0;">The attached spreadsheet has the full breakdown — attendance, giving by type with every giver's name, and who was absent.</p>
 
   <p style="font-size:15px;line-height:1.6;margin:22px 0 0;">— ${org?.name || 'Your church'} check-in</p>
 </div>
@@ -145,7 +221,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const result = await sendBrevoEmail(
       [{ email: recipient }],
-      `Attendance Report — ${service.title || 'Service'} (${serviceDateLabel})`,
+      `Service Report — ${service.title || 'Service'} (${serviceDateLabel})`,
       html,
       org?.name || undefined,
       [{ content: csvBase64, name: filename }],
