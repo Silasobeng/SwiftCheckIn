@@ -6,6 +6,10 @@ import {
   isFullscreenSupported, isStandaloneDisplay, requestFullscreen,
   exitFullscreen, getFullscreenElement, onFullscreenChange,
 } from '@/lib/fullscreen';
+import {
+  getQueue, enqueueCheckin, removeFromQueue,
+  cacheKioskData, getCachedKioskData, isNetworkError,
+} from '@/lib/offlineQueue';
 
 type Screen = 'loading' | 'closed' | 'welcome' | 'returning' | 'new' | 'success' | 'error';
 
@@ -143,6 +147,12 @@ export default function KioskPage() {
   const [newForm, setNewForm]           = useState({ full_name:'', phone:'', gender:'', email:'' });
   const [newErrors, setNewErrors]       = useState({ full_name:'', phone:'' });
   const [search, setSearch]             = useState('');
+  // isOffline reflects the last network attempt, not navigator.onLine — a
+  // device can report "online" while still unable to reach this server, and
+  // that false positive is exactly the case a kiosk needs covered.
+  const [isOffline, setIsOffline]       = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [justQueued, setJustQueued]     = useState(false);
   const idleTimerRef    = useRef<NodeJS.Timeout|null>(null);
   const exitTapTimerRef = useRef<NodeJS.Timeout|null>(null);
   const blessing = useRef(BLESSINGS[Math.floor(Math.random()*BLESSINGS.length)]);
@@ -209,15 +219,65 @@ export default function KioskPage() {
       const res  = await fetch(`/api/kiosk?slug=${slug}`);
       const json = await res.json();
       if (!res.ok) {
+        // A real answer from the server, not a connection failure — the kiosk
+        // being closed or the subscription expiring is definitive and must
+        // win over any cached "open" snapshot from earlier.
         if(json.code==='KIOSK_CLOSED') { setData({ org:json.org, service:null as any, people:[] }); setScreen('closed'); }
         else { setError(json.error||'Failed to load'); setScreen('error'); }
         return;
       }
+      cacheKioskData(slug, json);
+      setIsOffline(false);
       setData(json); setScreen('welcome');
-    } catch { setError('Failed to connect'); setScreen('error'); }
+    } catch (err) {
+      // The request never reached the server. Fall back to the last snapshot
+      // this tablet saw while it still had a connection, so a dropped wifi
+      // signal mid-service doesn't strand ushers on a loading spinner.
+      if (isNetworkError(err)) {
+        const cached = getCachedKioskData<KioskData>(slug);
+        if (cached) { setData(cached); setIsOffline(true); setScreen('welcome'); return; }
+      }
+      setError('Failed to connect'); setScreen('error');
+    }
   }, [slug]);
 
   useEffect(() => { loadKiosk(); }, [loadKiosk]);
+
+  useEffect(() => { setPendingCount(getQueue(slug).length); }, [slug]);
+
+  // Attempts every queued check-in against the real endpoint. Safe to call
+  // repeatedly and safe to retry the same item: /api/kiosk looks an existing
+  // person up by phone and upserts the check-in row, so a queued item that
+  // lands twice creates nothing twice.
+  const flushQueue = useCallback(async () => {
+    const queue = getQueue(slug);
+    if (queue.length === 0) return;
+    let reachedServer = false;
+    for (const item of queue) {
+      try {
+        const res = await fetch('/api/kiosk', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orgSlug: item.orgSlug, serviceId: item.serviceId, personId: item.personId, newPerson: item.newPerson }),
+        });
+        reachedServer = true;
+        // Whether this landed as a fresh check-in or the server recognised it
+        // as already done, the outcome is the same from here: it's on record,
+        // so it comes off the local queue either way.
+        if (res.ok || res.status < 500) removeFromQueue(slug, item.clientId);
+      } catch (err) {
+        if (isNetworkError(err)) break; // still offline — stop for now, try again later
+      }
+    }
+    if (reachedServer) setIsOffline(false);
+    setPendingCount(getQueue(slug).length);
+  }, [slug]);
+
+  useEffect(() => {
+    const onOnline = () => flushQueue();
+    window.addEventListener('online', onOnline);
+    const interval = setInterval(flushQueue, 20000);
+    return () => { window.removeEventListener('online', onOnline); clearInterval(interval); };
+  }, [flushQueue]);
 
   const handleCheckin = async (personId?:string, newPerson?:typeof newForm) => {
     if(!data) return;
@@ -225,9 +285,23 @@ export default function KioskPage() {
       const res  = await fetch('/api/kiosk', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orgSlug:slug, serviceId:data.service.id, personId, newPerson }) });
       const json = await res.json();
       if(!res.ok) { setError(json.error||'Check-in failed'); setScreen('error'); return; }
+      setJustQueued(false);
       setSuccessName(json.person.full_name); setIsFirstTime(json.isFirstTime); setAlreadyCheckedIn(json.alreadyCheckedIn||false); setScreen('success');
       setTimeout(() => { setSearch(''); setNewForm({ full_name:'', phone:'', gender:'', email:'' }); loadKiosk(); }, 4500);
-    } catch { setError('Check-in failed'); setScreen('error'); }
+    } catch (err) {
+      if (!isNetworkError(err)) { setError('Check-in failed'); setScreen('error'); return; }
+      // No connection right now — this still counts as checked in from the
+      // usher's point of view. It queues locally and lands on the real record
+      // the moment the network returns, rather than making a visitor stand
+      // there while someone chases down a wifi router.
+      const label = newPerson?.full_name || data.people.find(p => p.id === personId)?.full_name || 'You';
+      enqueueCheckin(slug, { serviceId: data.service.id, personId, newPerson, personLabel: label });
+      setIsOffline(true);
+      setPendingCount(getQueue(slug).length);
+      setJustQueued(true);
+      setSuccessName(label); setIsFirstTime(!!newPerson); setAlreadyCheckedIn(false); setScreen('success');
+      setTimeout(() => { setSearch(''); setNewForm({ full_name:'', phone:'', gender:'', email:'' }); setScreen('welcome'); }, 4500);
+    }
   };
 
   const filteredPeople = data?.people.filter(p => p.full_name.toLowerCase().includes(search.toLowerCase()) || p.phone.includes(search)) || [];
@@ -257,6 +331,16 @@ export default function KioskPage() {
       <button aria-label="Unlock kiosk" onClick={handleHiddenExitTap}
         className="fixed left-0 top-0 h-16 w-16 opacity-0 z-40" />
       <ExitHandle onActivate={() => setShowExitModal(true)} />
+      {/* Quiet status, not an alarm — a dropped connection on a kiosk is
+          routine, not an incident. Only pendingCount matters to an usher;
+          isOffline alone (queue empty, still unconfirmed) stays silent. */}
+      {pendingCount > 0 && (
+        <div className="fixed bottom-4 left-4 z-40 flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-medium"
+          style={{ background:'rgba(255,255,255,.09)', border:'1px solid rgba(255,255,255,.14)', color:'rgba(255,255,255,.65)' }}>
+          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background:'#f5c842' }} />
+          {pendingCount} {pendingCount === 1 ? 'check-in' : 'check-ins'} saving — will sync when back online
+        </div>
+      )}
       {fsNotice && (
         <div className="fixed bottom-20 right-4 z-40 max-w-xs rounded-xl px-4 py-3 text-sm"
           style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.18)', color:'rgba(255,255,255,0.85)' }}>
@@ -337,6 +421,11 @@ export default function KioskPage() {
             : <><p className="text-white italic text-base leading-relaxed" style={{ fontFamily:'var(--font-serif)' }}>"{blessing.current.text}"</p><p className="text-white/45 text-sm mt-2">— {blessing.current.ref}</p></>
           }
         </div>
+        {justQueued && (
+          <p className="text-xs mt-4" style={{ color:'rgba(255,255,255,.4)' }}>
+            No connection right now — you&apos;re still checked in, this will save the moment the network returns.
+          </p>
+        )}
       </div>
     </div>
   );
