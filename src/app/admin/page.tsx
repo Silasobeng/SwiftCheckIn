@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization } from '@/types';
 import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
-import { tzFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel } from '@/lib/monthWindow';
+import { tzFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel, yearKeyOf, yearRangeLabel } from '@/lib/monthWindow';
 import { StackedTrend, RankedBars, OrdinalBars, SplitBar } from '@/components/Charts';
 
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
@@ -518,6 +518,37 @@ export default function AdminPage() {
       return { type, label: GIVING_TYPE_LABELS[type], count: rows.length, amount: rows.reduce((s,g)=>s+Number(g.amount||0),0) };
     })
     .filter(t => t.count > 0);
+
+  // Year-over-year, same timezone-aware reckoning as everything else here —
+  // built once so it's ready the first time a church actually has two years
+  // of history to compare, rather than something to bolt on under pressure
+  // later. Costs nothing when there's no data yet: the panel just says so.
+  const currentYearKey = yearKeyOf(tzFmt, new Date());
+  const lastYearKey = String(Number(currentYearKey) - 1);
+  const yearOf = (iso?: string|null) => iso ? yearKeyOf(tzFmt, iso) : '';
+  const currentYearCheckins = checkins.filter(c=>yearOf(c.checked_in_at)===currentYearKey);
+  const lastYearCheckins = checkins.filter(c=>yearOf(c.checked_in_at)===lastYearKey);
+  const currentYearFirstTimers = currentYearCheckins.filter(c=>c.is_first_time).length;
+  const lastYearFirstTimers = lastYearCheckins.filter(c=>c.is_first_time).length;
+  const currentYearGiving = giving.filter(g=>yearOf(g.created_at)===currentYearKey);
+  const lastYearGiving = giving.filter(g=>yearOf(g.created_at)===lastYearKey);
+  const currentYearGivingTotal = currentYearGiving.reduce((s,g)=>s+Number(g.amount||0),0);
+  const lastYearGivingTotal = lastYearGiving.reduce((s,g)=>s+Number(g.amount||0),0);
+  const currentYearRangeLabel = yearRangeLabel(currentYearKey);
+  const lastYearRangeLabel = yearRangeLabel(lastYearKey);
+  // null rather than a number when there's nothing last year to divide
+  // by — "up 400% from zero" is a meaningless figure, not an insight.
+  const pctDelta = (curr:number, prev:number): number|null => prev===0 ? null : Math.round(((curr-prev)/prev)*100);
+  const yearComparisons = [
+    { label:'Check-ins', curr:currentYearCheckins.length, prev:lastYearCheckins.length,
+      currDisplay:currentYearCheckins.length.toLocaleString('en-US'), prevDisplay:lastYearCheckins.length.toLocaleString('en-US') },
+    { label:'First-time visitors', curr:currentYearFirstTimers, prev:lastYearFirstTimers,
+      currDisplay:currentYearFirstTimers.toLocaleString('en-US'), prevDisplay:lastYearFirstTimers.toLocaleString('en-US') },
+    { label:'Giving received', curr:currentYearGivingTotal, prev:lastYearGivingTotal,
+      currDisplay:`${givingCurrency} ${currentYearGivingTotal.toLocaleString('en-US',{maximumFractionDigits:0})}`,
+      prevDisplay:`${givingCurrency} ${lastYearGivingTotal.toLocaleString('en-US',{maximumFractionDigits:0})}` },
+  ].map(c => ({ ...c, delta: pctDelta(c.curr, c.prev) }));
+  const hasAnyYearData = currentYearCheckins.length>0 || lastYearCheckins.length>0 || currentYearGiving.length>0 || lastYearGiving.length>0;
 
   const resetGivingForm = () => setGivingForm({ person_id:'', giver_name:'', giver_email:'', amount:'', giving_type:'offering', giving_type_other:'', payment_method:'cash', notes:'' });
 
@@ -1266,6 +1297,35 @@ export default function AdminPage() {
                   display: `${givingCurrency} ${t.amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,
                 }))}
               />
+            </div>
+
+            {/* Year over year — quiet until there's a second year to compare
+                against, then it's already there. */}
+            <div className="panel" style={{padding:'28px',marginBottom:20}}>
+              <div className="panel-label" style={{display:'block',marginBottom:4}}>Year over year</div>
+              <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,margin:'0 0 18px'}}>{currentYearRangeLabel} vs {lastYearRangeLabel}</p>
+              {!hasAnyYearData ? (
+                <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No data yet for {currentYearKey} or {lastYearKey}.</p>
+              ) : (
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:20}}>
+                  {yearComparisons.map(c=>(
+                    <div key={c.label}>
+                      <div style={{fontSize:11,letterSpacing:'0.08em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:8}}>{c.label}</div>
+                      <div style={{display:'flex',alignItems:'baseline',gap:10,flexWrap:'wrap'}}>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:'#16243A',lineHeight:1}}>{c.currDisplay}</div>
+                        {c.delta !== null && (
+                          <span style={{fontSize:13,fontWeight:600,color:c.delta>=0?'#2E7D4E':'#B23B3B'}}>
+                            {c.delta>=0?'▲':'▼'} {Math.abs(c.delta)}%
+                          </span>
+                        )}
+                      </div>
+                      <div style={{fontSize:12,color:'#A89D8E',marginTop:4}}>
+                        {c.delta===null ? `vs ${c.prevDisplay} in ${lastYearKey} (no prior year to compare)` : `vs ${c.prevDisplay} in ${lastYearKey}`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Insight cards grid */}

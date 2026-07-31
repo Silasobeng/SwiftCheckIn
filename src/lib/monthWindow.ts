@@ -51,6 +51,17 @@ export function timeFormatter(timeZone: string): Intl.DateTimeFormat {
   }
 }
 
+/** 'YYYY' for the given instant, in the formatter's timezone. */
+export function yearKeyOf(fmt: Intl.DateTimeFormat, value: Date | string): string {
+  const { y } = parts(fmt, value);
+  return y;
+}
+
+/** Human label for a year key, e.g. 'Jan 1 – Dec 31, 2026'. */
+export function yearRangeLabel(year: string): string {
+  return `Jan 1 – Dec 31, ${year}`;
+}
+
 /** The month key immediately before the given 'YYYY-MM'. */
 export function prevMonthKey(ym: string): string {
   let [y, m] = ym.split('-').map(Number);
