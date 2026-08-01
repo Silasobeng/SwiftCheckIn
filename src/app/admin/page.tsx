@@ -232,6 +232,31 @@ export default function AdminPage() {
     fetch('/api/auth/session').then(r=>r.json()).then(d=>{ if(!d.authenticated) router.push('/login'); else { setSession(d.session); setLoading(false); } }).catch(()=>router.push('/login'));
   }, [router]);
 
+  // Billing checkout state and the ?billing=success|failed round trip from
+  // Paystack's redirect. Read once on mount, then the URL is cleaned so a
+  // page refresh doesn't replay the same toast.
+  const [billingBusy, setBillingBusy] = useState<'monthly'|'annual'|null>(null);
+  const [billingError, setBillingError] = useState('');
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const billing = params.get('billing');
+    if (billing === 'success') { setMessage('Payment received — subscription active.'); router.replace('/admin'); }
+    else if (billing === 'failed') { setError('Payment did not go through. No charge was made — try again.'); router.replace('/admin'); }
+  }, [router]);
+
+  const startCheckout = async (plan: 'monthly'|'annual') => {
+    setBillingBusy(plan); setBillingError('');
+    try {
+      const res = await fetch('/api/billing/checkout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ plan }) });
+      const data = await res.json();
+      if (!res.ok || !data.authorization_url) { setBillingError(data.error || 'Could not start checkout.'); setBillingBusy(null); return; }
+      window.location.href = data.authorization_url;
+    } catch {
+      setBillingError('Could not reach the payment service. Check your connection.');
+      setBillingBusy(null);
+    }
+  };
+
   const loadData = useCallback(async (opts?: { background?: boolean }) => {
     if (!session) return;
     const background = opts?.background === true;
@@ -623,6 +648,55 @@ export default function AdminPage() {
     </div>
   );
   if (!session) return null;
+
+  // Every data-fetching route behind requireActiveSubscription() 403s once a
+  // trial or subscription ends, and safeFetch() in loadData() silently
+  // swallows those into empty fallbacks — so without this gate, an expired
+  // church just sees a dashboard that quietly looks wiped clean, with no way
+  // back in. /api/auth/session is deliberately NOT gated the same way, so
+  // this screen is reachable exactly when everything else is locked.
+  if (!session.isSubscriptionActive) {
+    const ended = session.subscriptionStatus === 'trial' ? 'Your 14-day free trial has ended.' : 'Your subscription has ended.';
+    return (
+      <div style={{minHeight:'100vh',background:'#F8F4EE',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+        <div style={{width:'100%',maxWidth:460}}>
+          <div style={{textAlign:'center',marginBottom:28}}>
+            <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',marginBottom:8}}>{session.orgName}</h1>
+            <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>{ended} Choose a plan to keep using SwiftEntryPro — your data is safe and waiting.</p>
+          </div>
+
+          {billingError && <div className="alert alert-error" style={{marginBottom:16}}><span>{billingError}</span></div>}
+
+          <div className="card" style={{padding:'20px 22px',marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center',gap:16}}>
+            <div>
+              <div style={{fontSize:12,color:'#A89D8E',fontWeight:500,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Monthly</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 150<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / month</span></div>
+            </div>
+            <button onClick={()=>startCheckout('monthly')} disabled={billingBusy!==null} className="btn btn-secondary">
+              {billingBusy==='monthly' ? 'Redirecting…' : 'Choose'}
+            </button>
+          </div>
+
+          <div className="card" style={{padding:'20px 22px',marginBottom:20,display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,border:'1px solid #C97B1A',background:'#FDF3E0'}}>
+            <div>
+              <div style={{fontSize:12,color:'#7A4A0E',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Annual · Save GHS 300</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 1,500<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / year</span></div>
+            </div>
+            <button onClick={()=>startCheckout('annual')} disabled={billingBusy!==null} className="btn btn-primary">
+              {billingBusy==='annual' ? 'Redirecting…' : 'Choose'}
+            </button>
+          </div>
+
+          <p style={{fontSize:12,color:'#A89D8E',textAlign:'center',lineHeight:1.6}}>
+            Paid by card or Mobile Money via Paystack. You&apos;ll be redirected to a secure checkout page.
+          </p>
+          <div style={{textAlign:'center',marginTop:20}}>
+            <button onClick={handleLogout} className="btn btn-ghost text-sm">Sign out</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{minHeight:"100vh",background:"#F8F4EE"}}>

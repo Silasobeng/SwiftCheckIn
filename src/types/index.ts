@@ -26,6 +26,19 @@ export interface Organization {
   subscription_start_date: string | null;
   subscription_end_date: string | null;
   timezone: string;
+  paystack_customer_code: string | null;
+}
+
+export interface Payment {
+  id: string;
+  created_at: string;
+  org_id: string;
+  paystack_reference: string;
+  plan: 'monthly' | 'annual';
+  amount: number;
+  currency: string;
+  status: 'success' | 'failed';
+  raw_event: unknown;
 }
 
 export type PersonRole = 'visitor' | 'member' | 'leader';
