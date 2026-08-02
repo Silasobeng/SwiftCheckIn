@@ -8,50 +8,19 @@ const FAQS = [
   { q:'Do members need to download an app?', a:"No app needed. Members simply walk up to the tablet and check in. Nothing to install, nothing to sign up for." },
   { q:'How do birthday messages work?', a:"Fully automatic. Once you add a member's date of birth, the system sends a birthday message every year on that date. You never have to remember." },
   { q:'What if someone\'s name isn\'t on the tablet?', a:"They tap 'First Time' and register in under 30 seconds. Their details are saved and they'll appear on the tablet from that point on." },
+  { q:'Can I track tithes and offerings?', a:"Yes. Record giving by type — tithe, offering, seed, pledge — and a receipt can be emailed automatically. Your monthly and yearly giving totals are right there in your dashboard." },
   { q:'Can I customise the messages?', a:"Yes, completely. You write your message in plain English — no coding, no technical knowledge required." },
+  { q:'How do I pay, and what does it cost?', a:"GHS 150 a month, or GHS 1,500 a year — which works out to two months free. One plan, everything included. Pay by card or Mobile Money." },
 ];
 
-const BIRTHDAY_NAMES = ['Abena','Kofi','Esi','Joseph','Benedicta','Kwame','Akua','Emmanuel','Efua','Daniel'];
-const CHECKIN_NAMES  = ['Abena','Kwame Osei','Esi Sarpong','Joseph Asante','Benedicta D.','Akua Mensah','Emmanuel K.','Grace Owusu'];
-
 export default function LandingPage() {
-  const [isLoggedIn, setIsLoggedIn]   = useState(false);
-  const [mobileOpen, setMobileOpen]   = useState(false);
-  const [openFaq, setOpenFaq]         = useState<number|null>(null);
-  const [checkCount, setCheckCount]   = useState(43);
-  const [nameIdx, setNameIdx]         = useState(0);
-  const [countFlash, setCountFlash]   = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [openFaq, setOpenFaq]       = useState<number|null>(null);
 
   useEffect(() => {
     fetch('/api/auth/session').then(r=>r.json()).then(d=>setIsLoggedIn(d.authenticated)).catch(()=>{});
   }, []);
-
-  // Count up from 43 to ~61 over the first 8 seconds, then drift every 9s
-  useEffect(() => {
-    let count = 43;
-    // Initial fast count-up: +1 every 200ms until 51
-    const rampUp = setInterval(() => {
-      count += 1;
-      setCheckCount(count);
-      setCountFlash(true);
-      setTimeout(() => setCountFlash(false), 300);
-      if (count >= 51) clearInterval(rampUp);
-    }, 200);
-    // Then drift: random +1 or +2 every 9-13 seconds
-    const drift = setInterval(() => {
-      setCheckCount(prev => {
-        const next = prev + Math.floor(Math.random() * 2) + 1;
-        return next > 89 ? prev : next; // cap at 89 to stay realistic
-      });
-      setCountFlash(true);
-      setTimeout(() => setCountFlash(false), 400);
-      // Also rotate the birthday name
-      setNameIdx(i => (i + 1) % BIRTHDAY_NAMES.length);
-    }, 9800);
-    return () => { clearInterval(rampUp); clearInterval(drift); };
-  }, []);
-
-  const s = (x:string) => ({ style: x } as { style: string });
 
   return (
     <div className="min-h-screen overflow-x-hidden" style={{ fontFamily:"'DM Sans', sans-serif", background:'#F8F4EE', color:'#1C2A3A' }}>
@@ -88,7 +57,6 @@ export default function LandingPage() {
             {[['#why','Why Us'],['#how','How It Works'],['#pricing','Pricing'],['#faq','FAQ']].map(([h,l])=>(
               <a key={h} href={h} onClick={()=>setMobileOpen(false)} style={{ display:'block', padding:'10px 0', color:'#16243A', textDecoration:'none', fontSize:15 }}>{l}</a>
             ))}
-            {/* Existing users had no way back to sign-in from the mobile menu */}
             {isLoggedIn ? (
               <Link href="/admin" onClick={()=>setMobileOpen(false)} style={{ display:'block', marginTop:12, background:'#C97B1A', color:'#fff', padding:'12px 20px', borderRadius:9, textAlign:'center', textDecoration:'none', fontSize:14, fontWeight:500 }}>Go to Dashboard →</Link>
             ) : (
@@ -102,13 +70,19 @@ export default function LandingPage() {
       </header>
 
       {/* ── HERO ── */}
-      {/* Full-height hero only where the illustration is actually visible —
-          on phones it just left a screen of dead space. */}
+      {/* The right-hand panel is written to accept a looping background video
+          later: swap the ambient CSS layer below for a <video autoplay muted
+          loop playsInline> element with the same absolute-fill positioning,
+          and keep this same dark overlay + mockup card on top of it. Built as
+          a static-first ambient scene now — not a placeholder waiting on the
+          video, a real hero on its own — specifically because most visitors
+          here are on mobile data where an autoplaying video is a real cost,
+          not just a nice-to-have. */}
       <section style={{ display:'grid', gridTemplateColumns:'1fr 1fr', alignItems:'center', maxWidth:1160, margin:'0 auto', padding:'clamp(48px,8vw,80px) 28px 60px', gap:60 }} className="!grid-cols-1 md:!grid-cols-2 md:min-h-[92vh]">
         <div className="animate-fade-in-up">
           <div style={{ display:'inline-flex', alignItems:'center', gap:8, background:'#FDF3E0', border:'1px solid rgba(201,123,26,0.25)', borderRadius:30, padding:'6px 16px', fontSize:13, color:'#C97B1A', fontWeight:500, marginBottom:28 }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:'#F0A832', display:'inline-block', animation:'pulseSoft 2s infinite' }}/>
-            Built for growing churches
+            Now piloting with churches in Accra
           </div>
           <h1 style={{ fontFamily:"'Playfair Display', serif", fontSize:'clamp(40px,5vw,62px)', lineHeight:1.1, color:'#16243A', letterSpacing:'-0.02em', marginBottom:22 }}>
             Know your<br/>congregation.<br/><em style={{ fontStyle:'italic', color:'#C97B1A' }}>Every Sunday.</em>
@@ -125,21 +99,16 @@ export default function LandingPage() {
               See how it works
             </a>
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
-            <div style={{ display:'flex' }}>
-              {['#4A7C59','#5A6E8C','#8C5A3A','#6A4A8C'].map((c,i)=>(
-                <div key={i} style={{ width:32, height:32, borderRadius:'50%', background:c, border:'2px solid #F8F4EE', marginLeft:i?-8:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'#fff', fontFamily:"'Playfair Display',serif", fontWeight:600 }}>
-                  {['GC','RB','HF','LC'][i]}
-                </div>
-              ))}
-            </div>
-            <span style={{ fontSize:13, color:'#7A6E60' }}>Trusted by <strong style={{ color:'#1C2A3A' }}>120+ churches</strong> across Africa</span>
-          </div>
+          <p style={{ fontSize:13, color:'#A89D8E' }}>No credit card needed · Set up in minutes · Works even where wifi doesn&apos;t</p>
         </div>
 
         <div style={{ position:'relative', justifyContent:'center', alignItems:'center' }} className="hidden md:flex">
-          <div style={{ width:380, height:380, borderRadius:'50%', background:'radial-gradient(circle,rgba(201,123,26,0.07) 0%,transparent 70%)', position:'absolute' }}/>
-          <div style={{ background:'#16243A', borderRadius:24, padding:'36px 32px', width:300, boxShadow:'0 40px 80px rgba(22,36,58,0.35)', animation:'float 5s ease-in-out infinite', transform:'rotate(-1.5deg)', position:'relative', zIndex:2 }}>
+          {/* Ambient scene — a video source drops in here later without
+              touching anything else in this section. */}
+          <div style={{ position:'absolute', inset:'-40px', borderRadius:32, overflow:'hidden', background:'radial-gradient(ellipse at 30% 20%,rgba(201,123,26,0.16) 0%,transparent 55%),linear-gradient(160deg,#16243A 0%,#0B1420 100%)' }}>
+            <div style={{ position:'absolute', inset:0, opacity:0.5, background:'radial-gradient(circle at 70% 75%,rgba(240,168,50,0.12) 0%,transparent 45%)', animation:'pulseSoft 6s ease-in-out infinite' }}/>
+          </div>
+          <div style={{ background:'#16243A', borderRadius:24, padding:'36px 32px', width:300, boxShadow:'0 40px 80px rgba(0,0,0,0.45)', animation:'float 5s ease-in-out infinite', transform:'rotate(-1.5deg)', position:'relative', zIndex:2, border:'1px solid rgba(255,255,255,0.08)' }}>
             <div style={{ width:52,height:52,background:'#C97B1A',borderRadius:16,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 18px' }}>
               <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M5 13.5L10.5 19L21 8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
@@ -157,39 +126,6 @@ export default function LandingPage() {
               </div>
             ))}
             <div style={{ textAlign:'center', fontSize:12, color:'rgba(255,255,255,0.25)', marginTop:18 }}>Sunday Morning Service · Today</div>
-          </div>
-          {/* Floating badges — live animated */}
-          <div style={{ position:'absolute', right:-10, top:30, background:'#fff', borderRadius:12, padding:'12px 16px', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:3, transition:'all .3s' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontSize:18 }}>✅</span>
-              <div>
-                <div style={{
-                  fontSize:18, fontWeight:600,
-                  fontFamily:"'Playfair Display',serif",
-                  transition:'all .25s',
-                  transform: countFlash ? 'scale(1.18)' : 'scale(1)',
-                  color: countFlash ? '#C97B1A' : '#16243A',
-                }}>
-                  {checkCount}
-                </div>
-                <div style={{ fontSize:11, color:'#7A6E60' }}>Checked in today</div>
-              </div>
-            </div>
-          </div>
-          <div style={{ position:'absolute', left:-20, bottom:60, background:'#fff', borderRadius:12, padding:'12px 16px', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:3 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontSize:18 }}>🎂</span>
-              <div>
-                <div style={{ fontSize:12, color:'#1C2A3A', fontWeight:500 }}>Birthday email sent</div>
-                <div style={{
-                  fontSize:11, color:'#7A6E60',
-                  transition:'opacity .4s',
-                  opacity: countFlash ? 0.4 : 1,
-                }}>
-                  To {BIRTHDAY_NAMES[nameIdx]} · automatically
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -224,10 +160,10 @@ export default function LandingPage() {
             {[
               {icon:'✅',bg:'#EDF6F1',title:'Instant check-in kiosk',desc:'A beautiful screen at your entrance. Members find their name in seconds. First-timers fill a quick form. No training needed.'},
               {icon:'📧',bg:'#FDF3E0',title:'Automatic caring emails',desc:'Welcome emails, birthday greetings, and "we miss you" messages — sent automatically with each person\'s name. Set once, runs forever.'},
-              {icon:'📊',bg:'#EEF2F8',title:'Attendance insights',desc:'See who\'s growing, who\'s new, who hasn\'t come in a while. Real numbers to help you pastor better.'},
-              {icon:'👥',bg:'#FDF3E0',title:'Your congregation, organised',desc:'Every member, visitor, and leader in one place. Birthdays, visit history, contact info — all searchable.'},
-              {icon:'📢',bg:'#EDF6F1',title:'Broadcast messages',desc:'Send a Sunday announcement or a message to first-timers only. Each person gets it personalised with their name.'},
-              {icon:'⚡',bg:'#EEF2F8',title:'Works even offline',desc:'Poor wifi at your venue? No problem. Check-in keeps working and syncs when connection returns.'},
+              {icon:'💰',bg:'#EEF2F8',title:'Giving, tracked properly',desc:'Record tithes, offerings, seed and pledges by type. Automatic receipts. Your monthly and yearly totals, always up to date.'},
+              {icon:'📊',bg:'#FDF3E0',title:'Real attendance analytics',desc:'Month-over-month and year-over-year comparisons, not just a headline number. See growth, decline and everything in between at a glance.'},
+              {icon:'🧾',bg:'#EDF6F1',title:'Downloadable service reports',desc:'A proper spreadsheet after every service — who attended, who was absent, giving by type — ready to open in Excel.'},
+              {icon:'⚡',bg:'#EEF2F8',title:'Works even offline',desc:'Poor wifi at your venue? Check-in keeps working on the device and syncs the moment connection returns.'},
             ].map((f,i)=>(
               <div key={i} style={{ background:'#fff', border:'1px solid #E4DFD5', borderRadius:18, padding:'32px 28px', transition:'all .2s' }} className="card-hover">
                 <div style={{ width:48,height:48,borderRadius:14,background:f.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,marginBottom:20 }}>{f.icon}</div>
@@ -261,61 +197,57 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ── */}
+      {/* ── BUILT WITH REAL CHURCHES ── */}
+      {/* This replaces a testimonials section that quoted three invented
+          pastors at three invented churches. Two real pilot churches exist
+          right now, with no collected quotes yet — inventing ones to fill
+          this space would be a lie with a named victim's job title attached
+          to it. This says what's actually true instead: real churches shaped
+          what got built, in the order they actually asked for it. Swap this
+          for real testimonials the moment pilot feedback is in. */}
       <section style={{ background:'#fff', padding:`var(--section-y) 28px` }}>
-        <div style={{ maxWidth:1100, margin:'0 auto' }}>
-          <div style={{ fontSize:11, letterSpacing:'0.15em', textTransform:'uppercase', color:'#C97B1A', fontWeight:500, marginBottom:14 }}>What pastors say</div>
-          <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,3.5vw,42px)', color:'#16243A', marginBottom:56 }}>Churches that made the switch.</h2>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))', gap:24 }}>
-            {[
-              {q:'"We used to lose visitors all the time. Now every first-timer gets a warm welcome email automatically. Two have since become members."',n:'Pastor Grace Owusu',r:'Abundant Life Church, Accra',c:'#4A7C59',i:'GO'},
-              {q:'"Sunday mornings used to start with chaos at the door. Now our usher just opens a screen and everything runs itself."',n:'Elder Kofi Mensah',r:'Revival Centre, Kumasi',c:'#5A6E8C',i:'KM'},
-              {q:'"I can finally see our real attendance trend. We had been declining for 3 months without realising. This tool helped us catch it."',n:'Ps. Ama Kyei',r:'The Vine Church, Takoradi',c:'#8C5A3A',i:'AK'},
-            ].map((t,i)=>(
-              <div key={i} style={{ background:'#F8F4EE', border:'1px solid #E4DFD5', borderRadius:18, padding:'32px 28px' }}>
-                <div style={{ color:'#F0A832', fontSize:14, letterSpacing:2, marginBottom:16 }}>★★★★★</div>
-                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:15, color:'#16243A', lineHeight:1.7, fontStyle:'italic', marginBottom:20 }}>{t.q}</div>
-                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                  <div style={{ width:38,height:38,borderRadius:'50%',background:t.c,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:'#fff',fontFamily:"'Playfair Display',serif",fontWeight:600 }}>{t.i}</div>
-                  <div><div style={{ fontSize:14, fontWeight:500, color:'#16243A' }}>{t.n}</div><div style={{ fontSize:12, color:'#7A6E60' }}>{t.r}</div></div>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div style={{ maxWidth:900, margin:'0 auto', textAlign:'center' }}>
+          <div style={{ fontSize:11, letterSpacing:'0.15em', textTransform:'uppercase', color:'#C97B1A', fontWeight:500, marginBottom:14 }}>How this gets built</div>
+          <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(26px,3.2vw,38px)', color:'#16243A', lineHeight:1.25, marginBottom:20 }}>
+            Built with real churches, not for a demo.
+          </h2>
+          <p style={{ fontSize:16, color:'#7A6E60', fontWeight:300, lineHeight:1.85, maxWidth:640, margin:'0 auto' }}>
+            Every feature here — offline check-in, giving by type, automatic follow-up for members who&apos;ve gone quiet — came from a real church asking for it. SwiftEntryPro is currently piloting with churches in Accra, and what they ask for next is what gets built next.
+          </p>
         </div>
       </section>
 
       {/* ── PRICING ── */}
       <section id="pricing" style={{ background:'#F8F4EE', padding:`var(--section-y) 28px` }}>
-        <div style={{ maxWidth:1100, margin:'0 auto' }}>
+        <div style={{ maxWidth:820, margin:'0 auto' }}>
           <div style={{ fontSize:11, letterSpacing:'0.15em', textTransform:'uppercase', color:'#C97B1A', fontWeight:500, marginBottom:14 }}>Pricing</div>
-          <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,3.5vw,42px)', color:'#16243A', marginBottom:8 }}>Simple, honest pricing.</h2>
-          <p style={{ fontSize:16, color:'#7A6E60', fontWeight:300, marginBottom:56 }}>No hidden fees. No per-member charges. Cancel any time.</p>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:20, alignItems:'start' }}>
-            {[
-              {name:'Starter',price:'GHS 80',per:'/mo · Up to 100 members',featured:false,features:['Check-in kiosk','Attendance tracking','Automatic welcome email','Basic analytics']},
-              {name:'Growth',price:'GHS 150',per:'/mo · Up to 500 members',featured:true,features:['Everything in Starter','Birthday & "we miss you" emails','Broadcast messaging','Full analytics dashboard','Export to Excel/CSV']},
-              {name:'Church+',price:'GHS 300',per:'/mo · Unlimited members',featured:false,features:['Everything in Growth','Multiple locations/services','Priority support','Custom branding on kiosk']},
-            // The featured card used transform:scale, which pushed it past the
-            // grid track and got clipped on narrow screens. Depth now comes
-            // from elevation and a ribbon instead.
-            ].map((p,i)=>(
-              <div key={i} style={{ position:'relative', background: p.featured?'#16243A':'#fff', border: p.featured?'none':'1px solid #E4DFD5', borderRadius:20, padding: p.featured?'44px 30px 36px':'36px 30px', boxShadow: p.featured?'0 24px 60px rgba(22,36,58,0.22)':'none' }}>
-                {p.featured && (
-                  <div style={{ position:'absolute', top:0, left:'50%', transform:'translate(-50%,-50%)', background:'#C97B1A', color:'#fff', fontSize:11, letterSpacing:'0.1em', textTransform:'uppercase', fontWeight:500, padding:'6px 16px', borderRadius:30, whiteSpace:'nowrap' }}>Most popular</div>
-                )}
-                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, color:p.featured?'#fff':'#16243A', marginBottom:8 }}>{p.name}</div>
-                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:44, color:p.featured?'#fff':'#16243A', lineHeight:1, marginBottom:4 }}>{p.price}</div>
-                <div style={{ fontSize:13, color:p.featured?'rgba(255,255,255,0.4)':'#7A6E60', marginBottom:28 }}>{p.per}</div>
-                <div style={{ height:1, background:p.featured?'rgba(255,255,255,0.1)':'#E4DFD5', marginBottom:24 }}/>
-                {p.features.map((f,j)=>(
-                  <div key={j} style={{ display:'flex', gap:10, fontSize:14, color:p.featured?'rgba(255,255,255,0.65)':'#7A6E60', marginBottom:12, fontWeight:300 }}>
-                    <span style={{ color:p.featured?'#F0A832':'#2E7D4E', flexShrink:0, marginTop:1 }}>✓</span>{f}
-                  </div>
-                ))}
-                <Link href="/signup" className={p.featured?'lp-cta':'lp-cta-ghost'} style={{ display:'block', textAlign:'center', padding:'14px', borderRadius:10, fontSize:14, fontWeight:500, textDecoration:'none', marginTop:28, background:p.featured?'#C97B1A':'transparent', color:p.featured?'#fff':'#16243A', border:p.featured?'none':'1px solid #E4DFD5' }}>
-                  Start free trial
-                </Link>
+          <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(28px,3.5vw,42px)', color:'#16243A', marginBottom:8 }}>One price. Everything included.</h2>
+          <p style={{ fontSize:16, color:'#7A6E60', fontWeight:300, marginBottom:48 }}>No tiers, no per-member charges, no feature walls. Every church gets the whole platform.</p>
+
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:20, marginBottom:40 }}>
+            <div style={{ background:'#fff', border:'1px solid #E4DFD5', borderRadius:20, padding:'32px 30px' }}>
+              <div style={{ fontSize:12, letterSpacing:'0.08em', textTransform:'uppercase', color:'#A89D8E', fontWeight:600, marginBottom:14 }}>Monthly</div>
+              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:42, color:'#16243A', lineHeight:1, marginBottom:6 }}>GHS 150<span style={{ fontSize:16, color:'#7A6E60', fontWeight:400 }}> / month</span></div>
+              <div style={{ fontSize:13, color:'#7A6E60', marginBottom:28 }}>Billed monthly. Cancel any time.</div>
+              <Link href="/signup" className="lp-cta-ghost" style={{ display:'block', textAlign:'center', padding:'14px', borderRadius:10, fontSize:14, fontWeight:500, textDecoration:'none', color:'#16243A', border:'1px solid #E4DFD5' }}>
+                Start free trial
+              </Link>
+            </div>
+            <div style={{ position:'relative', background:'linear-gradient(180deg,#FDF3E0,#fff 65%)', border:'1px solid rgba(201,123,26,0.4)', borderRadius:20, padding:'32px 30px', boxShadow:'0 24px 60px rgba(201,123,26,0.12)' }}>
+              <div style={{ position:'absolute', top:0, left:'50%', transform:'translate(-50%,-50%)', background:'#C97B1A', color:'#fff', fontSize:11, letterSpacing:'0.1em', textTransform:'uppercase', fontWeight:500, padding:'6px 16px', borderRadius:30, whiteSpace:'nowrap' }}>Save GHS 300</div>
+              <div style={{ fontSize:12, letterSpacing:'0.08em', textTransform:'uppercase', color:'#7A4A0E', fontWeight:600, marginBottom:14 }}>Annual</div>
+              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:42, color:'#16243A', lineHeight:1, marginBottom:6 }}>GHS 1,500<span style={{ fontSize:16, color:'#7A6E60', fontWeight:400 }}> / year</span></div>
+              <div style={{ fontSize:13, color:'#7A6E60', marginBottom:28 }}>About two months free versus paying monthly.</div>
+              <Link href="/signup" className="lp-cta" style={{ display:'block', textAlign:'center', padding:'14px', borderRadius:10, fontSize:14, fontWeight:500, textDecoration:'none', background:'#C97B1A', color:'#fff' }}>
+                Start free trial
+              </Link>
+            </div>
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:14 }}>
+            {['Unlimited check-ins & people','Kiosk works offline','Giving tracking & receipts','Automatic emails','Analytics & reports','Multi-branch friendly'].map((f,i)=>(
+              <div key={i} style={{ display:'flex', gap:9, fontSize:14, color:'#7A6E60', fontWeight:300 }}>
+                <span style={{ color:'#2E7D4E', flexShrink:0 }}>✓</span>{f}
               </div>
             ))}
           </div>
