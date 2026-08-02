@@ -17,9 +17,35 @@ export default function LandingPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openFaq, setOpenFaq]       = useState<number|null>(null);
+  // A viewer who has told their OS they don't want motion gets the still
+  // frame instead of the loop — this is a stated preference, not a guess.
+  const [allowMotion, setAllowMotion] = useState(true);
+  // Starts false and is only ever flipped true by the matchMedia check below.
+  // Tailwind's `hidden md:flex` only sets display:none — it doesn't stop
+  // React from mounting the <video>, and a mounted <video autoPlay> starts
+  // fetching before any CSS is even read. Confirmed by watching the network
+  // panel: hero-bg.mp4 was still requested on a cold load at a 375px
+  // viewport. The video only belongs in the DOM at all once this is true.
+  const [showHeroVideo, setShowHeroVideo] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/session').then(r=>r.json()).then(d=>setIsLoggedIn(d.authenticated)).catch(()=>{});
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    setShowHeroVideo(mq.matches);
+    const onChange = () => setShowHeroVideo(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setAllowMotion(!mq.matches);
+    const onChange = () => setAllowMotion(!mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
   }, []);
 
   return (
@@ -103,9 +129,41 @@ export default function LandingPage() {
         </div>
 
         <div style={{ position:'relative', justifyContent:'center', alignItems:'center' }} className="hidden md:flex">
-          {/* Ambient scene — a video source drops in here later without
-              touching anything else in this section. */}
-          <div style={{ position:'absolute', inset:'-40px', borderRadius:32, overflow:'hidden', background:'radial-gradient(ellipse at 30% 20%,rgba(201,123,26,0.16) 0%,transparent 55%),linear-gradient(160deg,#16243A 0%,#0B1420 100%)' }}>
+          {/* Real footage from a live service, looping behind the mockup
+              card — but only once showHeroVideo (a real JS min-width check)
+              confirms it, never from the `hidden md:flex` class alone. That
+              class only hides the element visually; a mounted <video
+              autoPlay> starts fetching regardless of its own display:none,
+              which was confirmed by watching hero-bg.mp4 still get requested
+              on a cold load at a 375px viewport with only the CSS class in
+              place. Most visitors here are on mobile data, so the video
+              element itself must not exist until confirmed appropriate. A
+              viewer who has separately asked their OS for reduced motion
+              gets the still poster frame instead of the loop. */}
+          <div style={{ position:'absolute', inset:'-40px', borderRadius:32, overflow:'hidden' }}>
+            {/* Below md, showHeroVideo is false and neither element below
+                renders at all — not video, not even the smaller poster
+                image. This whole panel is already CSS-hidden on mobile, so
+                the only thing left to get right is making sure nothing here
+                triggers a network request it doesn't need to. */}
+            {showHeroVideo && (
+              allowMotion ? (
+                <video
+                  autoPlay muted loop playsInline
+                  poster="/hero-poster.jpg"
+                  aria-hidden="true"
+                  style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }}
+                >
+                  <source src="/hero-bg.mp4" type="video/mp4" />
+                </video>
+              ) : (
+                <img src="/hero-poster.jpg" alt="" aria-hidden="true" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
+              )
+            )}
+            {/* Overlay stays on top of the footage exactly as it sat on top
+                of the placeholder gradient — same job either way: keep the
+                card and text readable against whatever is behind them. */}
+            <div style={{ position:'absolute', inset:0, background:'linear-gradient(160deg,rgba(22,36,58,0.72) 0%,rgba(11,20,32,0.85) 100%)' }} />
             <div style={{ position:'absolute', inset:0, opacity:0.5, background:'radial-gradient(circle at 70% 75%,rgba(240,168,50,0.12) 0%,transparent 45%)', animation:'pulseSoft 6s ease-in-out infinite' }}/>
           </div>
           <div style={{ background:'#16243A', borderRadius:24, padding:'36px 32px', width:300, boxShadow:'0 40px 80px rgba(0,0,0,0.45)', animation:'float 5s ease-in-out infinite', transform:'rotate(-1.5deg)', position:'relative', zIndex:2, border:'1px solid rgba(255,255,255,0.08)' }}>
