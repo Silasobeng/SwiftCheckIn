@@ -26,13 +26,6 @@ const FEATURES: { title: string; lines: string[]; icon: FeatureIconVariant }[] =
   { title:'Works Without Internet', icon:'offline', lines:['No wifi on Sunday? No problem.',"Everything syncs when you're back."] },
 ];
 
-const PROBLEMS: { icon: 'decline'|'silence'|'scattered'|'clock'; lines: string[] }[] = [
-  { icon:'decline',   lines:['Members quietly stop attending.','Nobody notices until months later.'] },
-  { icon:'silence',   lines:['A visitor comes on Sunday.','Nobody follows up.','They never come back.'] },
-  { icon:'scattered', lines:['Attendance is in a notebook.','Giving is in Excel.','Visitor cards are somewhere on a desk.'] },
-  { icon:'clock',     lines:['Sunday mornings feel rushed —','long queues, paper registers,',"volunteers who aren't sure what to do."] },
-];
-
 const STEPS = [
   'Create your church account.',
   'Add your members.',
@@ -110,19 +103,16 @@ function Check({ className = 'w-5 h-5' }: { className?: string }) {
   );
 }
 
-/** One line-drawn mark per problem statement — no emoji, single stroke
- *  colour, quiet on the page. Distinct glyphs rather than reusing one icon
- *  four times, so each card reads as its own point rather than a repeated
- *  bullet. */
-function ProblemIcon({ variant, className = 'w-5 h-5' }: { variant: 'decline'|'silence'|'scattered'|'clock'; className?: string }) {
-  const common = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  const glyphs: Record<typeof variant, React.ReactNode> = {
-    decline: <path d="M4 8l5 5 3.5-3.5L18 15M13.5 9.5H18V14" {...common} />,
-    silence: <path d="M5 6.5A1.8 1.8 0 016.8 4.7h10.4A1.8 1.8 0 0119 6.5v6.4a1.8 1.8 0 01-1.8 1.8H12l-4.5 3.4v-3.4H6.8A1.8 1.8 0 015 11.3V6.5z" {...common} />,
-    scattered: <><rect x="4.2" y="4.2" width="9.5" height="12.2" rx="1.1" {...common} /><rect x="8.6" y="7.6" width="9.5" height="12.2" rx="1.1" {...common} opacity={0.45} /></>,
-    clock: <><circle cx="12" cy="12" r="7.6" {...common} /><path d="M12 7.8V12l3 2" {...common} /></>,
-  };
-  return <svg className={className} viewBox="0 0 24 24" aria-hidden="true">{glyphs[variant]}</svg>;
+/** The negative half of the before/after comparison — a plain drawn X, same
+ *  single-stroke language as Check, not the ❌ emoji glyph (which renders as
+ *  a different multicolour picture per OS and is exactly the toyish look
+ *  this page is deliberately avoiding). */
+function XMark({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
+    </svg>
+  );
 }
 
 export type FeatureIconVariant = 'tablet'|'addPerson'|'calendar'|'mail'|'giving'|'chart'|'offline';
@@ -274,11 +264,11 @@ export default function LandingPage() {
           </p>
 
           <h1 className="mb-6 font-display text-4xl leading-[1.12] text-white sm:text-5xl md:text-6xl" style={{ textWrap:'balance' as never }}>
-            Never lose track of a soul<br/>who needs you.
+            Never lose track<br/>of a soul<br/>who walks through your doors.
           </h1>
 
           <p className="mx-auto mb-10 max-w-xl text-base font-light leading-relaxed text-white/75 sm:text-lg">
-            WeMotiply helps churches welcome visitors, track attendance, manage giving, and follow up with members — from one simple dashboard.
+            WeMotiply helps you welcome visitors, know your members, record tithes and offerings, follow up with care, and understand your church&apos;s growth — while giving you the insights to grow a healthier church.
           </p>
 
           <div className="mb-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
@@ -290,8 +280,8 @@ export default function LandingPage() {
             </a>
           </div>
 
-          <div className="mx-auto grid max-w-md grid-cols-2 gap-x-6 gap-y-3 text-sm text-white/70">
-            {['Free 14 days','Setup in 5 min','No credit card','Works offline'].map(t=>(
+          <div className="mx-auto flex max-w-xl flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-white/70">
+            {['14-Day Free Trial','Easy to Set Up','Works Offline','No IT Skills Required','Fully Customizable'].map(t=>(
               <div key={t} className="flex items-center gap-2">
                 <Check className="w-4 h-4 shrink-0 text-gold-400" />
                 <span>{t}</span>
@@ -303,63 +293,64 @@ export default function LandingPage() {
 
       <DenominationMarquee />
 
-      {/* ── PRODUCT SCREEN ── */}
-      {/* A faithful recreation of the real kiosk screen rather than a mocked-up
-          image — it's the screen a visitor actually touches. Swap in a real
-          dashboard screenshot here once one is captured from a live account. */}
-      <section className="bg-cream-dark px-6 py-20 md:py-28">
-        <div className="mx-auto max-w-6xl">
-          <Reveal>
-            <div className="mx-auto w-full max-w-sm rounded-3xl border border-white/10 bg-navy-900 p-9 shadow-soft-xl">
-              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gold-500">
-                <Check className="w-7 h-7 text-white" />
-              </div>
-              <div className="text-center font-display text-2xl text-white">Grace Chapel</div>
-              <div className="mb-6 text-center text-sm text-white/45">We&apos;re so glad you&apos;re here</div>
-              {[
-                { bg:'bg-emerald-600', label:"I've been here before", sub:'Search your name — 5 seconds' },
-                { bg:'bg-gold-500',    label:'This is my first time', sub:'Quick 30-second welcome form' },
-              ].map((o,i)=>(
-                <div key={o.label} className={`${o.bg} ${i===0?'mb-2.5':''} flex items-center gap-3 rounded-xl px-4 py-4`}>
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15">
-                    <Check className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-white">{o.label}</div>
-                    <div className="mt-0.5 text-xs text-white/55">{o.sub}</div>
-                  </div>
-                </div>
-              ))}
-              <div className="mt-5 text-center text-xs text-white/25">Sunday Morning Service · Today</div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ── THE PROBLEM ── */}
-      <section className="bg-white px-6 py-20 md:py-28">
+      {/* ── BEFORE / AFTER ── */}
+      {/* Image slots intentionally left out for now — real photos are coming
+          for this section (a "before" and "after" pair). Built as a complete,
+          working comparison on its own so the section stands and reads
+          correctly before those arrive; swapping in a background photo per
+          column is a small addition on top of this, not a rebuild. */}
+      <section className="bg-cream px-6 py-20 md:py-28">
         <div className="mx-auto max-w-4xl">
           <Reveal>
             <h2 className="mb-14 text-center font-display text-2xl uppercase leading-snug tracking-wide text-navy-900 sm:text-3xl">
-              Ministry shouldn&apos;t feel like guesswork.
+              Yes, your ministry can grow even bigger.
             </h2>
           </Reveal>
-          <div className="space-y-5">
-            {PROBLEMS.map((p,i)=>(
-              <Reveal key={i} delay={i*80}>
-                <div className="flex gap-4 rounded-2xl border border-cream-dark bg-cream p-6">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy-50 text-navy-500">
-                    <ProblemIcon variant={p.icon} />
-                  </span>
-                  <div className="space-y-1 pt-1.5">
-                    {p.lines.map(l=><p key={l} className="font-light leading-relaxed text-navy-700">{l}</p>)}
-                  </div>
-                </div>
-              </Reveal>
-            ))}
+          <div className="grid gap-6 sm:grid-cols-2">
+            <Reveal>
+              <div className="h-full rounded-2xl border border-cream-dark bg-white p-7">
+                <div className="mb-5 text-xs font-semibold uppercase tracking-widest text-navy-400">Before WeMotiply</div>
+                <ul className="space-y-3.5">
+                  {['Paper registers','Scattered information','Forgotten visitors','Manual follow-ups','No clear picture of growth'].map(t=>(
+                    <li key={t} className="flex items-center gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-400">
+                        <XMark className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="font-light text-navy-600">{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+            <Reveal delay={90}>
+              <div className="h-full rounded-2xl border border-gold-500/40 bg-white p-7 shadow-soft-md">
+                <div className="mb-5 text-xs font-semibold uppercase tracking-widest text-gold-600">With WeMotiply</div>
+                <ul className="space-y-3.5">
+                  {['Every person is known','Every visitor is welcomed','Every connection is tracked','Every follow-up happens','Every Sunday becomes insight'].map(t=>(
+                    <li key={t} className="flex items-center gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gold-50 text-gold-500">
+                        <Check className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="text-navy-800">{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
           </div>
-          <Reveal delay={120}>
-            <p className="mt-12 text-center font-display text-xl italic text-gold-500">Your church deserves better.</p>
+        </div>
+      </section>
+
+      {/* ── WHY ONE PLATFORM ── */}
+      <section className="bg-white px-6 py-20 md:py-28">
+        <div className="mx-auto max-w-2xl text-center">
+          <Reveal>
+            <p className="mb-6 text-lg font-light leading-relaxed text-navy-700">
+              Healthy churches need more than paper registers and spreadsheets. When attendance, giving, and visitor records are kept in different places, it&apos;s difficult to build a healthy, growing church.
+            </p>
+            <p className="text-lg font-light leading-relaxed text-navy-700">
+              WeMotiply brings your attendance, giving, visitors, and member care into one simple platform — so you can focus on ministry, not administration.
+            </p>
           </Reveal>
         </div>
       </section>
