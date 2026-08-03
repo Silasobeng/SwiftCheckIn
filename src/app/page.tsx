@@ -216,7 +216,7 @@ export default function LandingPage() {
           </p>
 
           <h1 className="mb-6 font-display text-4xl leading-[1.12] text-white sm:text-5xl md:text-6xl" style={{ textWrap:'balance' as never }}>
-            Never lose track of someone<br/>who needs you.
+            Never lose track of a soul<br/>who needs you.
           </h1>
 
           <p className="mx-auto mb-10 max-w-xl text-base font-light leading-relaxed text-white/75 sm:text-lg">
