@@ -16,14 +16,14 @@ const FAQS = [
   { q:'Is our church\'s data safe?', a:"Every church's data is completely separate from every other church's, passwords are encrypted, and nothing is reachable without your own login." },
 ];
 
-const FEATURES = [
-  { title:'Smart Check-In', lines:['Members check in within seconds.','No app. No paper. Just a tablet.'] },
-  { title:'First-Time Visitor Experience', lines:['A warm welcome form that takes','less than 30 seconds to fill.'] },
-  { title:'Attendance History', lines:["Know who came.","Know who didn't.","Know who to call."] },
-  { title:'Automated Follow-Up', lines:['A welcome email when someone visits for the first time.','A birthday message on their day.',"A gentle reach-out when a member hasn't been seen in a while.",'All sent automatically. All written by you.'] },
-  { title:'Giving Records', lines:['Record tithes, offerings, seeds and pledges.','Send a receipt the moment a gift is received.'] },
-  { title:'Insights That Matter', lines:["Who's attending consistently.","Who's starting to drift.",'How giving is trending.','Where your church is growing.'] },
-  { title:'Works Without Internet', lines:['No wifi on Sunday? No problem.',"Everything syncs when you're back."] },
+const FEATURES: { title: string; lines: string[]; icon: FeatureIconVariant }[] = [
+  { title:'Smart Check-In', icon:'tablet', lines:['Members check in within seconds.','No app. No paper. Just a tablet.'] },
+  { title:'First-Time Visitor Experience', icon:'addPerson', lines:['A warm welcome form that takes','less than 30 seconds to fill.'] },
+  { title:'Attendance History', icon:'calendar', lines:["Know who came.","Know who didn't.","Know who to call."] },
+  { title:'Automated Follow-Up', icon:'mail', lines:['A welcome email when someone visits for the first time.','A birthday message on their day.',"A gentle reach-out when a member hasn't been seen in a while.",'All sent automatically. All written by you.'] },
+  { title:'Giving Records', icon:'giving', lines:['Record tithes, offerings, seeds and pledges.','Send a receipt the moment a gift is received.'] },
+  { title:'Insights That Matter', icon:'chart', lines:["Who's attending consistently.","Who's starting to drift.",'How giving is trending.','Where your church is growing.'] },
+  { title:'Works Without Internet', icon:'offline', lines:['No wifi on Sunday? No problem.',"Everything syncs when you're back."] },
 ];
 
 const PROBLEMS: { icon: 'decline'|'silence'|'scattered'|'clock'; lines: string[] }[] = [
@@ -100,6 +100,28 @@ function ProblemIcon({ variant, className = 'w-5 h-5' }: { variant: 'decline'|'s
     silence: <path d="M5 6.5A1.8 1.8 0 016.8 4.7h10.4A1.8 1.8 0 0119 6.5v6.4a1.8 1.8 0 01-1.8 1.8H12l-4.5 3.4v-3.4H6.8A1.8 1.8 0 015 11.3V6.5z" {...common} />,
     scattered: <><rect x="4.2" y="4.2" width="9.5" height="12.2" rx="1.1" {...common} /><rect x="8.6" y="7.6" width="9.5" height="12.2" rx="1.1" {...common} opacity={0.45} /></>,
     clock: <><circle cx="12" cy="12" r="7.6" {...common} /><path d="M12 7.8V12l3 2" {...common} /></>,
+  };
+  return <svg className={className} viewBox="0 0 24 24" aria-hidden="true">{glyphs[variant]}</svg>;
+}
+
+export type FeatureIconVariant = 'tablet'|'addPerson'|'calendar'|'mail'|'giving'|'chart'|'offline';
+
+/** One distinct mark per feature card. The seven cards used to share a single
+ *  gold checkmark, which made a genuinely varied feature list read as one
+ *  repeated bullet seven times. These aren't photographs on purpose: a photo
+ *  can show a scene, but "insights that matter" and "works without internet"
+ *  are software behaviours, not photographable moments — an icon says what
+ *  they are, a stock photo would just be decoration standing in for one. */
+function FeatureIcon({ variant, className = 'w-5 h-5' }: { variant: FeatureIconVariant; className?: string }) {
+  const common = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  const glyphs: Record<FeatureIconVariant, React.ReactNode> = {
+    tablet: <><rect x="6" y="3" width="12" height="18" rx="2" {...common} /><path d="M9 8l2.2 2.2L15 6" {...common} /></>,
+    addPerson: <><circle cx="10" cy="8.3" r="3.3" {...common} /><path d="M4 19c0-3.6 2.7-6.3 6-6.3s6 2.7 6 6.3" {...common} /><path d="M18 8v4M16 10h4" {...common} /></>,
+    calendar: <><rect x="4" y="5.5" width="16" height="14.5" rx="2" {...common} /><path d="M4 10h16M8 3.5v3M16 3.5v3" {...common} /><path d="M8.5 14l1.6 1.6L13.5 12" {...common} /></>,
+    mail: <><rect x="3.5" y="5.5" width="17" height="13" rx="2" {...common} /><path d="M4.5 7l7.5 6 7.5-6" {...common} /></>,
+    giving: <><path d="M12 6.2c-1-1.4-2.7-2-4.2-1.3C6 5.7 5.3 8 6.3 9.7c1 1.7 3.6 3.9 5.7 5.4 2.1-1.5 4.7-3.7 5.7-5.4 1-1.7.3-4-1.5-4.8-1.5-.7-3.2-.1-4.2 1.3z" {...common} /><path d="M5 19h14" {...common} /></>,
+    chart: <><path d="M4 20V10M9.5 20V5M15 20v-7M20 20V8" {...common} /></>,
+    offline: <><path d="M4 9.5C7 6.7 10 5.4 13.4 5.7M20 9.5a12.9 12.9 0 00-3-2.2M7.2 13.2a8.6 8.6 0 019.6 0M10.3 16.6a3.9 3.9 0 013.4 0" {...common} /><path d="M3.5 4.5l17 15" {...common} /></>,
   };
   return <svg className={className} viewBox="0 0 24 24" aria-hidden="true">{glyphs[variant]}</svg>;
 }
@@ -346,10 +368,10 @@ export default function LandingPage() {
           <div className="grid gap-5 md:grid-cols-2">
             {FEATURES.map((f,i)=>(
               <Reveal key={f.title} delay={(i%2)*80} className="h-full">
-                <div className="h-full rounded-2xl border border-cream-dark bg-white p-7 transition duration-200 hover:-translate-y-1 hover:shadow-soft-md">
+                <div className="group h-full rounded-2xl border border-cream-dark bg-white p-7 transition duration-200 hover:-translate-y-1 hover:shadow-soft-md">
                   <div className="mb-4 flex items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold-50 text-gold-500">
-                      <Check />
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold-50 text-gold-500 transition-transform duration-200 group-hover:scale-110">
+                      <FeatureIcon variant={f.icon} />
                     </span>
                     <h3 className="font-display text-lg text-navy-900">{f.title}</h3>
                   </div>
