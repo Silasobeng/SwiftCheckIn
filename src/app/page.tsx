@@ -26,11 +26,11 @@ const FEATURES = [
   { title:'Works Without Internet', lines:['No wifi on Sunday? No problem.',"Everything syncs when you're back."] },
 ];
 
-const PROBLEMS = [
-  ['Members quietly stop attending.','Nobody notices until months later.'],
-  ['A visitor comes on Sunday.','Nobody follows up.','They never come back.'],
-  ['Attendance is in a notebook.','Giving is in Excel.','Visitor cards are somewhere on a desk.'],
-  ['Sunday mornings feel rushed —','long queues, paper registers,',"volunteers who aren't sure what to do."],
+const PROBLEMS: { icon: 'decline'|'silence'|'scattered'|'clock'; lines: string[] }[] = [
+  { icon:'decline',   lines:['Members quietly stop attending.','Nobody notices until months later.'] },
+  { icon:'silence',   lines:['A visitor comes on Sunday.','Nobody follows up.','They never come back.'] },
+  { icon:'scattered', lines:['Attendance is in a notebook.','Giving is in Excel.','Visitor cards are somewhere on a desk.'] },
+  { icon:'clock',     lines:['Sunday mornings feel rushed —','long queues, paper registers,',"volunteers who aren't sure what to do."] },
 ];
 
 const STEPS = [
@@ -87,6 +87,21 @@ function Check({ className = 'w-5 h-5' }: { className?: string }) {
       <path d="M4 10.5L8 14.5L16 5.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
+}
+
+/** One line-drawn mark per problem statement — no emoji, single stroke
+ *  colour, quiet on the page. Distinct glyphs rather than reusing one icon
+ *  four times, so each card reads as its own point rather than a repeated
+ *  bullet. */
+function ProblemIcon({ variant, className = 'w-5 h-5' }: { variant: 'decline'|'silence'|'scattered'|'clock'; className?: string }) {
+  const common = { stroke: 'currentColor', fill: 'none', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  const glyphs: Record<typeof variant, React.ReactNode> = {
+    decline: <path d="M4 8l5 5 3.5-3.5L18 15M13.5 9.5H18V14" {...common} />,
+    silence: <path d="M5 6.5A1.8 1.8 0 016.8 4.7h10.4A1.8 1.8 0 0119 6.5v6.4a1.8 1.8 0 01-1.8 1.8H12l-4.5 3.4v-3.4H6.8A1.8 1.8 0 015 11.3V6.5z" {...common} />,
+    scattered: <><rect x="4.2" y="4.2" width="9.5" height="12.2" rx="1.1" {...common} /><rect x="8.6" y="7.6" width="9.5" height="12.2" rx="1.1" {...common} opacity={0.45} /></>,
+    clock: <><circle cx="12" cy="12" r="7.6" {...common} /><path d="M12 7.8V12l3 2" {...common} /></>,
+  };
+  return <svg className={className} viewBox="0 0 24 24" aria-hidden="true">{glyphs[variant]}</svg>;
 }
 
 export default function LandingPage() {
@@ -285,12 +300,14 @@ export default function LandingPage() {
             </h2>
           </Reveal>
           <div className="space-y-5">
-            {PROBLEMS.map((lines,i)=>(
+            {PROBLEMS.map((p,i)=>(
               <Reveal key={i} delay={i*80}>
                 <div className="flex gap-4 rounded-2xl border border-cream-dark bg-cream p-6">
-                  <span className="text-2xl leading-none" aria-hidden="true">😔</span>
-                  <div className="space-y-1">
-                    {lines.map(l=><p key={l} className="font-light leading-relaxed text-navy-700">{l}</p>)}
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy-50 text-navy-500">
+                    <ProblemIcon variant={p.icon} />
+                  </span>
+                  <div className="space-y-1 pt-1.5">
+                    {p.lines.map(l=><p key={l} className="font-light leading-relaxed text-navy-700">{l}</p>)}
                   </div>
                 </div>
               </Reveal>
