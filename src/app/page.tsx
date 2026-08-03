@@ -47,6 +47,27 @@ const TESTIMONIALS = [
   { quote:'The giving receipts alone have changed how our members trust us with their gifts.', by:'Church Treasurer' },
 ];
 
+// Traditions the product is built to work across — named generically, not
+// as any specific organisation's mark. Swapping this for real logos later
+// (once actual pilot churches have agreed to be named) only means changing
+// what DENOMINATIONS holds; DenominationMarquee itself doesn't need to change.
+const DENOMINATIONS = ['Pentecostal', 'Methodist', 'Presbyterian', 'Anglican', 'Baptist', 'Charismatic', 'Evangelical', 'Non-Denominational'];
+
+/** A continuous, headerless strip — the loop point is invisible because the
+ *  content is duplicated once and the track slides exactly one copy's width. */
+function DenominationMarquee() {
+  const loop = [...DENOMINATIONS, ...DENOMINATIONS];
+  return (
+    <div className="overflow-hidden border-y border-cream-dark bg-white py-7">
+      <div className="marquee-track flex w-max items-center gap-16" style={{ animation: 'marquee 36s linear infinite' }}>
+        {loop.map((d, i) => (
+          <span key={i} className="whitespace-nowrap font-display text-lg tracking-wide text-navy-400">{d}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Fades content up the first time it scrolls into view, then disconnects.
  *  Uses the fadeInUp keyframe already defined in the Tailwind config rather
  *  than adding a second motion language. */
@@ -279,6 +300,8 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <DenominationMarquee />
 
       {/* ── PRODUCT SCREEN ── */}
       {/* A faithful recreation of the real kiosk screen rather than a mocked-up
