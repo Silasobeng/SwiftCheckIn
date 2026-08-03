@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Send reset email via Brevo
-      const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://swiftentrypro.com'}/reset-password?token=${resetToken}&email=${encodeURIComponent(normalizedEmail)}`;
+      const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://swift-check-in-seven.vercel.app'}/reset-password?token=${resetToken}&email=${encodeURIComponent(normalizedEmail)}`;
 
       try {
         const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -78,16 +78,16 @@ export async function POST(request: NextRequest) {
           },
           body: JSON.stringify({
             sender: {
-              name: 'SwiftEntryPro',
-              email: process.env.BREVO_SENDER_EMAIL || 'noreply@swiftentrypro.com',
+              name: 'WeMotiply',
+              email: process.env.BREVO_SENDER_EMAIL || 'noreply@wemotiply.com',
             },
             to: [{ email: normalizedEmail, name: org.name }],
-            subject: 'Reset Your Password - SwiftEntryPro',
+            subject: 'Reset Your Password - WeMotiply',
             htmlContent: `
               <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                  <h1 style="color: #102a43; font-size: 28px; margin: 0;">SwiftEntryPro</h1>
-                  <p style="color: #627d98; font-size: 14px; margin-top: 5px;">Track Attendance. Stay Connected.</p>
+                  <h1 style="color: #102a43; font-size: 28px; margin: 0;">WeMotiply</h1>
+                  <p style="color: #627d98; font-size: 14px; margin-top: 5px;">Together, we multiply.</p>
                 </div>
                 
                 <div style="background: #ffffff; border-radius: 12px; padding: 30px; border: 1px solid #e8eff5;">
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
                 </div>
                 
                 <p style="text-align: center; color: #829ab1; font-size: 12px; margin-top: 30px;">
-                  © ${new Date().getFullYear()} SwiftEntryPro
+                  © ${new Date().getFullYear()} WeMotiply
                 </p>
               </div>
             `,

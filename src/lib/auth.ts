@@ -157,7 +157,7 @@ export async function requireActiveSubscription(): Promise<
         { 
           error: 'Subscription expired',
           code: 'SUBSCRIPTION_EXPIRED',
-          message: 'Your subscription has expired. Please renew to continue using SwiftCheckIn.'
+          message: 'Your subscription has expired. Please renew to continue using WeMotiply.'
         },
         { status: 403 }
       ),

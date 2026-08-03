@@ -270,7 +270,7 @@ ${preheader}
 
       <!-- Powered by -->
       <tr><td align="center" style="padding:20px 0 8px;">
-        <span style="font-size:11px;color:#A89D8E;">Powered by <span style="color:#7A6E60;font-weight:500;">SwiftEntryPro</span></span><br>
+        <span style="font-size:11px;color:#A89D8E;">Powered by <span style="color:#7A6E60;font-weight:500;">WeMotiply</span></span><br>
         <span style="font-size:10px;color:#c4bcae;">Church check-in, made simple.</span>
       </td></tr>
 

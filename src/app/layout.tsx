@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'SwiftEntryPro | Church check-in, made simple.',
-  description: 'Track attendance. Stay connected. Modern attendance management for churches.',
+  title: 'WeMotiply | Together, we multiply.',
+  description: 'Church growth, made visible. Check-in, attendance, giving and follow-up — everything a growing church needs in one place.',
 };
 
 export const viewport: Viewport = {

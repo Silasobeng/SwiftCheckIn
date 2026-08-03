@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Could not find this account.' }, { status: 404 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://swiftentrypro.com';
+    // No custom domain registered yet for the WeMotiply rebrand — this points
+    // at the live Vercel URL until one is.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://swift-check-in-seven.vercel.app';
     const callbackUrl = `${appUrl}/api/billing/callback`;
 
     const { authorization_url } = await initializeTransaction(

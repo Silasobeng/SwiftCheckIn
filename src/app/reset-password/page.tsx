@@ -51,7 +51,7 @@ function ResetPasswordForm() {
           <div style={{ width:34,height:34,background:'#16243A',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center' }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
-          <span style={{ fontFamily:"'Playfair Display',serif", fontSize:16, color:'#16243A' }}>SwiftEntryPro</span>
+          <span style={{ fontFamily:"'Playfair Display',serif", fontSize:16, color:'#16243A' }}>WeMotiply</span>
         </Link>
 
         {success ? (

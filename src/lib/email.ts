@@ -33,8 +33,8 @@ export async function sendBrevoEmail(
     console.warn('BREVO_API_KEY not configured - email not sent');
     return { success: false, error: 'Email not configured' };
   }
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@swiftentrypro.com';
-  const senderName  = orgName || process.env.BREVO_SENDER_NAME || 'SwiftEntryPro';
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@wemotiply.com';
+  const senderName  = orgName || process.env.BREVO_SENDER_NAME || 'WeMotiply';
   try {
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',

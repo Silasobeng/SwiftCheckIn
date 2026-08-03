@@ -198,6 +198,11 @@ body {
   .lp-cta-navy:hover { box-shadow: 0 12px 28px rgba(22,36,58,.26); }
   .lp-cta-ghost   { transition: border-color .2s ease, color .2s ease, background .2s ease; }
   .lp-cta-ghost:hover { border-color: var(--amber) !important; color: var(--amber) !important; }
+  /* The hero's secondary button sits on dark video/photo, not the cream
+     page background — brightening on hover reads correctly there, where
+     the light-mode ghost's darken-toward-amber would just disappear. */
+  .lp-cta-ghost-dark { transition: border-color .2s ease, background .2s ease, transform .2s ease; }
+  .lp-cta-ghost-dark:hover { border-color: rgba(255,255,255,.55) !important; background: rgba(255,255,255,.18) !important; transform: translateY(-2px); }
   .lp-cta:disabled, .lp-cta:disabled:hover { transform: none; box-shadow: none; }
   .lp-faq         { transition: opacity .2s ease; }
   .lp-faq:hover   { opacity: .72; }

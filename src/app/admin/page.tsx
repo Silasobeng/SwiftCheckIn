@@ -662,7 +662,7 @@ export default function AdminPage() {
         <div style={{width:'100%',maxWidth:460}}>
           <div style={{textAlign:'center',marginBottom:28}}>
             <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',marginBottom:8}}>{session.orgName}</h1>
-            <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>{ended} Choose a plan to keep using SwiftEntryPro — your data is safe and waiting.</p>
+            <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>{ended} Choose a plan to keep using WeMotiply — your data is safe and waiting.</p>
           </div>
 
           {billingError && <div className="alert alert-error" style={{marginBottom:16}}><span>{billingError}</span></div>}

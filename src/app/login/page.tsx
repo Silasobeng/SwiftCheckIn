@@ -5,10 +5,14 @@ import Link from 'next/link';
 
 type Screen = 'login' | 'forgot' | 'forgot-sent';
 
+// The two "Senior Pastor, Tema" / "Admin Secretary, Kumasi" quotes here were
+// invented — same issue as the landing page's old testimonials section, just
+// missed on the first honesty pass because this file wasn't touched then. No
+// quotes are attributed to fabricated people or churches now.
 const QUOTES = [
-  { text:'"Every person who walks through your door deserves to feel known."', attr:'The heart behind SwiftEntryPro' },
-  { text:'"We used to lose visitor details every Sunday. Now every first-timer gets a welcome email automatically."', attr:'Senior Pastor, Tema' },
-  { text:'"Setup was genuinely 5 minutes. Even our oldest usher figured it out immediately."', attr:'Admin Secretary, Kumasi' },
+  { text:'"Every person who walks through your door deserves to feel known."', attr:'The heart behind WeMotiply' },
+  { text:'"Together, we multiply."', attr:'WeMotiply' },
+  { text:'"Built with real churches, not for a demo."', attr:'WeMotiply' },
 ];
 
 export default function LoginPage() {
@@ -58,7 +62,7 @@ export default function LoginPage() {
           <div style={{ width:36,height:36,background:'#C97B1A',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center' }}>
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9.5L7 13.5L15 5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
-          <span style={{ fontFamily:"'Playfair Display',serif", fontSize:18, color:'#fff' }}>SwiftEntryPro</span>
+          <span style={{ fontFamily:"'Playfair Display',serif", fontSize:18, color:'#fff' }}>WeMotiply</span>
         </Link>
 
         {/* keyed so each rotation actually crossfades rather than snapping */}
@@ -88,7 +92,7 @@ export default function LoginPage() {
             <div style={{ width:32,height:32,background:'#16243A',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center' }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
-            <span style={{ fontFamily:"'Playfair Display',serif", fontSize:16, color:'#16243A' }}>SwiftEntryPro</span>
+            <span style={{ fontFamily:"'Playfair Display',serif", fontSize:16, color:'#16243A' }}>WeMotiply</span>
           </Link>
 
           {screen === 'login' && <>
