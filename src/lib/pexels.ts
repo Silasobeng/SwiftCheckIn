@@ -46,8 +46,8 @@ export type LandingImageKey =
 const QUERIES: Record<LandingImageKey, string> = {
   congregation: 'african church congregation worship',
   bigGathering: 'large crowd church service auditorium',
-  before: 'messy paperwork disorganized office desk',
-  after: 'church volunteers smiling welcoming visitors',
+  before: 'old paper files stacked office cabinet',
+  after: 'black men looking at phone screen smiling',
   checkIn: 'hand touchscreen tablet',
   visitor: 'welcome handshake greeting',
   attendance: 'clipboard checklist people',
