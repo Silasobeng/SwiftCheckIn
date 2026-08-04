@@ -48,7 +48,7 @@ const QUERIES: Record<LandingImageKey, string> = {
   followUp: 'writing email laptop',
   giving: 'hands giving donation',
   insights: 'data analytics dashboard',
-  offline: 'wifi signal outdoors phone',
+  offline: 'smartphone hand outdoor',
 };
 
 export type LandingImages = Record<LandingImageKey, PexelsImage | null>;
