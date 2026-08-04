@@ -47,7 +47,7 @@ const QUERIES: Record<LandingImageKey, string> = {
   congregation: 'african church congregation worship',
   bigGathering: 'large crowd church service auditorium',
   before: 'old paper files stacked office cabinet',
-  after: 'black men looking at phone screen smiling',
+  after: 'two black men colleagues looking at phone screen smiling',
   checkIn: 'hand touchscreen tablet',
   visitor: 'welcome handshake greeting',
   attendance: 'clipboard checklist people',
