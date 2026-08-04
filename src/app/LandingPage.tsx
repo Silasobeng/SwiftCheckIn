@@ -371,7 +371,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
                     src="/after-wemotiply.jpg"
                     alt="A pastor reviewing his church's data on a tablet"
                     fill
-                    className="object-cover"
+                    className="object-cover object-bottom"
                     sizes="(min-width: 640px) 50vw, 100vw"
                   />
                 </div>
