@@ -320,20 +320,26 @@ export default function LandingPage({ images }: { images: LandingImages }) {
       <DenominationMarquee />
 
       {/* ── BEFORE / AFTER ── */}
-      {/* "Before" photo still pending from the user — only the "After" photo
-          arrived as an accessible file so far. Built so each card degrades
-          gracefully with or without an image: the list is the source of
-          truth, the photo is a header treatment on top of it. */}
+      {/* Every photo here is Pexels-sourced and null-safe: if a query comes
+          back empty the banner or card header just doesn't render, the list
+          content is never blocked on it. */}
       <section className="bg-cream px-6 py-20 md:py-28">
         <div className="mx-auto max-w-4xl">
           <Reveal>
-            <h2 className="mb-14 text-center font-display text-2xl uppercase leading-snug tracking-wide text-navy-900 sm:text-3xl">
+            <h2 className="mb-10 text-center font-display text-2xl uppercase leading-snug tracking-wide text-navy-900 sm:text-3xl">
               Yes, your ministry can grow even bigger.
             </h2>
+          </Reveal>
+          <Reveal delay={60}>
+            <CreditedPhoto
+              image={images.bigGathering}
+              className="mb-12 h-56 w-full overflow-hidden rounded-2xl shadow-soft-md sm:h-72 md:h-80"
+            />
           </Reveal>
           <div className="grid gap-6 sm:grid-cols-2">
             <Reveal>
               <div className="h-full overflow-hidden rounded-2xl border border-cream-dark bg-white">
+                <CreditedPhoto image={images.before} className="h-40 w-full" />
                 <div className="p-7">
                   <div className="mb-5 text-xs font-semibold uppercase tracking-widest text-navy-400">Before WeMotiply</div>
                   <ul className="space-y-3.5">
@@ -351,15 +357,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
             </Reveal>
             <Reveal delay={90}>
               <div className="h-full overflow-hidden rounded-2xl border border-gold-500/40 bg-white shadow-soft-md">
-                <div className="relative h-40 w-full">
-                  <Image
-                    src="/after-wemotiply.jpg"
-                    alt="A church leader and volunteer reviewing member records together"
-                    fill
-                    className="object-cover"
-                    sizes="(min-width: 640px) 50vw, 100vw"
-                  />
-                </div>
+                <CreditedPhoto image={images.after} className="h-40 w-full" />
                 <div className="p-7">
                   <div className="mb-5 text-xs font-semibold uppercase tracking-widest text-gold-600">With WeMotiply</div>
                   <ul className="space-y-3.5">
