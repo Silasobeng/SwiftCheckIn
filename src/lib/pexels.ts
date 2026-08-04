@@ -33,8 +33,6 @@ async function searchPexels(query: string): Promise<PexelsImage | null> {
 export type LandingImageKey =
   | 'congregation'
   | 'bigGathering'
-  | 'before'
-  | 'after'
   | 'checkIn'
   | 'visitor'
   | 'attendance'
@@ -46,8 +44,6 @@ export type LandingImageKey =
 const QUERIES: Record<LandingImageKey, string> = {
   congregation: 'african church congregation worship',
   bigGathering: 'large crowd church service auditorium',
-  before: 'old paper files stacked office cabinet',
-  after: 'two black men colleagues looking at phone screen smiling',
   checkIn: 'hand touchscreen tablet',
   visitor: 'welcome handshake greeting',
   attendance: 'clipboard checklist people',

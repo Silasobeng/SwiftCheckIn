@@ -320,9 +320,10 @@ export default function LandingPage({ images }: { images: LandingImages }) {
       <DenominationMarquee />
 
       {/* ── BEFORE / AFTER ── */}
-      {/* Every photo here is Pexels-sourced and null-safe: if a query comes
-          back empty the banner or card header just doesn't render, the list
-          content is never blocked on it. */}
+      {/* The banner is Pexels-sourced and null-safe (renders nothing if the
+          query comes back empty). The two card photos are real, user-provided
+          shots — not Pexels — so they're plain static images with no credit
+          overlay. */}
       <section className="bg-cream px-6 py-20 md:py-28">
         <div className="mx-auto max-w-4xl">
           <Reveal>
@@ -339,7 +340,15 @@ export default function LandingPage({ images }: { images: LandingImages }) {
           <div className="grid gap-6 sm:grid-cols-2">
             <Reveal>
               <div className="h-full overflow-hidden rounded-2xl border border-cream-dark bg-white">
-                <CreditedPhoto image={images.before} className="h-40 w-full" />
+                <div className="relative h-40 w-full">
+                  <Image
+                    src="/before-wemotiply.jpg"
+                    alt="A stack of overstuffed paper files and binders on a shelf"
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 640px) 50vw, 100vw"
+                  />
+                </div>
                 <div className="p-7">
                   <div className="mb-5 text-xs font-semibold uppercase tracking-widest text-navy-400">Before WeMotiply</div>
                   <ul className="space-y-3.5">
@@ -357,7 +366,15 @@ export default function LandingPage({ images }: { images: LandingImages }) {
             </Reveal>
             <Reveal delay={90}>
               <div className="h-full overflow-hidden rounded-2xl border border-gold-500/40 bg-white shadow-soft-md">
-                <CreditedPhoto image={images.after} className="h-40 w-full" />
+                <div className="relative h-40 w-full">
+                  <Image
+                    src="/after-wemotiply.jpg"
+                    alt="A pastor reviewing his church's data on a tablet"
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 640px) 50vw, 100vw"
+                  />
+                </div>
                 <div className="p-7">
                   <div className="mb-5 text-xs font-semibold uppercase tracking-widest text-gold-600">With WeMotiply</div>
                   <ul className="space-y-3.5">
