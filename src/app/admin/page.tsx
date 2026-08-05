@@ -209,7 +209,7 @@ export default function AdminPage() {
   const [deletingBusy, setDeletingBusy] = useState(false);
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleRoleFilter, setPeopleRoleFilter] = useState<'all'|'member'|'leader'|'visitor'>('all');
-  const [expandedAbsentees, setExpandedAbsentees] = useState<string|null>(null);
+  const [infoService, setInfoService] = useState<Service|null>(null);
   const [giving, setGiving] = useState<Giving[]>([]);
   const [givingFormOpen, setGivingFormOpen] = useState(false);
   const [savingGiving, setSavingGiving] = useState(false);
@@ -968,6 +968,73 @@ export default function AdminPage() {
               </div>
             )}
 
+            {/* Service info modal — the full breakdown for one service: theme
+                and scripture, then present/visitors/absent counts, then the
+                actual absentee list with phone numbers for follow-up calls. */}
+            {infoService && (() => {
+              const expectedTotal = activePeople.filter(p=>p.role==='member'||p.role==='leader').length;
+              const absentList = absenteesByService[infoService.id] ?? [];
+              const presentCount = expectedTotal - absentList.length;
+              const dateIds = new Set(services.filter(s=>s.service_date===infoService.service_date).map(s=>s.id));
+              const presentIdsToday = new Set(checkins.filter(c=>dateIds.has(c.service_id)).map(c=>c.person_id));
+              const visitorsToday = activePeople.filter(p=>p.role==='visitor' && presentIdsToday.has(p.id)).length;
+              return (
+                <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
+                  onClick={()=>setInfoService(null)}>
+                  <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
+                    onClick={e=>e.stopPropagation()}>
+                    <div style={{padding:'24px 28px 20px',borderBottom:'1px solid #E4DFD5',position:'sticky',top:0,background:'#fff',zIndex:1,borderRadius:'20px 20px 0 0'}}>
+                      <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',marginBottom:4}}>{infoService.title||'Untitled Service'}</h3>
+                      <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>
+                        {new Date(infoService.service_date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}{infoService.service_time&&` · ${infoService.service_time}`}
+                      </p>
+                    </div>
+                    <div style={{padding:'24px 28px'}}>
+                      {(infoService.theme||infoService.scripture||infoService.message) && (
+                        <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.8,marginBottom:24}}>
+                          {infoService.theme&&<div>📖 {infoService.theme}</div>}
+                          {infoService.scripture&&<div>📜 {infoService.scripture}</div>}
+                          {infoService.message&&<div style={{marginTop:4,color:'#9E9280'}}>{infoService.message}</div>}
+                        </div>
+                      )}
+
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:28}}>
+                        {[
+                          {label:'Present',  value:presentCount,   color:'#2E7D4E'},
+                          {label:'Visitors', value:visitorsToday,  color:'#C97B1A'},
+                          {label:'Absent',   value:absentList.length, color:'#B23B3B'},
+                        ].map(({label,value,color})=>(
+                          <div key={label} style={{background:'#F8F4EE',border:'1px solid #E4DFD5',borderRadius:12,padding:'14px 12px',textAlign:'center'}}>
+                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color,lineHeight:1}}>{value}</div>
+                            <div style={{fontSize:11,color:'#A89D8E',fontWeight:500,letterSpacing:'0.06em',textTransform:'uppercase' as const,marginTop:6}}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase' as const,marginBottom:12}}>
+                        {absentList.length===0 ? 'Everyone expected showed up' : `Didn't come (${absentList.length})`}
+                      </div>
+                      {absentList.length===0 ? (
+                        <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Every member and leader checked in for this service.</div>
+                      ) : (
+                        <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                          {absentList.map(p=>(
+                            <div key={p.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,fontSize:13,padding:'9px 0',borderBottom:'1px solid #F0EBE3'}}>
+                              <span style={{color:'#16243A'}}>{p.full_name} <span style={{fontSize:11,color:'#A89D8E',fontWeight:300,textTransform:'capitalize' as const}}>· {p.role}</span></span>
+                              <span style={{color:'#7A6E60',fontWeight:300}}>{p.phone||'—'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{padding:'16px 28px 24px',borderTop:'1px solid #E4DFD5',display:'flex',gap:10}}>
+                      <button onClick={()=>setInfoService(null)} className="btn btn-secondary" style={{flex:1}}>Close</button>
+                      <button onClick={()=>{ const s=infoService; setInfoService(null); openReportModal(s); }} className="btn btn-primary" style={{flex:1}}>Email full report</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Service form modal */}
             {serviceFormOpen && (
@@ -1080,34 +1147,13 @@ export default function AdminPage() {
                         )}
                       </div>
                       <div style={{display:'flex',gap:8,flexShrink:0}}>
-                        <button onClick={()=>setExpandedAbsentees(x=>x===s.id?null:s.id)} style={{background:expandedAbsentees===s.id?'#FDF3E0':'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>{expandedAbsentees===s.id?'Hide':'Absentees'} ({absenteesByService[s.id]?.length ?? 0})</button>
+                        <button onClick={()=>setInfoService(s)} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>View Service Info</button>
                         <button onClick={()=>openReportModal(s)} disabled={sendingReportId===s.id} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:sendingReportId===s.id?'wait':'pointer'}}>{sendingReportId===s.id?'Sending…':'Email Report'}</button>
                         <button onClick={()=>openEditService(s)} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Edit</button>
                         {!s.is_active&&<button onClick={()=>setActiveService(s.id)} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Set Active</button>}
                         <button onClick={()=>askDelete('services', s.id, s.title||'this service')} style={{background:'#fff',color:'#B23B3B',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Delete</button>
                       </div>
                     </div>
-                    {expandedAbsentees===s.id && (
-                      <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid #E4DFD5'}}>
-                        {(absenteesByService[s.id]?.length ?? 0)===0 ? (
-                          <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Every member and leader checked in — nobody missing this service.</div>
-                        ) : (
-                          <>
-                            <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase' as const,marginBottom:10}}>
-                              Didn&apos;t come ({absenteesByService[s.id].length})
-                            </div>
-                            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                              {absenteesByService[s.id].map(p=>(
-                                <div key={p.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,fontSize:13}}>
-                                  <span style={{color:'#16243A'}}>{p.full_name} <span style={{fontSize:11,color:'#A89D8E',fontWeight:300,textTransform:'capitalize' as const}}>· {p.role}</span></span>
-                                  <span style={{color:'#7A6E60',fontWeight:300}}>{p.phone||'—'}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
