@@ -130,7 +130,7 @@ function FeatureIcon({ variant, className = 'w-5 h-5' }: { variant: FeatureIconV
   return <svg className={className} viewBox="0 0 24 24" aria-hidden="true">{glyphs[variant]}</svg>;
 }
 
-/** A Pexels photo with the required photographer credit overlaid. Renders
+/** A Pexels photo that renders
  *  nothing when the image is missing (no key, rate-limited, empty search)
  *  so every section it's used in degrades to its photo-less layout instead
  *  of showing a broken image or empty box. */
@@ -145,14 +145,6 @@ function CreditedPhoto({ image, alt, className, imgClassName = 'object-cover', s
   return (
     <div className={`relative ${className}`}>
       <Image src={image.url} alt={alt || image.alt} fill className={imgClassName} sizes={sizes} />
-      <a
-        href={image.pexelsUrl}
-        target="_blank"
-        rel="noopener noreferrer nofollow"
-        className="absolute bottom-2 right-2 rounded-full bg-navy-950/60 px-2.5 py-1 text-[10px] font-medium text-white/90 backdrop-blur-sm transition hover:bg-navy-950/80"
-      >
-        Photo: {image.photographer} / Pexels
-      </a>
     </div>
   );
 }
