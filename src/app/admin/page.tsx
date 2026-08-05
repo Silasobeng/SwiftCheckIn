@@ -216,6 +216,7 @@ export default function AdminPage() {
   const [peopleRoleFilter, setPeopleRoleFilter] = useState<'all'|'member'|'leader'|'visitor'>('all');
   const [infoService, setInfoService] = useState<Service|null>(null);
   const [infoTab, setInfoTab] = useState<'summary'|'attendance'|'followup'|'giving'>('summary');
+  const [presentFilter, setPresentFilter] = useState<'all'|'leader'|'member'|'firsttime'|'returning'>('all');
   const [giving, setGiving] = useState<Giving[]>([]);
   const [givingFormOpen, setGivingFormOpen] = useState(false);
   const [savingGiving, setSavingGiving] = useState(false);
@@ -582,15 +583,26 @@ export default function AdminPage() {
     const dateIds = new Set(services.filter(x=>x.service_date===s.service_date).map(x=>x.id));
 
     // One row per person even if they checked into both services that day.
+    // Each attendee carries the category they belong to, assigned once here so
+    // the summary breakdown and the Present filter can never disagree about
+    // who counts as what.
+    type PresentCategory = 'leader'|'member'|'firsttime'|'returning';
+    const categorise = (person: Person|undefined, isFirstTime: boolean): PresentCategory => {
+      if (isFirstTime) return 'firsttime';
+      if (person?.role === 'leader') return 'leader';
+      if (person?.role === 'member') return 'member';
+      return 'returning';
+    };
     const seen = new Set<string>();
-    const present: {person:Person|undefined; checked_in_at:string; is_first_time:boolean}[] = [];
+    const present: {person:Person|undefined; checked_in_at:string; is_first_time:boolean; category:PresentCategory}[] = [];
     checkins
       .filter(c=>dateIds.has(c.service_id))
       .sort((a,b)=>(a.checked_in_at||'').localeCompare(b.checked_in_at||''))
       .forEach(c=>{
         if (seen.has(c.person_id)) return;
         seen.add(c.person_id);
-        present.push({ person: activePeople.find(p=>p.id===c.person_id), checked_in_at:c.checked_in_at, is_first_time:c.is_first_time });
+        const person = activePeople.find(p=>p.id===c.person_id);
+        present.push({ person, checked_in_at:c.checked_in_at, is_first_time:c.is_first_time, category:categorise(person, c.is_first_time) });
       });
 
     const expected = activePeople.filter(p=>p.role==='member'||p.role==='leader');
@@ -617,6 +629,8 @@ export default function AdminPage() {
       absentMembers: absent.filter(p=>p.role==='member'),
       // Four mutually exclusive buckets that sum exactly to the attendance
       // figure, so the breakdown always reconciles with the headline number.
+      // Counted off the category assigned above rather than re-derived here,
+      // so the totals and the filtered lists can never disagree.
       //
       // "Visitor" is a ROLE that persists until someone promotes the person,
       // while "first time" is an EVENT true only on their very first check-in
@@ -624,10 +638,10 @@ export default function AdminPage() {
       // The event wins: whether this service was somebody's first visit is a
       // permanent fact about that service, and it stays true even if they are
       // made a member later.
-      firstTimers: present.filter(r=>r.is_first_time).length,
-      leaderCount: present.filter(r=>!r.is_first_time && r.person?.role==='leader').length,
-      memberCount: present.filter(r=>!r.is_first_time && r.person?.role==='member').length,
-      returningVisitors: present.filter(r=>!r.is_first_time && r.person?.role==='visitor').length,
+      firstTimers: present.filter(r=>r.category==='firsttime').length,
+      leaderCount: present.filter(r=>r.category==='leader').length,
+      memberCount: present.filter(r=>r.category==='member').length,
+      returningVisitors: present.filter(r=>r.category==='returning').length,
       expectedCount: expected.length,
       turnout: expected.length>0 ? Math.round(((expected.length-absent.length)/expected.length)*100) : null,
       givingRows,
@@ -1202,24 +1216,55 @@ export default function AdminPage() {
                       {infoTab==='attendance' && (
                         b.present.length===0 ? (
                           <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No attendance recorded for this service.</div>
-                        ) : (
-                          <table style={{width:'100%',borderCollapse:'collapse'}}>
-                            <thead><tr><th style={th}>Time</th><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Role</th></tr></thead>
-                            <tbody>
-                              {b.present.map(r=>(
-                                <tr key={r.person?.id||r.checked_in_at}>
-                                  <td style={{...td,color:'#7A6E60',whiteSpace:'nowrap'}}>{b.fmtTime.format(new Date(r.checked_in_at))}</td>
-                                  <td style={td}>
-                                    {r.person?.full_name||'—'}
-                                    {r.is_first_time && <span style={{marginLeft:8,fontSize:10,background:'#E8F3EC',color:'#2E7D4E',borderRadius:20,padding:'2px 8px',fontWeight:600}}>First visit</span>}
-                                  </td>
-                                  <td style={{...td,color:'#7A6E60'}}>{r.person?.phone||'—'}</td>
-                                  <td style={{...td,color:'#7A6E60',textTransform:'capitalize'}}>{r.person?.role||'—'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )
+                        ) : (() => {
+                          // The same categories as the summary breakdown, made
+                          // selectable — the totals there are only useful if you
+                          // can open one up and see the names behind it.
+                          const CATS = [
+                            {v:'all'       as const, l:'All',                 n:b.present.length,       c:'#16243A'},
+                            {v:'leader'    as const, l:'Leaders',             n:b.leaderCount,          c:'#486581'},
+                            {v:'member'    as const, l:'Members',             n:b.memberCount,          c:'#16243A'},
+                            {v:'firsttime' as const, l:'First-time visitors', n:b.firstTimers,          c:'#2E7D4E'},
+                            {v:'returning' as const, l:'Returning visitors',  n:b.returningVisitors,    c:'#C97B1A'},
+                          ];
+                          const rows = presentFilter==='all' ? b.present : b.present.filter(r=>r.category===presentFilter);
+                          const catLabel:Record<string,string> = {leader:'Leader',member:'Member',firsttime:'First-time visitor',returning:'Returning visitor'};
+                          const catColor:Record<string,string> = {leader:'#486581',member:'#16243A',firsttime:'#2E7D4E',returning:'#C97B1A'};
+                          return (
+                            <>
+                              <div style={{display:'flex',flexWrap:'wrap',gap:7,marginBottom:18}}>
+                                {CATS.filter(c=>c.v==='all'||c.n>0).map(({v,l,n})=>{
+                                  const on = presentFilter===v;
+                                  return (
+                                    <button key={v} onClick={()=>setPresentFilter(v)}
+                                      style={{cursor:'pointer',fontFamily:"'DM Sans',sans-serif",fontSize:12.5,fontWeight:500,padding:'6px 12px',borderRadius:99,whiteSpace:'nowrap',
+                                        background:on?'#16243A':'#fff',color:on?'#fff':'#7A6E60',border:`1px solid ${on?'#16243A':'#E4DFD5'}`}}>
+                                      {l} <span style={{opacity:on?0.7:1,color:on?'#fff':'#A89D8E'}}>{n}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <table style={{width:'100%',borderCollapse:'collapse'}}>
+                                <thead><tr><th style={th}>Time</th><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Category</th></tr></thead>
+                                <tbody>
+                                  {rows.map(r=>(
+                                    <tr key={r.person?.id||r.checked_in_at}>
+                                      <td style={{...td,color:'#7A6E60',whiteSpace:'nowrap'}}>{b.fmtTime.format(new Date(r.checked_in_at))}</td>
+                                      <td style={td}>{r.person?.full_name||'—'}</td>
+                                      <td style={{...td,color:'#7A6E60'}}>{r.person?.phone||'—'}</td>
+                                      <td style={{...td,whiteSpace:'nowrap'}}>
+                                        <span style={{display:'inline-flex',alignItems:'center',gap:6,color:'#5A4E3C'}}>
+                                          <span style={{width:8,height:8,borderRadius:2,background:catColor[r.category],flexShrink:0}} />
+                                          {catLabel[r.category]}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </>
+                          );
+                        })()
                       )}
 
                       {infoTab==='followup' && (
@@ -1402,7 +1447,7 @@ export default function AdminPage() {
                         )}
                       </div>
                       <div style={{display:'flex',gap:8,flexShrink:0}}>
-                        <button onClick={()=>setInfoService(s)} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>View Service Info</button>
+                        <button onClick={()=>{ setInfoTab('summary'); setPresentFilter('all'); setInfoService(s); }} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>View Service Info</button>
                         <button onClick={()=>openReportModal(s)} disabled={sendingReportId===s.id} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:sendingReportId===s.id?'wait':'pointer'}}>{sendingReportId===s.id?'Sending…':'Email Report'}</button>
                         <button onClick={()=>openEditService(s)} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Edit</button>
                         {!s.is_active&&<button onClick={()=>setActiveService(s.id)} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Set Active</button>}
