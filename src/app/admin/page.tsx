@@ -5,10 +5,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization } from '@/types';
 import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
-import { tzFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel, yearKeyOf, yearRangeLabel } from '@/lib/monthWindow';
+import { tzFormatter, timeFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel, yearKeyOf, yearRangeLabel } from '@/lib/monthWindow';
 import { StackedTrend, RankedBars, OrdinalBars, SplitBar } from '@/components/Charts';
 
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
+
+// Module scope, not component scope: this is a static map, and re-creating it
+// each render would make it a fresh object every time — defeating the
+// useMemo that lists it as a dependency.
+const GIVING_TYPE_LABELS: Record<GivingType,string> = { tithe:'Tithe', offering:'Offering', seed:'Seed', pledge:'Pledge', other:'Other' };
 
 // Timezones a church using this is plausibly in. A full IANA list is ~600 rows
 // and unusable in a dropdown; the API validates whatever is sent against the
@@ -210,6 +215,7 @@ export default function AdminPage() {
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleRoleFilter, setPeopleRoleFilter] = useState<'all'|'member'|'leader'|'visitor'>('all');
   const [infoService, setInfoService] = useState<Service|null>(null);
+  const [infoTab, setInfoTab] = useState<'summary'|'attendance'|'followup'|'giving'>('summary');
   const [giving, setGiving] = useState<Giving[]>([]);
   const [givingFormOpen, setGivingFormOpen] = useState(false);
   const [savingGiving, setSavingGiving] = useState(false);
@@ -534,25 +540,6 @@ export default function AdminPage() {
     );
   }, [activePeople,peopleSearch,peopleRoleFilter]);
 
-  // Who was absent, per service — mirrors getDayAttendance() in
-  // src/lib/attendance.ts (used for the emailed report): absence is reckoned
-  // per calendar day, unioning check-ins across every service held that date,
-  // so a church running two Sunday services doesn't mark 9am attendees
-  // "absent" from the 11am one. Only members/leaders count as "expected";
-  // visitors are excluded so a one-time guest doesn't show up as a no-show
-  // forever.
-  const absenteesByService = useMemo(() => {
-    const serviceIdsByDate: Record<string, string[]> = {};
-    services.forEach(s => { (serviceIdsByDate[s.service_date] ||= []).push(s.id); });
-    const expected = activePeople.filter(p => p.role==='member' || p.role==='leader');
-    const map: Record<string, Person[]> = {};
-    services.forEach(s => {
-      const idsForDate = new Set(serviceIdsByDate[s.service_date]);
-      const presentIds = new Set(checkins.filter(c=>idsForDate.has(c.service_id)).map(c=>c.person_id));
-      map[s.id] = expected.filter(p=>!presentIds.has(p.id)).sort((a,b)=>a.full_name.localeCompare(b.full_name));
-    });
-    return map;
-  }, [services, checkins, activePeople]);
 
   const givingPersonMatches = useMemo(() => {
     const q = givingPersonQuery.trim().toLowerCase();
@@ -569,7 +556,76 @@ export default function AdminPage() {
   const givingTotalAllTime = giving.reduce((sum,g)=>sum+Number(g.amount||0),0);
   const givingPendingCount = giving.filter(g=>g.status==='recorded').length;
   const givingCurrency = givingThisMonth[0]?.currency || giving[0]?.currency || 'GHS';
-  const GIVING_TYPE_LABELS: Record<GivingType,string> = { tithe:'Tithe', offering:'Offering', seed:'Seed', pledge:'Pledge', other:'Other' };
+
+  // The on-screen equivalent of the emailed workbook. The report has always
+  // carried four sheets (summary, attendance, follow-up, giving) while the UI
+  // showed none of it — so the email was the only way to actually read your own
+  // service. This computes the same figures client-side from data already
+  // loaded, so nothing has to be emailed to be seen.
+  //
+  // Mirrors getDayAttendance() in src/lib/attendance.ts: absence is reckoned per
+  // calendar DAY, unioning check-ins across every service held that date, so a
+  // church running 9am and 11am doesn't mark 9am attendees absent from the 11am.
+  // Only members/leaders count as "expected" — a one-time visitor would
+  // otherwise read as a no-show forever.
+  const weeksSince = (iso: string|null|undefined): number|null => {
+    if (!iso) return null;
+    const t = new Date(iso).getTime();
+    if (Number.isNaN(t)) return null;
+    return Math.max(0, Math.floor((Date.now()-t)/(1000*60*60*24*7)));
+  };
+
+  const serviceBreakdown = useMemo(() => {
+    if (!infoService) return null;
+    const s = infoService;
+    const fmtTime = timeFormatter(orgTimezone);
+    const dateIds = new Set(services.filter(x=>x.service_date===s.service_date).map(x=>x.id));
+
+    // One row per person even if they checked into both services that day.
+    const seen = new Set<string>();
+    const present: {person:Person|undefined; checked_in_at:string; is_first_time:boolean}[] = [];
+    checkins
+      .filter(c=>dateIds.has(c.service_id))
+      .sort((a,b)=>(a.checked_in_at||'').localeCompare(b.checked_in_at||''))
+      .forEach(c=>{
+        if (seen.has(c.person_id)) return;
+        seen.add(c.person_id);
+        present.push({ person: activePeople.find(p=>p.id===c.person_id), checked_in_at:c.checked_in_at, is_first_time:c.is_first_time });
+      });
+
+    const expected = activePeople.filter(p=>p.role==='member'||p.role==='leader');
+    const absent = expected
+      .filter(p=>!seen.has(p.id))
+      .map(p=>({ ...p, weeksAway: weeksSince(p.last_checkin_at) }))
+      .sort((a,b)=>{
+        if (a.weeksAway===null) return 1;
+        if (b.weeksAway===null) return -1;
+        return b.weeksAway-a.weeksAway;
+      });
+
+    const givingRows = giving.filter(g=>g.service_id && dateIds.has(g.service_id));
+    const byType = (['tithe','offering','seed','pledge','other'] as GivingType[])
+      .map(type=>{ const rows=givingRows.filter(g=>g.giving_type===type); return { label:GIVING_TYPE_LABELS[type], count:rows.length, amount:rows.reduce((a,g)=>a+Number(g.amount||0),0) }; })
+      .filter(t=>t.count>0);
+
+    return {
+      fmtTime,
+      present,
+      absent,
+      leadersPresent: present.filter(r=>r.person?.role==='leader'),
+      leadersAbsent: absent.filter(p=>p.role==='leader'),
+      absentMembers: absent.filter(p=>p.role==='member'),
+      memberCount: present.filter(r=>r.person?.role==='member').length,
+      visitorCount: present.filter(r=>r.person?.role==='visitor').length,
+      firstTimers: present.filter(r=>r.is_first_time).length,
+      expectedCount: expected.length,
+      turnout: expected.length>0 ? Math.round(((expected.length-absent.length)/expected.length)*100) : null,
+      givingRows,
+      givingByType: byType,
+      givingTotal: givingRows.reduce((a,g)=>a+Number(g.amount||0),0),
+      currency: givingRows[0]?.currency || givingCurrency,
+    };
+  }, [infoService, services, checkins, activePeople, giving, orgTimezone, givingCurrency]);
   // Breakdown by type for the current month — "Tithe: 3 · GHS 450", etc.
   const givingByType = (['tithe','offering','seed','pledge','other'] as GivingType[])
     .map(type => {
@@ -968,68 +1024,206 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Service info modal — the full breakdown for one service: theme
-                and scripture, then present/visitors/absent counts, then the
-                actual absentee list with phone numbers for follow-up calls. */}
-            {infoService && (() => {
-              const expectedTotal = activePeople.filter(p=>p.role==='member'||p.role==='leader').length;
-              const absentList = absenteesByService[infoService.id] ?? [];
-              const presentCount = expectedTotal - absentList.length;
-              const dateIds = new Set(services.filter(s=>s.service_date===infoService.service_date).map(s=>s.id));
-              const presentIdsToday = new Set(checkins.filter(c=>dateIds.has(c.service_id)).map(c=>c.person_id));
-              const visitorsToday = activePeople.filter(p=>p.role==='visitor' && presentIdsToday.has(p.id)).length;
+            {/* Service info modal — the on-screen twin of the emailed workbook.
+                Same four views (summary, attendance, follow-up, giving) so the
+                report never has to be emailed just to be read. */}
+            {infoService && serviceBreakdown && (() => {
+              const b = serviceBreakdown;
+              const money = (n:number) => `${b.currency} ${n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+              const lastSeen = (iso:string|null, weeks:number|null) =>
+                !iso ? 'Never attended' : weeks===0 ? 'Last week' : `${weeks} week${weeks===1?'':'s'} ago`;
+              const TABS = [
+                {v:'summary'    as const, l:'Summary'},
+                {v:'attendance' as const, l:`Present (${b.present.length})`},
+                {v:'followup'   as const, l:`Follow Up (${b.absentMembers.length})`},
+                {v:'giving'     as const, l:`Giving (${b.givingRows.length})`},
+              ];
+              const th:React.CSSProperties = {textAlign:'left',fontSize:11,fontWeight:600,color:'#7A6E60',letterSpacing:'0.05em',textTransform:'uppercase',padding:'0 0 8px',borderBottom:'1px solid #E4DFD5'};
+              const td:React.CSSProperties = {fontSize:13,color:'#16243A',padding:'10px 0',borderBottom:'1px solid #F5F1EA',verticalAlign:'top'};
               return (
                 <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
                   onClick={()=>setInfoService(null)}>
-                  <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
+                  <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:760,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
                     onClick={e=>e.stopPropagation()}>
-                    <div style={{padding:'24px 28px 20px',borderBottom:'1px solid #E4DFD5',position:'sticky',top:0,background:'#fff',zIndex:1,borderRadius:'20px 20px 0 0'}}>
-                      <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',marginBottom:4}}>{infoService.title||'Untitled Service'}</h3>
-                      <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>
-                        {new Date(infoService.service_date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}{infoService.service_time&&` · ${infoService.service_time}`}
-                      </p>
-                    </div>
-                    <div style={{padding:'24px 28px'}}>
-                      {(infoService.theme||infoService.scripture||infoService.message) && (
-                        <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.8,marginBottom:24}}>
-                          {infoService.theme&&<div>📖 {infoService.theme}</div>}
-                          {infoService.scripture&&<div>📜 {infoService.scripture}</div>}
-                          {infoService.message&&<div style={{marginTop:4,color:'#9E9280'}}>{infoService.message}</div>}
-                        </div>
-                      )}
 
-                      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:28}}>
-                        {[
-                          {label:'Present',  value:presentCount,   color:'#2E7D4E'},
-                          {label:'Visitors', value:visitorsToday,  color:'#C97B1A'},
-                          {label:'Absent',   value:absentList.length, color:'#B23B3B'},
-                        ].map(({label,value,color})=>(
-                          <div key={label} style={{background:'#F8F4EE',border:'1px solid #E4DFD5',borderRadius:12,padding:'14px 12px',textAlign:'center'}}>
-                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color,lineHeight:1}}>{value}</div>
-                            <div style={{fontSize:11,color:'#A89D8E',fontWeight:500,letterSpacing:'0.06em',textTransform:'uppercase' as const,marginTop:6}}>{label}</div>
-                          </div>
+                    {/* Header */}
+                    <div style={{padding:'24px 28px 0',borderBottom:'1px solid #E4DFD5'}}>
+                      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
+                        <div>
+                          <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:21,color:'#16243A',marginBottom:4}}>{infoService.title||'Untitled Service'}</h3>
+                          <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>
+                            {new Date(infoService.service_date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}{infoService.service_time&&` · ${infoService.service_time}`}
+                          </p>
+                        </div>
+                        <button onClick={()=>setInfoService(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#A89D8E',fontSize:22,lineHeight:1,padding:4}}>×</button>
+                      </div>
+                      <div style={{display:'flex',gap:4,marginTop:18,overflowX:'auto'}}>
+                        {TABS.map(({v,l})=>(
+                          <button key={v} onClick={()=>setInfoTab(v)}
+                            style={{background:'none',border:'none',cursor:'pointer',padding:'10px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,whiteSpace:'nowrap',
+                              color:infoTab===v?'#16243A':'#A89D8E',borderBottom:`2px solid ${infoTab===v?'#C97B1A':'transparent'}`,marginBottom:-1}}>
+                            {l}
+                          </button>
                         ))}
                       </div>
+                    </div>
 
-                      <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase' as const,marginBottom:12}}>
-                        {absentList.length===0 ? 'Everyone expected showed up' : `Didn't come (${absentList.length})`}
-                      </div>
-                      {absentList.length===0 ? (
-                        <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Every member and leader checked in for this service.</div>
-                      ) : (
-                        <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                          {absentList.map(p=>(
-                            <div key={p.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,fontSize:13,padding:'9px 0',borderBottom:'1px solid #F0EBE3'}}>
-                              <span style={{color:'#16243A'}}>{p.full_name} <span style={{fontSize:11,color:'#A89D8E',fontWeight:300,textTransform:'capitalize' as const}}>· {p.role}</span></span>
-                              <span style={{color:'#7A6E60',fontWeight:300}}>{p.phone||'—'}</span>
+                    {/* Body */}
+                    <div style={{padding:'24px 28px',overflowY:'auto',flex:1}}>
+
+                      {infoTab==='summary' && (
+                        <>
+                          {(infoService.theme||infoService.scripture||infoService.message) && (
+                            <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.8,marginBottom:22,paddingBottom:20,borderBottom:'1px solid #F5F1EA'}}>
+                              {infoService.theme&&<div>📖 {infoService.theme}</div>}
+                              {infoService.scripture&&<div>📜 {infoService.scripture}</div>}
+                              {infoService.message&&<div style={{marginTop:6,color:'#9E9280'}}>{infoService.message}</div>}
                             </div>
-                          ))}
-                        </div>
+                          )}
+
+                          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:10,marginBottom:26}}>
+                            {[
+                              {label:'Present',     value:b.present.length,        color:'#16243A'},
+                              {label:'Members',     value:b.memberCount,           color:'#16243A'},
+                              {label:'Leaders',     value:b.leadersPresent.length, color:'#16243A'},
+                              {label:'Visitors',    value:b.visitorCount,          color:'#C97B1A'},
+                              {label:'First-timers',value:b.firstTimers,           color:'#2E7D4E'},
+                              {label:'Absent',      value:b.absent.length,         color:'#B23B3B'},
+                            ].map(({label,value,color})=>(
+                              <div key={label} style={{background:'#F8F4EE',border:'1px solid #E4DFD5',borderRadius:12,padding:'14px 12px',textAlign:'center'}}>
+                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:23,color,lineHeight:1}}>{value}</div>
+                                <div style={{fontSize:10,color:'#A89D8E',fontWeight:500,letterSpacing:'0.05em',textTransform:'uppercase',marginTop:6}}>{label}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {b.turnout!==null && (
+                            <div style={{marginBottom:26}}>
+                              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#7A6E60',marginBottom:7}}>
+                                <span style={{fontWeight:500,letterSpacing:'0.05em',textTransform:'uppercase',fontSize:11}}>Turnout</span>
+                                <span><strong style={{color:'#16243A'}}>{b.turnout}%</strong> of {b.expectedCount} expected</span>
+                              </div>
+                              <div style={{height:7,background:'#F0EBE3',borderRadius:99,overflow:'hidden'}}>
+                                <div style={{width:`${b.turnout}%`,height:'100%',background:b.turnout>=70?'#2E7D4E':b.turnout>=40?'#C97B1A':'#B23B3B',borderRadius:99}} />
+                              </div>
+                            </div>
+                          )}
+
+                          <div style={{fontSize:11,fontWeight:600,color:'#7A6E60',letterSpacing:'0.05em',textTransform:'uppercase',marginBottom:10}}>Leadership roll call</div>
+                          {b.leadersPresent.length+b.leadersAbsent.length===0 ? (
+                            <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No leaders on record.</div>
+                          ) : (
+                            <table style={{width:'100%',borderCollapse:'collapse'}}>
+                              <thead><tr><th style={th}>Leader</th><th style={th}>Status</th><th style={th}>Phone</th><th style={th}>Last seen</th></tr></thead>
+                              <tbody>
+                                {b.leadersPresent.map(r=>(
+                                  <tr key={r.person?.id}>
+                                    <td style={td}>{r.person?.full_name}</td>
+                                    <td style={{...td,color:'#2E7D4E',fontWeight:500}}>Present</td>
+                                    <td style={{...td,color:'#7A6E60'}}>{r.person?.phone||'—'}</td>
+                                    <td style={{...td,color:'#7A6E60'}}>Today, {b.fmtTime.format(new Date(r.checked_in_at))}</td>
+                                  </tr>
+                                ))}
+                                {b.leadersAbsent.map(p=>(
+                                  <tr key={p.id}>
+                                    <td style={td}>{p.full_name}</td>
+                                    <td style={{...td,color:'#B23B3B',fontWeight:500}}>Absent</td>
+                                    <td style={{...td,color:'#7A6E60'}}>{p.phone||'—'}</td>
+                                    <td style={{...td,color:'#7A6E60'}}>{lastSeen(p.last_checkin_at,p.weeksAway)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </>
+                      )}
+
+                      {infoTab==='attendance' && (
+                        b.present.length===0 ? (
+                          <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Nobody checked in for this service.</div>
+                        ) : (
+                          <table style={{width:'100%',borderCollapse:'collapse'}}>
+                            <thead><tr><th style={th}>Time</th><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Role</th></tr></thead>
+                            <tbody>
+                              {b.present.map(r=>(
+                                <tr key={r.person?.id||r.checked_in_at}>
+                                  <td style={{...td,color:'#7A6E60',whiteSpace:'nowrap'}}>{b.fmtTime.format(new Date(r.checked_in_at))}</td>
+                                  <td style={td}>
+                                    {r.person?.full_name||'—'}
+                                    {r.is_first_time && <span style={{marginLeft:8,fontSize:10,background:'#E8F3EC',color:'#2E7D4E',borderRadius:20,padding:'2px 8px',fontWeight:600}}>1st visit</span>}
+                                  </td>
+                                  <td style={{...td,color:'#7A6E60'}}>{r.person?.phone||'—'}</td>
+                                  <td style={{...td,color:'#7A6E60',textTransform:'capitalize'}}>{r.person?.role||'—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )
+                      )}
+
+                      {infoTab==='followup' && (
+                        b.absentMembers.length===0 ? (
+                          <div style={{fontSize:13,color:'#2E7D4E',fontWeight:300}}>Every member attended — nobody to follow up.</div>
+                        ) : (
+                          <>
+                            <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:14}}>Longest away first. Three weeks or more is where a quiet drift becomes a real absence.</p>
+                            <table style={{width:'100%',borderCollapse:'collapse'}}>
+                              <thead><tr><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Last visit</th><th style={th}>Visits</th></tr></thead>
+                              <tbody>
+                                {b.absentMembers.map(p=>(
+                                  <tr key={p.id}>
+                                    <td style={td}>{p.full_name}</td>
+                                    <td style={{...td,color:'#7A6E60'}}>{p.phone||'—'}</td>
+                                    <td style={{...td,color:(p.weeksAway??0)>=3||p.weeksAway===null?'#B23B3B':'#7A6E60',fontWeight:(p.weeksAway??0)>=3||p.weeksAway===null?500:400}}>
+                                      {lastSeen(p.last_checkin_at,p.weeksAway)}
+                                    </td>
+                                    <td style={{...td,color:'#7A6E60'}}>{p.total_checkins??0}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </>
+                        )
+                      )}
+
+                      {infoTab==='giving' && (
+                        b.givingRows.length===0 ? (
+                          <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No giving recorded for this service.</div>
+                        ) : (
+                          <>
+                            <div style={{display:'flex',flexWrap:'wrap',gap:18,marginBottom:22,paddingBottom:18,borderBottom:'1px solid #F5F1EA'}}>
+                              {b.givingByType.map(t=>(
+                                <div key={t.label} style={{borderLeft:'2px solid #EDE7DC',paddingLeft:12}}>
+                                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',lineHeight:1.2}}>{money(t.amount)}</div>
+                                  <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{t.label} · {t.count}</div>
+                                </div>
+                              ))}
+                              <div style={{borderLeft:'2px solid #C97B1A',paddingLeft:12}}>
+                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#C97B1A',lineHeight:1.2}}>{money(b.givingTotal)}</div>
+                                <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>Total · {b.givingRows.length}</div>
+                              </div>
+                            </div>
+                            <table style={{width:'100%',borderCollapse:'collapse'}}>
+                              <thead><tr><th style={th}>Giver</th><th style={th}>Type</th><th style={th}>Amount</th><th style={th}>Method</th></tr></thead>
+                              <tbody>
+                                {b.givingRows.map(g=>(
+                                  <tr key={g.id}>
+                                    <td style={td}>{g.giver_name}</td>
+                                    <td style={{...td,color:'#7A6E60'}}>{g.giving_type==='other'?(g.giving_type_other||'Other'):GIVING_TYPE_LABELS[g.giving_type]}</td>
+                                    <td style={{...td,fontWeight:500}}>{`${g.currency} ${Number(g.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`}</td>
+                                    <td style={{...td,color:'#7A6E60',textTransform:'capitalize'}}>{g.payment_method.replace(/_/g,' ')}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </>
+                        )
                       )}
                     </div>
+
                     <div style={{padding:'16px 28px 24px',borderTop:'1px solid #E4DFD5',display:'flex',gap:10}}>
                       <button onClick={()=>setInfoService(null)} className="btn btn-secondary" style={{flex:1}}>Close</button>
-                      <button onClick={()=>{ const s=infoService; setInfoService(null); openReportModal(s); }} className="btn btn-primary" style={{flex:1}}>Email full report</button>
+                      <button onClick={()=>{ const s=infoService; setInfoService(null); openReportModal(s); }} className="btn btn-primary" style={{flex:1}}>Email as spreadsheet</button>
                     </div>
                   </div>
                 </div>
@@ -1209,6 +1403,8 @@ export default function AdminPage() {
                       <th className="table-header">Name</th>
                       <th className="table-header hidden sm:table-cell">Phone</th>
                       <th className="table-header">Role</th>
+                      <th className="table-header hidden lg:table-cell">First Visit</th>
+                      <th className="table-header hidden lg:table-cell">Last Seen</th>
                       <th className="table-header hidden md:table-cell">Visits</th>
                       <th className="table-header">Missing Info</th>
                       <th className="table-header text-right">Action</th>
@@ -1228,6 +1424,8 @@ export default function AdminPage() {
                             </td>
                             <td className="table-cell hidden sm:table-cell text-navy-500 text-sm">{p.phone}</td>
                             <td className="table-cell"><span className={`badge text-[11px] capitalize ${p.role==='leader'?'badge-purple':p.role==='member'?'badge-primary':'badge-warning'}`}>{p.role}</span></td>
+                            <td className="table-cell hidden lg:table-cell text-navy-500 text-sm whitespace-nowrap">{p.first_attendance_date ? new Date(p.first_attendance_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : <span className="text-navy-300">—</span>}</td>
+                            <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null) return <span className="text-navy-300">Never</span>; return <span className={w>=3?'text-red-600 font-medium':'text-navy-500'}>{w===0?'This week':`${w} week${w===1?'':'s'} ago`}</span>; })()}</td>
                             <td className="table-cell hidden md:table-cell text-navy-500 text-sm">{p.total_checkins}</td>
                             <td className="table-cell">{missing.length>0?<span className="text-amber-600 text-xs font-medium">{missing.join(', ')}</span>:<span className="text-emerald-600 text-xs">✓ complete</span>}</td>
                             <td className="table-cell text-right">
