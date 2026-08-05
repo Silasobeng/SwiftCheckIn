@@ -257,7 +257,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
       </header>
 
       {/* ── HERO ── */}
-      <section className="relative flex min-h-[92vh] items-center justify-center overflow-hidden">
+      <section className="relative flex min-h-[82vh] items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage:'url(/hero-poster.jpg)' }} />
           {showHeroVideo && allowMotion && (
