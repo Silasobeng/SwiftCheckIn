@@ -507,7 +507,14 @@ export default function LandingPage({ images }: { images: LandingImages }) {
           </div>
 
           <Reveal delay={140}>
-            <p className="mx-auto mb-10 max-w-xl text-center font-light leading-relaxed text-navy-700">Every plan includes unlimited members, attendance, giving records, reports, and follow-up.</p>
+            <ul className="mx-auto mb-10 max-w-sm space-y-2.5">
+              {['Unlimited members','Unlimited attendance','Unlimited giving records','Unlimited reports','Unlimited follow-up','Unlimited ministry.'].map(f=>(
+                <li key={f} className="flex items-center gap-3 text-navy-700">
+                  <Check className="w-4 h-4 shrink-0 text-gold-500" />
+                  <span className="font-light">{f}</span>
+                </li>
+              ))}
+            </ul>
             <div className="text-center">
               <Link href="/signup" className="inline-block rounded-full bg-gold-500 px-9 py-4 font-semibold text-navy-900 shadow-lg shadow-gold-500/25 transition hover:-translate-y-0.5 hover:brightness-105">
                 Start Free — 14 Days, No Card
