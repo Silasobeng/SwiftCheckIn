@@ -209,6 +209,7 @@ export default function AdminPage() {
   const [deletingBusy, setDeletingBusy] = useState(false);
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleRoleFilter, setPeopleRoleFilter] = useState<'all'|'member'|'leader'|'visitor'>('all');
+  const [expandedAbsentees, setExpandedAbsentees] = useState<string|null>(null);
   const [giving, setGiving] = useState<Giving[]>([]);
   const [givingFormOpen, setGivingFormOpen] = useState(false);
   const [savingGiving, setSavingGiving] = useState(false);
@@ -532,6 +533,26 @@ export default function AdminPage() {
       (!q || p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)||p.email?.toLowerCase().includes(q))
     );
   }, [activePeople,peopleSearch,peopleRoleFilter]);
+
+  // Who was absent, per service — mirrors getDayAttendance() in
+  // src/lib/attendance.ts (used for the emailed report): absence is reckoned
+  // per calendar day, unioning check-ins across every service held that date,
+  // so a church running two Sunday services doesn't mark 9am attendees
+  // "absent" from the 11am one. Only members/leaders count as "expected";
+  // visitors are excluded so a one-time guest doesn't show up as a no-show
+  // forever.
+  const absenteesByService = useMemo(() => {
+    const serviceIdsByDate: Record<string, string[]> = {};
+    services.forEach(s => { (serviceIdsByDate[s.service_date] ||= []).push(s.id); });
+    const expected = activePeople.filter(p => p.role==='member' || p.role==='leader');
+    const map: Record<string, Person[]> = {};
+    services.forEach(s => {
+      const idsForDate = new Set(serviceIdsByDate[s.service_date]);
+      const presentIds = new Set(checkins.filter(c=>idsForDate.has(c.service_id)).map(c=>c.person_id));
+      map[s.id] = expected.filter(p=>!presentIds.has(p.id)).sort((a,b)=>a.full_name.localeCompare(b.full_name));
+    });
+    return map;
+  }, [services, checkins, activePeople]);
 
   const givingPersonMatches = useMemo(() => {
     const q = givingPersonQuery.trim().toLowerCase();
@@ -1059,12 +1080,34 @@ export default function AdminPage() {
                         )}
                       </div>
                       <div style={{display:'flex',gap:8,flexShrink:0}}>
+                        <button onClick={()=>setExpandedAbsentees(x=>x===s.id?null:s.id)} style={{background:expandedAbsentees===s.id?'#FDF3E0':'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>{expandedAbsentees===s.id?'Hide':'Absentees'} ({absenteesByService[s.id]?.length ?? 0})</button>
                         <button onClick={()=>openReportModal(s)} disabled={sendingReportId===s.id} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:sendingReportId===s.id?'wait':'pointer'}}>{sendingReportId===s.id?'Sending…':'Email Report'}</button>
                         <button onClick={()=>openEditService(s)} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Edit</button>
                         {!s.is_active&&<button onClick={()=>setActiveService(s.id)} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Set Active</button>}
                         <button onClick={()=>askDelete('services', s.id, s.title||'this service')} style={{background:'#fff',color:'#B23B3B',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Delete</button>
                       </div>
                     </div>
+                    {expandedAbsentees===s.id && (
+                      <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid #E4DFD5'}}>
+                        {(absenteesByService[s.id]?.length ?? 0)===0 ? (
+                          <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Every member and leader checked in — nobody missing this service.</div>
+                        ) : (
+                          <>
+                            <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase' as const,marginBottom:10}}>
+                              Didn&apos;t come ({absenteesByService[s.id].length})
+                            </div>
+                            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                              {absenteesByService[s.id].map(p=>(
+                                <div key={p.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,fontSize:13}}>
+                                  <span style={{color:'#16243A'}}>{p.full_name} <span style={{fontSize:11,color:'#A89D8E',fontWeight:300,textTransform:'capitalize' as const}}>· {p.role}</span></span>
+                                  <span style={{color:'#7A6E60',fontWeight:300}}>{p.phone||'—'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
