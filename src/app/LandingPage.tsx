@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -34,12 +34,6 @@ const STEPS = [
   'Put a tablet at your entrance.',
   'People check in on Sunday.',
   'WeMotiply handles the rest.',
-];
-
-const TESTIMONIALS = [
-  { quote:'We finally know who has been absent and we follow up before they drift away.', by:'Pastor, Accra' },
-  { quote:'Our volunteers picked it up in ten minutes. Sunday mornings are calmer now.', by:'Church Administrator' },
-  { quote:'The giving receipts alone have changed how our members trust us with their gifts.', by:'Church Treasurer' },
 ];
 
 // Traditions the product is built to work across — named generically, not
@@ -337,9 +331,9 @@ export default function LandingPage({ images }: { images: LandingImages }) {
               className="mb-12 h-56 w-full overflow-hidden rounded-2xl shadow-soft-md sm:h-72 md:h-80"
             />
           </Reveal>
-          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid overflow-hidden border-y border-cream-dark bg-white sm:grid-cols-2">
             <Reveal>
-              <div className="h-full overflow-hidden rounded-2xl border border-cream-dark bg-white">
+              <div className="h-full overflow-hidden border-b border-cream-dark sm:border-b-0 sm:border-r">
                 <div className="relative h-40 w-full">
                   <Image
                     src="/before-wemotiply.jpg"
@@ -365,7 +359,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
               </div>
             </Reveal>
             <Reveal delay={90}>
-              <div className="h-full overflow-hidden rounded-2xl border border-gold-500/40 bg-white shadow-soft-md">
+              <div className="h-full overflow-hidden bg-gold-50/35">
                 <div className="relative h-40 w-full">
                   <Image
                     src="/after-wemotiply.jpg"
@@ -435,18 +429,18 @@ export default function LandingPage({ images }: { images: LandingImages }) {
               Everything your church needs.
             </h2>
           </Reveal>
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid border-t border-cream-dark md:grid-cols-2 md:gap-x-12">
             {FEATURES.map((f,i)=>(
-              <Reveal key={f.title} delay={(i%2)*80} className="h-full">
-                <div className="group h-full overflow-hidden rounded-2xl border border-cream-dark bg-white transition duration-200 hover:-translate-y-1 hover:shadow-soft-md">
+              <Reveal key={f.title} delay={(i%2)*80} className="h-full border-b border-cream-dark">
+                <div className="group flex h-full gap-5 py-7 transition-colors duration-200 hover:bg-white/40">
                   <CreditedPhoto
                     image={images[f.imageKey]}
-                    className="h-36 w-full"
+                    className="h-24 w-28 shrink-0 overflow-hidden rounded-lg sm:h-28 sm:w-36"
                     imgClassName="object-cover transition duration-300 group-hover:scale-105"
                   />
-                  <div className="p-7">
+                  <div className="min-w-0 py-0.5">
                     <div className="mb-4 flex items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold-50 text-gold-500 transition-transform duration-200 group-hover:scale-110">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gold-50 text-gold-500 transition-transform duration-200 group-hover:scale-110">
                         <FeatureIcon variant={f.icon} />
                       </span>
                       <h3 className="font-display text-lg text-navy-900">{f.title}</h3>
@@ -470,10 +464,10 @@ export default function LandingPage({ images }: { images: LandingImages }) {
               How WeMotiply works
             </h2>
           </Reveal>
-          <ol className="space-y-4">
+          <ol className="border-y border-cream-dark">
             {STEPS.map((step,i)=>(
               <Reveal key={step} delay={i*70}>
-                <li className="flex items-center gap-5 rounded-2xl border border-cream-dark bg-cream px-6 py-5">
+                <li className="flex items-center gap-5 border-b border-cream-dark py-5 last:border-b-0">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-500 font-display text-lg text-navy-900">{i+1}</span>
                   <span className="font-light text-navy-800">{step}</span>
                 </li>
@@ -489,64 +483,39 @@ export default function LandingPage({ images }: { images: LandingImages }) {
         </div>
       </section>
 
-      {/* ── SOCIAL PROOF ── */}
-      <section className="bg-white px-6 py-20 md:py-28">
-        <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-3">
-          {TESTIMONIALS.map((t,i)=>(
-            <Reveal key={t.by} delay={i*90} className="h-full">
-              <figure className="flex h-full flex-col rounded-2xl border border-cream-dark bg-cream p-7">
-                <div className="mb-4 text-sm tracking-widest text-gold-400" aria-label="Five out of five stars">★★★★★</div>
-                <blockquote className="mb-5 flex-1 font-display text-base italic leading-relaxed text-navy-900">
-                  &ldquo;{t.quote}&rdquo;
-                </blockquote>
-                <figcaption className="text-sm text-navy-500">— {t.by}</figcaption>
-              </figure>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
       {/* ── PRICING ── */}
       <section id="pricing" className="scroll-mt-24 bg-cream px-6 py-20 md:py-28">
         <div className="mx-auto max-w-3xl">
           <Reveal>
-            <h2 className="mb-3 text-center font-display text-2xl uppercase tracking-wide text-navy-900 sm:text-3xl">
-              One price.
-            </h2>
             <h2 className="mb-14 text-center font-display text-2xl uppercase tracking-wide text-navy-900 sm:text-3xl">
-              Everything included.
+              Simple, transparent pricing.
             </h2>
           </Reveal>
 
-          <div className="mb-12 grid gap-5 sm:grid-cols-2">
+          <div className="mb-10 grid overflow-hidden border-y border-cream-dark bg-white sm:grid-cols-2">
             <Reveal className="h-full">
-              <div className="flex h-full flex-col rounded-2xl border border-cream-dark bg-white p-8 text-center">
-                <div className="mb-4 text-xs font-semibold uppercase tracking-widest text-navy-400">Monthly</div>
+              <div className="flex h-full flex-col p-8 text-left sm:border-r sm:border-cream-dark">
+                <div className="mb-4 text-xs font-semibold uppercase tracking-widest text-navy-400">Monthly plan</div>
                 <div className="font-display text-4xl text-navy-900">GHS 150</div>
                 <div className="mt-1 text-sm text-navy-500">per month</div>
+                <p className="mt-5 text-sm font-light leading-relaxed text-navy-600">Flexible monthly billing. Cancel any time.</p>
               </div>
             </Reveal>
             <Reveal delay={90} className="h-full">
-              <div className="relative flex h-full flex-col rounded-2xl border-2 border-gold-500 bg-white p-8 text-center shadow-soft-lg">
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gold-500 px-4 py-1 text-[11px] font-semibold uppercase tracking-widest text-navy-900">
-                  2 months free
-                </span>
-                <div className="mb-4 text-xs font-semibold uppercase tracking-widest text-gold-600">Yearly</div>
+              <div className="flex h-full flex-col bg-gold-50/65 p-8 text-left">
+                <div className="mb-4 flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-widest text-gold-600">
+                  <span>Yearly plan</span>
+                  <span className="rounded-full bg-gold-500 px-3 py-1 text-[10px] text-navy-900">Save GHS 300</span>
+                </div>
                 <div className="font-display text-4xl text-navy-900">GHS 1,500</div>
-                <div className="mt-1 text-sm text-navy-500">per year</div>
+                <div className="mt-1 text-sm text-navy-500">per year &middot; equivalent to GHS 125/month</div>
+                <p className="mt-5 text-sm font-light leading-relaxed text-navy-600">Two months free compared with monthly billing.</p>
               </div>
             </Reveal>
           </div>
 
           <Reveal delay={140}>
-            <ul className="mx-auto mb-10 max-w-sm space-y-2.5">
-              {['Unlimited members','Unlimited attendance','Unlimited giving records','Unlimited reports','Unlimited follow-up','Unlimited ministry.'].map(f=>(
-                <li key={f} className="flex items-center gap-3 text-navy-700">
-                  <Check className="w-4 h-4 shrink-0 text-gold-500" />
-                  <span className="font-light">{f}</span>
-                </li>
-              ))}
-            </ul>
+            <p className="mx-auto mb-10 max-w-xl text-center font-light leading-relaxed text-navy-700">Every plan includes unlimited members, attendance, giving records, reports, and follow-up.</p>
             <div className="text-center">
               <Link href="/signup" className="inline-block rounded-full bg-gold-500 px-9 py-4 font-semibold text-navy-900 shadow-lg shadow-gold-500/25 transition hover:-translate-y-0.5 hover:brightness-105">
                 Start Free — 14 Days, No Card
@@ -596,7 +565,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
             Start Your Free Trial →
           </Link>
           <p className="mt-6 text-sm text-white/40">No credit card · Ready in minutes</p>
-          <p className="mt-1 text-sm text-white/40">Trusted by churches in Accra</p>
+
         </Reveal>
       </section>
 
@@ -607,17 +576,10 @@ export default function LandingPage({ images }: { images: LandingImages }) {
             <Wordmark dark={false} />
             <p className="mt-1.5 text-sm italic text-white/40">Together, we multiply.</p>
           </div>
-          <div className="flex gap-12">
-            <div className="space-y-2.5">
-              {[['#features','Features'],['#pricing','Pricing'],['#faq','FAQ']].map(([href,label])=>(
-                <a key={href} href={href} className="block text-sm text-white/45 transition-colors hover:text-gold-400">{label}</a>
-              ))}
-            </div>
-            <div className="space-y-2.5">
-              {['Privacy','Terms','Contact'].map(l=>(
-                <a key={l} href="#" className="block text-sm text-white/45 transition-colors hover:text-gold-400">{l}</a>
-              ))}
-            </div>
+          <div className="space-y-2.5">
+            {[['#features','Features'],['#pricing','Pricing'],['#faq','FAQ'],['/signup','Start free']].map(([href,label])=>(
+              <a key={href} href={href} className="block text-sm text-white/45 transition-colors hover:text-gold-400">{label}</a>
+            ))}
           </div>
         </div>
         <div className="mx-auto mt-12 max-w-6xl border-t border-white/10 pt-6 text-sm text-white/30">
