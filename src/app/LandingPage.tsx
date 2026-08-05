@@ -489,28 +489,6 @@ export default function LandingPage({ images }: { images: LandingImages }) {
         </div>
       </section>
 
-      {/* ── BUILT FOR CHURCHES ── */}
-      <section className="bg-cream-dark px-6 py-20 md:py-28">
-        <div className="mx-auto max-w-2xl text-center">
-          <Reveal>
-            <h2 className="mb-8 font-display text-2xl uppercase tracking-wide text-navy-900 sm:text-3xl">
-              Built from real conversations.
-            </h2>
-            <p className="mb-6 font-light leading-relaxed text-navy-700">
-              Every feature in WeMotiply came from sitting with pastors and church leaders and asking one question:
-            </p>
-            <p className="mb-8 font-display text-xl italic text-gold-500">
-              What is making Sunday harder than it should be?
-            </p>
-            <div className="space-y-1 font-light text-navy-600">
-              <p>No guesswork.</p>
-              <p>No features nobody asked for.</p>
-              <p>Just what churches actually need.</p>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
       {/* ── SOCIAL PROOF ── */}
       <section className="bg-white px-6 py-20 md:py-28">
         <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-3">
