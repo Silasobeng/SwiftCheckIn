@@ -208,6 +208,7 @@ export default function AdminPage() {
   const [deleteCode, setDeleteCode] = useState('');
   const [deletingBusy, setDeletingBusy] = useState(false);
   const [peopleSearch, setPeopleSearch] = useState('');
+  const [peopleRoleFilter, setPeopleRoleFilter] = useState<'all'|'member'|'leader'|'visitor'>('all');
   const [giving, setGiving] = useState<Giving[]>([]);
   const [givingFormOpen, setGivingFormOpen] = useState(false);
   const [savingGiving, setSavingGiving] = useState(false);
@@ -518,7 +519,19 @@ export default function AdminPage() {
   const missingEmailCount = activePeople.filter(p=>!p.email).length;
   const firstTimersThisMonth = currentMonthCheckins.filter(c=>c.is_first_time).length;
   const returningThisMonth = currentMonthCheckins.length-firstTimersThisMonth;
-  const filteredPeople = useMemo(() => { const q=peopleSearch.trim().toLowerCase(); if(!q) return activePeople; return activePeople.filter(p=>p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)||p.email?.toLowerCase().includes(q)); }, [activePeople,peopleSearch]);
+  const peopleRoleCounts = {
+    all: activePeople.length,
+    member: activePeople.filter(p=>p.role==='member').length,
+    leader: activePeople.filter(p=>p.role==='leader').length,
+    visitor: activePeople.filter(p=>p.role==='visitor').length,
+  };
+  const filteredPeople = useMemo(() => {
+    const q=peopleSearch.trim().toLowerCase();
+    return activePeople.filter(p=>
+      (peopleRoleFilter==='all' || p.role===peopleRoleFilter) &&
+      (!q || p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)||p.email?.toLowerCase().includes(q))
+    );
+  }, [activePeople,peopleSearch,peopleRoleFilter]);
 
   const givingPersonMatches = useMemo(() => {
     const q = givingPersonQuery.trim().toLowerCase();
@@ -1073,6 +1086,23 @@ export default function AdminPage() {
               </div>
             </div>
 
+            <div className="flex flex-wrap gap-2">
+              {([
+                {v:'all' as const,     l:'All'},
+                {v:'member' as const,  l:'Members'},
+                {v:'leader' as const,  l:'Leaders'},
+                {v:'visitor' as const, l:'Visitors'},
+              ]).map(({v,l})=>{
+                const active = peopleRoleFilter===v;
+                return (
+                  <button key={v} onClick={()=>setPeopleRoleFilter(v)}
+                    className={`text-xs font-medium px-3 py-1.5 rounded-full border transition ${active ? 'bg-navy-900 text-white border-navy-900' : 'bg-white text-navy-600 border-cream-dark hover:border-navy-300'}`}>
+                    {l} <span className={active?'opacity-70':'text-navy-400'}>({peopleRoleCounts[v]})</span>
+                  </button>
+                );
+              })}
+            </div>
+
             {(missingBirthdayCount>0||missingEmailCount>0) && (
               <div className="alert alert-warning">
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
@@ -1082,7 +1112,7 @@ export default function AdminPage() {
 
             <div className="card p-0 overflow-hidden">
               {filteredPeople.length===0 ? (
-                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':'No people yet. They appear after check-ins.'}</p></div>
+                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. They appear after check-ins.'}</p></div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
