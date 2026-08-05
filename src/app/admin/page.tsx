@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization } from '@/types';
+import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization, Group } from '@/types';
 import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
 import { tzFormatter, timeFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel, yearKeyOf, yearRangeLabel } from '@/lib/monthWindow';
 import { StackedTrend, RankedBars, OrdinalBars, SplitBar } from '@/components/Charts';
@@ -53,12 +53,13 @@ const EMPTY_TEMPLATES: Record<'welcome'|'birthday'|'missed', {subject:string;bod
 
 /* ─── Edit Person Modal ─────────────────────────────────────────────────── */
 
-function EditPersonModal({ person, onClose, onSaved }: { person: Person; onClose: () => void; onSaved: () => void }) {
+function EditPersonModal({ person, groups, groupLabel, onClose, onSaved }: { person: Person; groups: Group[]; groupLabel: string; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     full_name: person.full_name || '', phone: person.phone || '', email: person.email || '',
     gender: person.gender || '', date_of_birth: person.date_of_birth || '', role: person.role || 'visitor',
     occupation: person.occupation || '', company: person.company || '',
     location: person.location || '', how_found_us: person.how_found_us || '', notes: person.notes || '',
+    group_id: person.group_id || '',
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string|null>(null);
@@ -73,6 +74,7 @@ function EditPersonModal({ person, onClose, onSaved }: { person: Person; onClose
           gender: form.gender||null, occupation: form.occupation.trim()||null,
           company: form.company.trim()||null, location: form.location.trim()||null,
           how_found_us: form.how_found_us.trim()||null, notes: form.notes.trim()||null,
+          group_id: form.group_id||null,
         }})});
       const data = await res.json();
       if (!res.ok) { setErr(data.error||'Could not save.'); return; }
@@ -119,6 +121,14 @@ function EditPersonModal({ person, onClose, onSaved }: { person: Person; onClose
                     <option value="female">Female</option>
                   </select>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy-700 mb-1.5">{groupLabel}</label>
+                <select className="select" value={form.group_id} onChange={set('group_id')}>
+                  <option value="">Not assigned</option>
+                  {groups.map(g=>(<option key={g.id} value={g.id}>{g.name}</option>))}
+                </select>
+                {groups.length===0 && <p className="text-xs text-navy-400 mt-1.5">No {groupLabel.toLowerCase()}s yet — add one under Settings.</p>}
               </div>
             </div>
           </fieldset>
@@ -209,11 +219,12 @@ export default function AdminPage() {
   const [reportService, setReportService] = useState<Service|null>(null);
   const [reportRecipient, setReportRecipient] = useState('');
   // Code-gated delete: one modal reused for services, people and giving.
-  const [deleteTarget, setDeleteTarget] = useState<{kind:'services'|'people'|'giving'; id:string; label:string}|null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{kind:'services'|'people'|'giving'|'groups'; id:string; label:string}|null>(null);
   const [deleteCode, setDeleteCode] = useState('');
   const [deletingBusy, setDeletingBusy] = useState(false);
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleRoleFilter, setPeopleRoleFilter] = useState<'all'|'member'|'leader'|'visitor'>('all');
+  const [peopleGroupFilter, setPeopleGroupFilter] = useState<string>('all');
   const [infoService, setInfoService] = useState<Service|null>(null);
   const [infoTab, setInfoTab] = useState<'summary'|'attendance'|'followup'|'giving'>('summary');
   const [presentFilter, setPresentFilter] = useState<'all'|'leader'|'member'|'firsttime'|'returning'>('all');
@@ -229,12 +240,17 @@ export default function AdminPage() {
   });
   const [branding, setBranding] = useState({
   org_name: '',
-  tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'', timezone:'' });
+  tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'', timezone:'', group_label:'Cell Group' });
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupForm, setGroupForm] = useState<{editingId:string|null; name:string; leader_person_id:string}>({editingId:null, name:'', leader_person_id:''});
+  const [savingGroup, setSavingGroup] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
   const [uploading, setUploading] = useState<'logo'|'cover'|null>(null);
   // The church's own timezone drives "this month / today", not the device clock.
   const [orgTimezone, setOrgTimezone] = useState('Africa/Accra');
   const [kioskCode, setKioskCode] = useState('');
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date|null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const [savingKioskCode, setSavingKioskCode] = useState(false);
 
   useEffect(() => {
@@ -281,18 +297,20 @@ export default function AdminPage() {
       }
     };
 
-    const [sD, pD, cD, stD, tD, gD] = await Promise.all([
+    const [sD, pD, cD, stD, tD, gD, grD] = await Promise.all([
       safeFetch('/api/services', { services: [] }),
       safeFetch('/api/people', { people: [] }),
       safeFetch('/api/checkin', { checkins: [] }),
       safeFetch<{settings: (AppSettings & {organization?: Organization}) | null}>('/api/settings', { settings: null }),
       safeFetch('/api/email/templates', { templates: [] }),
       safeFetch('/api/giving', { giving: [] }),
+      safeFetch('/api/groups', { groups: [] }),
     ]);
 
     // Live data always refreshes.
-    setServices(sD.services||[]); setPeople(pD.people||[]); setCheckins(cD.checkins||[]); setSettings(stD.settings||null); setTemplates(tD.templates||[]); setGiving(gD.giving||[]);
+    setServices(sD.services||[]); setPeople(pD.people||[]); setCheckins(cD.checkins||[]); setSettings(stD.settings||null); setTemplates(tD.templates||[]); setGiving(gD.giving||[]); setGroups(grD.groups||[]);
     if (stD.settings?.organization?.timezone) setOrgTimezone(stD.settings.organization.timezone);
+    setLastUpdatedAt(new Date());
 
     // Form-bound fields are only (re)seeded on a foreground load. A background
     // poll must never overwrite what the admin is mid-way through typing in
@@ -302,13 +320,37 @@ export default function AdminPage() {
       const org = stD.settings?.organization;
       if (org) setBranding({
         org_name: org.name || '',
-        tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'', timezone:org.timezone||'' });
+        tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'', timezone:org.timezone||'', group_label:org.group_label||'Cell Group' });
       if (!stD.settings) setError('Some dashboard data could not be refreshed — check your connection.');
     }
   }, [session]);
 
   useEffect(() => { if (session) loadData(); }, [session,loadData]);
-  useEffect(() => { if (!session) return; const id=window.setInterval(()=>loadData({background:true}),30000); return ()=>window.clearInterval(id); }, [session,loadData]);
+  // Faster while check-in is actually open — that's the moment someone is
+  // watching this screen and wants to see a number move — and paused
+  // whenever the tab isn't visible, so a browser left open overnight doesn't
+  // spend the next 12 hours quietly polling six endpoints. Coming back to the
+  // tab triggers an immediate refresh rather than waiting out the interval.
+  useEffect(() => {
+    if (!session) return;
+    const intervalMs = settings?.kiosk_open ? 8000 : 30000;
+    let id: number|null = null;
+    const start = () => { if (id===null) id = window.setInterval(()=>loadData({background:true}), intervalMs); };
+    const stop = () => { if (id!==null) { window.clearInterval(id); id = null; } };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') { loadData({background:true}); start(); }
+      else stop();
+    };
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
+  }, [session, settings?.kiosk_open, loadData]);
+  // A light second-hand for "Updated Xs ago" — visual only, never fetches.
+  useEffect(() => {
+    if (!session) return;
+    const id = window.setInterval(()=>setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [session]);
   useEffect(() => { if (!message&&!error) return; const id=window.setTimeout(()=>{setMessage(null);setError(null);},4000); return ()=>window.clearTimeout(id); }, [message,error]);
 
   const handleLogout = async () => { await fetch('/api/auth/logout',{method:'POST'}); router.push('/login'); };
@@ -437,6 +479,23 @@ export default function AdminPage() {
     } finally { setSavingBranding(false); }
   };
 
+  const saveGroup = async () => {
+    const name = groupForm.name.trim();
+    if (!name) { setError('Enter a name.'); return; }
+    setSavingGroup(true); setMessage(null); setError(null);
+    try {
+      const leader_person_id = groupForm.leader_person_id || null;
+      const res = groupForm.editingId
+        ? await fetch('/api/groups', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ groupId: groupForm.editingId, name, leader_person_id }) })
+        : await fetch('/api/groups', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, leader_person_id }) });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error||'Could not save.'); return; }
+      setMessage(groupForm.editingId ? 'Group updated.' : 'Group added.');
+      setGroupForm({ editingId:null, name:'', leader_person_id:'' });
+      loadData();
+    } finally { setSavingGroup(false); }
+  };
+
   const saveKioskCode = async () => {
     const code = kioskCode.trim();
     if (code.length > 0 && (code.length < 4 || code.length > 12)) {
@@ -537,9 +596,10 @@ export default function AdminPage() {
     const q=peopleSearch.trim().toLowerCase();
     return activePeople.filter(p=>
       (peopleRoleFilter==='all' || p.role===peopleRoleFilter) &&
+      (peopleGroupFilter==='all' || (peopleGroupFilter==='unassigned' ? !p.group_id : p.group_id===peopleGroupFilter)) &&
       (!q || p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)||p.email?.toLowerCase().includes(q))
     );
-  }, [activePeople,peopleSearch,peopleRoleFilter]);
+  }, [activePeople,peopleSearch,peopleRoleFilter,peopleGroupFilter]);
 
 
   const givingPersonMatches = useMemo(() => {
@@ -814,7 +874,7 @@ export default function AdminPage() {
 
   return (
     <div style={{minHeight:"100vh",background:"#F8F4EE"}}>
-      {editingPerson && <EditPersonModal person={editingPerson} onClose={()=>setEditingPerson(null)} onSaved={()=>{loadData();setMessage('Profile updated.');}} />}
+      {editingPerson && <EditPersonModal person={editingPerson} groups={groups} groupLabel={branding.group_label||'Cell Group'} onClose={()=>setEditingPerson(null)} onSaved={()=>{loadData();setMessage('Profile updated.');}} />}
 
       {/* Code-gated delete confirmation — shared across services, people, giving */}
       {deleteTarget && (
@@ -827,7 +887,10 @@ export default function AdminPage() {
               </div>
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',marginBottom:8}}>Delete {deleteTarget.label}?</h2>
               <p style={{fontSize:14,color:'#7A6E60',fontWeight:300,lineHeight:1.7,marginBottom:16}}>
-                This can&apos;t be undone.{deleteTarget.kind==='services' && ' Its check-ins are removed too.'} Type your kiosk code to confirm.
+                {deleteTarget.kind==='groups'
+                  ? "People in this group aren't deleted — they're just unassigned from it."
+                  : <>This can&apos;t be undone.{deleteTarget.kind==='services' && ' Its check-ins are removed too.'}</>
+                } Type your kiosk code to confirm.
               </p>
               <label className="block text-xs font-medium text-navy-600 mb-1.5">Kiosk code</label>
               <input className="input" style={{letterSpacing:'0.15em'}} value={deleteCode}
@@ -942,6 +1005,19 @@ export default function AdminPage() {
                     : 'Check-in is closed'
                   }
                 </p>
+                {/* This screen actually refreshes on its own every few
+                    seconds — the point of this line is to make that visible
+                    rather than something you have to take on faith. */}
+                {lastUpdatedAt && (
+                  <p style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginTop:5,display:'flex',alignItems:'center',gap:6}}>
+                    {settings?.kiosk_open && <span className="animate-pulse" style={{width:5,height:5,borderRadius:'50%',background:'#2E7D4E',display:'inline-block'}}/>}
+                    {(() => {
+                      const secs = Math.max(0, Math.round((nowTick - lastUpdatedAt.getTime())/1000));
+                      const ago = secs<5 ? 'just now' : secs<60 ? `${secs}s ago` : `${Math.round(secs/60)}m ago`;
+                      return settings?.kiosk_open ? `Live · updated ${ago}` : `Last updated ${ago}`;
+                    })()}
+                  </p>
+                )}
               </div>
               <div style={{display:'flex',gap:10}}>
                 <button onClick={toggleKiosk}
@@ -950,6 +1026,19 @@ export default function AdminPage() {
                 </button>
               </div>
             </div>
+
+            {/* Check-in stays open until someone closes it, and the day it was
+                opened for can quietly pass — the server now auto-closes it the
+                moment anyone loads or submits to a stale kiosk, but this warns
+                here too in case nobody visits the kiosk before the next
+                service. */}
+            {settings?.kiosk_open && activeService && activeService.service_date !== today && (
+              <div className="alert alert-warning" style={{marginBottom:24}}>
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                <span style={{flex:1}}>Check-in has been left open since <strong>{new Date(activeService.service_date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</strong> — anyone checking in now would be recorded against that service, not today&apos;s.</span>
+                <button onClick={toggleKiosk} className="btn btn-secondary text-xs py-1.5 px-3" style={{flexShrink:0}}>Close now</button>
+              </div>
+            )}
 
             {/* Stat cards */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,marginBottom:24}}>
@@ -1270,26 +1359,54 @@ export default function AdminPage() {
                       {infoTab==='followup' && (
                         b.absentMembers.length===0 ? (
                           <div style={{fontSize:13,color:'#2E7D4E',fontWeight:300}}>Every registered member attended this service.</div>
-                        ) : (
-                          <>
-                            <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:14}}>Registered members who did not attend, ordered by length of absence.</p>
-                            <table style={{width:'100%',borderCollapse:'collapse'}}>
-                              <thead><tr><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Last visit</th><th style={th}>Visits</th></tr></thead>
-                              <tbody>
-                                {b.absentMembers.map(p=>(
-                                  <tr key={p.id}>
-                                    <td style={td}>{p.full_name}</td>
-                                    <td style={{...td,color:'#7A6E60'}}>{p.phone||'—'}</td>
-                                    <td style={{...td,whiteSpace:'nowrap'}}>
-                                      <LastSeenCell iso={p.last_checkin_at} weeks={p.weeksAway} />
-                                    </td>
-                                    <td style={{...td,color:'#7A6E60'}}>{p.total_checkins??0}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </>
-                        )
+                        ) : (() => {
+                          // Grouped by cell group so each leader's own people sit
+                          // together — a flat 20-name list is nobody's job, but
+                          // "here are your 4" is Kofi's job. Unassigned people
+                          // (nobody has put them in a group yet) fall into their
+                          // own section last rather than vanishing into "none".
+                          const byGroup = new Map<string, typeof b.absentMembers>();
+                          for (const p of b.absentMembers) {
+                            const key = p.group_id || '__none';
+                            if (!byGroup.has(key)) byGroup.set(key, []);
+                            byGroup.get(key)!.push(p);
+                          }
+                          const sections = [
+                            ...groups.filter(g=>byGroup.has(g.id)).map(g=>({ id:g.id, label:g.name, sub:g.leader?`Led by ${g.leader.full_name}`:null, people:byGroup.get(g.id)! })),
+                            ...(byGroup.has('__none') ? [{ id:'__none', label:`No ${(branding.group_label||'Cell Group').toLowerCase()}`, sub:null, people:byGroup.get('__none')! }] : []),
+                          ];
+                          const showGrouping = groups.length>0;
+                          return (
+                            <>
+                              <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:18}}>Registered members who did not attend, longest away first{showGrouping?`, grouped by ${(branding.group_label||'Cell Group').toLowerCase()}`:''}.</p>
+                              {sections.map((sec,i)=>(
+                                <div key={sec.id} style={{marginBottom:i===sections.length-1?0:24}}>
+                                  {showGrouping && (
+                                    <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:8}}>
+                                      <span style={{fontSize:12,fontWeight:600,color:'#16243A'}}>{sec.label}</span>
+                                      <span style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>{sec.sub||'No leader assigned'} · {sec.people.length}</span>
+                                    </div>
+                                  )}
+                                  <table style={{width:'100%',borderCollapse:'collapse'}}>
+                                    <thead><tr><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Last visit</th><th style={th}>Visits</th></tr></thead>
+                                    <tbody>
+                                      {sec.people.map(p=>(
+                                        <tr key={p.id}>
+                                          <td style={td}>{p.full_name}</td>
+                                          <td style={{...td,color:'#7A6E60'}}>{p.phone||'—'}</td>
+                                          <td style={{...td,whiteSpace:'nowrap'}}>
+                                            <LastSeenCell iso={p.last_checkin_at} weeks={p.weeksAway} />
+                                          </td>
+                                          <td style={{...td,color:'#7A6E60'}}>{p.total_checkins??0}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ))}
+                            </>
+                          );
+                        })()
                       )}
 
                       {infoTab==='giving' && (
@@ -1475,7 +1592,7 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {([
                 {v:'all' as const,     l:'All'},
                 {v:'member' as const,  l:'Members'},
@@ -1490,6 +1607,14 @@ export default function AdminPage() {
                   </button>
                 );
               })}
+              {groups.length>0 && (
+                <select className="select text-xs" style={{width:'auto',minWidth:150,padding:'6px 28px 6px 12px',height:'auto'}}
+                  value={peopleGroupFilter} onChange={e=>setPeopleGroupFilter(e.target.value)}>
+                  <option value="all">Every {(branding.group_label||'Cell Group').toLowerCase()}</option>
+                  <option value="unassigned">No {(branding.group_label||'Cell Group').toLowerCase()}</option>
+                  {groups.map(g=>(<option key={g.id} value={g.id}>{g.name}</option>))}
+                </select>
+              )}
             </div>
 
             {(missingBirthdayCount>0||missingEmailCount>0) && (
@@ -1501,7 +1626,7 @@ export default function AdminPage() {
 
             <div className="card p-0 overflow-hidden">
               {filteredPeople.length===0 ? (
-                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. They appear after check-ins.'}</p></div>
+                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleGroupFilter!=='all'?(peopleGroupFilter==='unassigned'?`Everyone has a ${(branding.group_label||'Cell Group').toLowerCase()}.`:`Nobody in this ${(branding.group_label||'Cell Group').toLowerCase()} yet.`):peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. They appear after check-ins.'}</p></div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -1509,6 +1634,7 @@ export default function AdminPage() {
                       <th className="table-header">Name</th>
                       <th className="table-header hidden sm:table-cell">Phone</th>
                       <th className="table-header">Role</th>
+                      <th className="table-header hidden lg:table-cell">{branding.group_label||'Cell Group'}</th>
                       <th className="table-header hidden lg:table-cell">First Visit</th>
                       <th className="table-header hidden lg:table-cell">Last Seen</th>
                       <th className="table-header hidden md:table-cell">Visits</th>
@@ -1530,6 +1656,7 @@ export default function AdminPage() {
                             </td>
                             <td className="table-cell hidden sm:table-cell text-navy-500 text-sm">{p.phone}</td>
                             <td className="table-cell"><span className={`badge text-[11px] capitalize ${p.role==='leader'?'badge-purple':p.role==='member'?'badge-primary':'badge-warning'}`}>{p.role}</span></td>
+                            <td className="table-cell hidden lg:table-cell text-navy-500 text-sm">{groups.find(g=>g.id===p.group_id)?.name || <span className="text-navy-300">—</span>}</td>
                             <td className="table-cell hidden lg:table-cell text-navy-500 text-sm whitespace-nowrap">{p.first_attendance_date ? new Date(p.first_attendance_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : <span className="text-navy-300">—</span>}</td>
                             <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null||!p.last_checkin_at) return <span className="text-navy-300">Never</span>; return (<><span className={w>=3?'text-red-600 font-medium':'text-navy-600'}>{new Date(p.last_checkin_at).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>{w>0&&<span className="text-navy-300"> · {w}w</span>}</>); })()}</td>
                             <td className="table-cell hidden md:table-cell text-navy-500 text-sm">{p.total_checkins}</td>
@@ -2095,6 +2222,71 @@ export default function AdminPage() {
               <p style={{fontSize:11,color:'#A89D8E',marginTop:10,fontWeight:300}}>
                 4–12 letters or numbers. Not case sensitive. Leave it empty if you don&apos;t want a code at all.
               </p>
+            </div>
+
+            {/* Cell groups / fellowships. Named "groups" in the schema, but
+                the label shown throughout the app is whatever this church
+                calls the concept — set once here. */}
+            <div className="card">
+              <div className="panel-label mb-1" style={{display:'block'}}>{branding.group_label || 'Cell Group'}s</div>
+              <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginBottom:16,maxWidth:540,lineHeight:1.7}}>
+                Groups a member can belong to — cell groups, fellowships, zones, whatever your church calls them.
+                Assign people to one from the People tab, and Follow Up can then be worked one group at a time
+                instead of as one long list.
+              </p>
+
+              <div className="mb-5">
+                <label className="block text-xs font-medium text-navy-600 mb-1.5">What should we call this?</label>
+                <input className="input" style={{maxWidth:280}} value={branding.group_label}
+                  onChange={e=>setBranding(b=>({...b,group_label:e.target.value}))}
+                  placeholder="e.g. Cell Group, Fellowship, Zone, Bacenta" maxLength={40} />
+                <p style={{fontSize:11,color:'#A89D8E',marginTop:6,fontWeight:300}}>Saved with the rest of this page — hit Save Settings above.</p>
+              </div>
+
+              {groups.length > 0 && (
+                <div style={{marginBottom:18}}>
+                  {groups.map(g=>(
+                    <div key={g.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'10px 0',borderBottom:'1px solid #F0EBE3'}}>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontSize:14,color:'#16243A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.name}</div>
+                        <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{g.leader ? `Led by ${g.leader.full_name}` : 'No leader assigned'}</div>
+                      </div>
+                      <div style={{display:'flex',gap:8,flexShrink:0}}>
+                        <button onClick={()=>setGroupForm({editingId:g.id, name:g.name, leader_person_id:g.leader_person_id||''})}
+                          className="btn btn-secondary text-xs py-1.5 px-3">Edit</button>
+                        <button onClick={()=>{ setDeleteTarget({kind:'groups', id:g.id, label:g.name}); setDeleteCode(''); }}
+                          className="btn btn-ghost text-xs py-1.5 px-3 text-red-500">Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{background:'#F8F4EE',border:'1px solid #E4DFD5',borderRadius:12,padding:'16px 18px'}}>
+                <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',marginBottom:12}}>{groupForm.editingId ? 'Edit group' : `Add a ${(branding.group_label||'Cell Group').toLowerCase()}`}</div>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div style={{flex:'1 1 180px'}}>
+                    <label className="block text-xs font-medium text-navy-600 mb-1.5">Name</label>
+                    <input className="input" value={groupForm.name} onChange={e=>setGroupForm(f=>({...f,name:e.target.value}))}
+                      onKeyDown={e=>{ if(e.key==='Enter') saveGroup(); }} placeholder="e.g. Bethel" maxLength={80} />
+                  </div>
+                  <div style={{flex:'1 1 200px'}}>
+                    <label className="block text-xs font-medium text-navy-600 mb-1.5">Leader (optional)</label>
+                    <select className="select" value={groupForm.leader_person_id} onChange={e=>setGroupForm(f=>({...f,leader_person_id:e.target.value}))}>
+                      <option value="">No leader</option>
+                      {activePeople.filter(p=>p.role==='leader'||p.role==='member').map(p=>(
+                        <option key={p.id} value={p.id}>{p.full_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button onClick={saveGroup} disabled={savingGroup || !groupForm.name.trim()} className="btn btn-primary text-sm">
+                    {savingGroup ? 'Saving…' : groupForm.editingId ? 'Save changes' : 'Add'}
+                  </button>
+                  {groupForm.editingId && (
+                    <button onClick={()=>setGroupForm({editingId:null,name:'',leader_person_id:''})} className="btn btn-secondary text-sm">Cancel</button>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="card">

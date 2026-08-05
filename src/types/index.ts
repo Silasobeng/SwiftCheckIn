@@ -27,6 +27,17 @@ export interface Organization {
   subscription_end_date: string | null;
   timezone: string;
   paystack_customer_code: string | null;
+  group_label: string;
+}
+
+export interface Group {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  org_id: string;
+  name: string;
+  leader_person_id: string | null;
+  leader?: Person | null;
 }
 
 export interface Payment {
@@ -63,6 +74,8 @@ export interface Person {
   total_checkins: number;
   last_checkin_at: string | null;
   archived: boolean;
+  group_id: string | null;
+  group?: Group | null;
 }
 
 export interface Service {

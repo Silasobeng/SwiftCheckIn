@@ -222,7 +222,7 @@ export default function KioskPage() {
         // A real answer from the server, not a connection failure — the kiosk
         // being closed or the subscription expiring is definitive and must
         // win over any cached "open" snapshot from earlier.
-        if(json.code==='KIOSK_CLOSED') { setData({ org:json.org, service:null as any, people:[] }); setScreen('closed'); }
+        if(json.code==='KIOSK_CLOSED'||json.code==='SERVICE_ENDED') { setData({ org:json.org, service:null as any, people:[] }); setScreen('closed'); }
         else { setError(json.error||'Failed to load'); setScreen('error'); }
         return;
       }

@@ -108,7 +108,7 @@ export async function PATCH(request: NextRequest) {
       const allowedKeys = new Set([
         'full_name', 'phone', 'gender', 'email', 'date_of_birth',
         'occupation', 'company', 'location', 'how_found_us',
-        'notes', 'role', 'archived'
+        'notes', 'role', 'archived', 'group_id'
       ]);
       const safeUpdates = Object.fromEntries(
         Object.entries(updates).filter(([key]) => allowedKeys.has(key))

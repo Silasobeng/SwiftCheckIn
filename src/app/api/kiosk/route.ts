@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase, isSubscriptionValid } from '@/lib/supabase';
 import { sendWelcomeEmail } from '@/lib/email';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
+import { tzFormatter, dayKeyOf } from '@/lib/monthWindow';
+
+// A service is only "today" once, in the church's own timezone — a kiosk left
+// open past that (nobody closed it after Sunday) must not silently accept a
+// Wednesday walk-up into Sunday's attendance. Checked at both the point where
+// the kiosk loads its screen and the point where a check-in is submitted,
+// since either can be the first request after the day rolls over.
+function isServiceToday(serviceDate: string, timezone: string): boolean {
+  return dayKeyOf(tzFormatter(timezone), new Date()) === serviceDate;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Get organization
     const { data: org, error: orgError } = await supabase
       .from('organizations')
-.select('id, name, slug, tagline, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, subscription_status, subscription_end_date')
+.select('id, name, slug, tagline, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, subscription_status, subscription_end_date, timezone')
       .eq('slug', slug)
       .single();
 
@@ -57,6 +67,18 @@ export async function GET(request: NextRequest) {
 
     if (!service) {
       return NextResponse.json({ error: 'No active service', code: 'NO_SERVICE' }, { status: 403 });
+    }
+
+    // The day has moved on and nobody closed the kiosk. Close it now, so the
+    // very next load — from this tablet or any other — reads as closed
+    // instead of re-running this same check every time.
+    if (!isServiceToday(service.service_date, org.timezone)) {
+      await supabase.from('app_settings').update({ kiosk_open: false }).eq('org_id', org.id);
+      return NextResponse.json({
+        error: 'This service has ended. Check-in is only open on the day of the service.',
+        code: 'SERVICE_ENDED',
+        org: { name: org.name, tagline: org.tagline, logo_url: org.logo_url, cover_image_url: org.cover_image_url, brand_color: org.brand_color, kiosk_welcome_heading: org.kiosk_welcome_heading, kiosk_welcome_subtext: org.kiosk_welcome_subtext }
+      }, { status: 403 });
     }
 
     // Get people (non-archived)
@@ -118,7 +140,7 @@ export async function POST(request: NextRequest) {
     // Get org
     const { data: org } = await supabase
       .from('organizations')
-      .select('id, name, subscription_status, subscription_end_date')
+      .select('id, name, subscription_status, subscription_end_date, timezone')
       .eq('slug', orgSlug)
       .single();
 
@@ -152,6 +174,16 @@ export async function POST(request: NextRequest) {
 
     if (!service) {
       return NextResponse.json({ error: 'Service not found' }, { status: 404 });
+    }
+
+    // Same staleness check as the kiosk GET — repeated here because this is
+    // the request that actually writes attendance, and the GET's check only
+    // guards what got shown on load. A tablet that stayed on this screen
+    // since Sunday must still be stopped from writing a Wednesday check-in
+    // into Sunday's service.
+    if (!isServiceToday(service.service_date, org.timezone)) {
+      await supabase.from('app_settings').update({ kiosk_open: false }).eq('org_id', org.id);
+      return NextResponse.json({ error: 'This service has ended. Check-in is only open on the day of the service.' }, { status: 403 });
     }
 
     let person;
