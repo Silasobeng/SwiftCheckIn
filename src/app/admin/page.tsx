@@ -618,6 +618,12 @@ export default function AdminPage() {
       memberCount: present.filter(r=>r.person?.role==='member').length,
       visitorCount: present.filter(r=>r.person?.role==='visitor').length,
       firstTimers: present.filter(r=>r.is_first_time).length,
+      // "Visitor" is a ROLE that persists until someone promotes the person;
+      // "first time" is an EVENT true only on their very first check-in ever.
+      // The gap between them is the number that actually matters pastorally:
+      // people who keep coming back but have never been made members.
+      visitorsFirstTime: present.filter(r=>r.person?.role==='visitor' && r.is_first_time).length,
+      visitorsReturning: present.filter(r=>r.person?.role==='visitor' && !r.is_first_time).length,
       expectedCount: expected.length,
       turnout: expected.length>0 ? Math.round(((expected.length-absent.length)/expected.length)*100) : null,
       givingRows,
@@ -1030,8 +1036,27 @@ export default function AdminPage() {
             {infoService && serviceBreakdown && (() => {
               const b = serviceBreakdown;
               const money = (n:number) => `${b.currency} ${n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-              const lastSeen = (iso:string|null, weeks:number|null) =>
-                !iso ? 'Never attended' : weeks===0 ? 'Last week' : `${weeks} week${weeks===1?'':'s'} ago`;
+              // An exact date, not "2 weeks ago". Churches run midweek services
+              // and one-off programmes, so a relative figure is ambiguous about
+              // WHICH gathering was missed — the date never is. The week count
+              // stays as a muted suffix because it's still the fastest way to
+              // spot a drift at a glance.
+              const lastSeen = (iso:string|null) => {
+                if (!iso) return null;
+                const d = new Date(iso);
+                if (Number.isNaN(d.getTime())) return null;
+                return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+              };
+              const LastSeenCell = ({iso,weeks}:{iso:string|null;weeks:number|null}) => {
+                const date = lastSeen(iso);
+                if (!date) return <span style={{color:'#B23B3B',fontWeight:500}}>Never attended</span>;
+                return (
+                  <>
+                    <span style={{color:(weeks??0)>=3?'#B23B3B':'#16243A',fontWeight:(weeks??0)>=3?500:400}}>{date}</span>
+                    {weeks!==null && weeks>0 && <span style={{color:'#A89D8E',fontWeight:300}}> · {weeks}w</span>}
+                  </>
+                );
+              };
               const TABS = [
                 {v:'summary'    as const, l:'Summary'},
                 {v:'attendance' as const, l:`Present (${b.present.length})`},
@@ -1081,30 +1106,77 @@ export default function AdminPage() {
                             </div>
                           )}
 
-                          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:10,marginBottom:26}}>
-                            {[
-                              {label:'Present',     value:b.present.length,        color:'#16243A'},
-                              {label:'Members',     value:b.memberCount,           color:'#16243A'},
-                              {label:'Leaders',     value:b.leadersPresent.length, color:'#16243A'},
-                              {label:'Visitors',    value:b.visitorCount,          color:'#C97B1A'},
-                              {label:'First-timers',value:b.firstTimers,           color:'#2E7D4E'},
-                              {label:'Absent',      value:b.absent.length,         color:'#B23B3B'},
-                            ].map(({label,value,color})=>(
-                              <div key={label} style={{background:'#F8F4EE',border:'1px solid #E4DFD5',borderRadius:12,padding:'14px 12px',textAlign:'center'}}>
-                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:23,color,lineHeight:1}}>{value}</div>
-                                <div style={{fontSize:10,color:'#A89D8E',fontWeight:500,letterSpacing:'0.05em',textTransform:'uppercase',marginTop:6}}>{label}</div>
+                          {/* The room, as one figure and one bar. Six identical
+                              tiles gave equal weight to six unequal facts and
+                              left the seventh orphaned on its own row; this
+                              leads with the number a pastor actually asks for
+                              and lets the bar carry the composition. */}
+                          <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:20,flexWrap:'wrap',marginBottom:18}}>
+                            <div>
+                              <div style={{fontFamily:"'Playfair Display',serif",fontSize:44,color:'#16243A',lineHeight:1}}>{b.present.length}</div>
+                              <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginTop:4}}>{b.present.length===1?'person came':'people came'}</div>
+                            </div>
+                            {b.turnout!==null && (
+                              <div style={{textAlign:'right'}}>
+                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,lineHeight:1,color:b.turnout>=70?'#2E7D4E':b.turnout>=40?'#C97B1A':'#B23B3B'}}>{b.turnout}%</div>
+                                <div style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginTop:4}}>of {b.expectedCount} expected</div>
                               </div>
-                            ))}
+                            )}
                           </div>
 
-                          {b.turnout!==null && (
-                            <div style={{marginBottom:26}}>
-                              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#7A6E60',marginBottom:7}}>
-                                <span style={{fontWeight:500,letterSpacing:'0.05em',textTransform:'uppercase',fontSize:11}}>Turnout</span>
-                                <span><strong style={{color:'#16243A'}}>{b.turnout}%</strong> of {b.expectedCount} expected</span>
+                          {(() => {
+                            // Denominator is everyone who could have filled the
+                            // room: the regulars on the books, plus the visitors
+                            // who turned up on top of them. The ghosted tail is
+                            // the absence, so presence and absence read in one
+                            // glance instead of as two separate figures.
+                            const barTotal = b.expectedCount + b.visitorCount;
+                            if (barTotal===0) return null;
+                            const seg = [
+                              {label:'Members',  n:b.memberCount,           c:'#16243A'},
+                              {label:'Leaders',  n:b.leadersPresent.length, c:'#486581'},
+                              {label:'Visitors', n:b.visitorCount,          c:'#C97B1A'},
+                              {label:'Absent',   n:b.absent.length,         c:'#E4DFD5'},
+                            ].filter(s=>s.n>0);
+                            return (
+                              <div style={{marginBottom:28}}>
+                                <div style={{display:'flex',height:10,borderRadius:99,overflow:'hidden',background:'#F0EBE3'}}>
+                                  {seg.map(s=>(
+                                    <div key={s.label} style={{width:`${(s.n/barTotal)*100}%`,background:s.c}} title={`${s.label}: ${s.n}`} />
+                                  ))}
+                                </div>
+                                <div style={{display:'flex',flexWrap:'wrap',gap:'8px 18px',marginTop:12}}>
+                                  {seg.map(s=>(
+                                    <div key={s.label} style={{display:'flex',alignItems:'center',gap:7,fontSize:12.5}}>
+                                      <span style={{width:9,height:9,borderRadius:3,background:s.c,flexShrink:0,border:s.label==='Absent'?'1px solid #D8D2C6':'none'}} />
+                                      <span style={{color:'#16243A',fontWeight:500}}>{s.n}</span>
+                                      <span style={{color:'#7A6E60',fontWeight:300}}>{s.label}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                              <div style={{height:7,background:'#F0EBE3',borderRadius:99,overflow:'hidden'}}>
-                                <div style={{width:`${b.turnout}%`,height:'100%',background:b.turnout>=70?'#2E7D4E':b.turnout>=40?'#C97B1A':'#B23B3B',borderRadius:99}} />
+                            );
+                          })()}
+
+                          {/* "Visitors" and "first-timers" overlap in a way the
+                              raw labels never explained: one is a standing role,
+                              the other a one-off event. Spelling the split out
+                              turns that confusion into the most useful number
+                              here — who keeps coming but was never made a member. */}
+                          {b.visitorCount>0 && (
+                            <div style={{background:'#FDF9F2',border:'1px solid #F0E3CE',borderRadius:12,padding:'16px 18px',marginBottom:28}}>
+                              <div style={{fontSize:11,fontWeight:600,color:'#C97B1A',letterSpacing:'0.05em',textTransform:'uppercase',marginBottom:12}}>
+                                Who the {b.visitorCount} visitor{b.visitorCount===1?' was':'s were'}
+                              </div>
+                              <div style={{display:'flex',flexDirection:'column',gap:9}}>
+                                <div style={{display:'flex',alignItems:'baseline',gap:10,fontSize:13}}>
+                                  <span style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:'#2E7D4E',minWidth:22}}>{b.visitorsFirstTime}</span>
+                                  <span style={{color:'#5A4E3C'}}>here for the very first time</span>
+                                </div>
+                                <div style={{display:'flex',alignItems:'baseline',gap:10,fontSize:13}}>
+                                  <span style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:'#C97B1A',minWidth:22}}>{b.visitorsReturning}</span>
+                                  <span style={{color:'#5A4E3C'}}>been before, still not a member</span>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -1129,7 +1201,7 @@ export default function AdminPage() {
                                     <td style={td}>{p.full_name}</td>
                                     <td style={{...td,color:'#B23B3B',fontWeight:500}}>Absent</td>
                                     <td style={{...td,color:'#7A6E60'}}>{p.phone||'—'}</td>
-                                    <td style={{...td,color:'#7A6E60'}}>{lastSeen(p.last_checkin_at,p.weeksAway)}</td>
+                                    <td style={{...td,color:'#7A6E60'}}><LastSeenCell iso={p.last_checkin_at} weeks={p.weeksAway} /></td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -1174,8 +1246,8 @@ export default function AdminPage() {
                                   <tr key={p.id}>
                                     <td style={td}>{p.full_name}</td>
                                     <td style={{...td,color:'#7A6E60'}}>{p.phone||'—'}</td>
-                                    <td style={{...td,color:(p.weeksAway??0)>=3||p.weeksAway===null?'#B23B3B':'#7A6E60',fontWeight:(p.weeksAway??0)>=3||p.weeksAway===null?500:400}}>
-                                      {lastSeen(p.last_checkin_at,p.weeksAway)}
+                                    <td style={{...td,whiteSpace:'nowrap'}}>
+                                      <LastSeenCell iso={p.last_checkin_at} weeks={p.weeksAway} />
                                     </td>
                                     <td style={{...td,color:'#7A6E60'}}>{p.total_checkins??0}</td>
                                   </tr>
@@ -1425,7 +1497,7 @@ export default function AdminPage() {
                             <td className="table-cell hidden sm:table-cell text-navy-500 text-sm">{p.phone}</td>
                             <td className="table-cell"><span className={`badge text-[11px] capitalize ${p.role==='leader'?'badge-purple':p.role==='member'?'badge-primary':'badge-warning'}`}>{p.role}</span></td>
                             <td className="table-cell hidden lg:table-cell text-navy-500 text-sm whitespace-nowrap">{p.first_attendance_date ? new Date(p.first_attendance_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : <span className="text-navy-300">—</span>}</td>
-                            <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null) return <span className="text-navy-300">Never</span>; return <span className={w>=3?'text-red-600 font-medium':'text-navy-500'}>{w===0?'This week':`${w} week${w===1?'':'s'} ago`}</span>; })()}</td>
+                            <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null||!p.last_checkin_at) return <span className="text-navy-300">Never</span>; return (<><span className={w>=3?'text-red-600 font-medium':'text-navy-600'}>{new Date(p.last_checkin_at).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>{w>0&&<span className="text-navy-300"> · {w}w</span>}</>); })()}</td>
                             <td className="table-cell hidden md:table-cell text-navy-500 text-sm">{p.total_checkins}</td>
                             <td className="table-cell">{missing.length>0?<span className="text-amber-600 text-xs font-medium">{missing.join(', ')}</span>:<span className="text-emerald-600 text-xs">✓ complete</span>}</td>
                             <td className="table-cell text-right">
