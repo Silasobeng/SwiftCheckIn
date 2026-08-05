@@ -417,6 +417,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
       <section id="features" className="scroll-mt-24 bg-cream px-6 py-20 md:py-28">
         <div className="mx-auto max-w-5xl">
           <Reveal>
+            <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">Features</p>
             <h2 className="mb-14 text-center font-display text-2xl uppercase tracking-wide text-navy-900 sm:text-3xl">
               Everything your church needs.
             </h2>
