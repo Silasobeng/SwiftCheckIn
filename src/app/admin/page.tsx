@@ -615,15 +615,19 @@ export default function AdminPage() {
       leadersPresent: present.filter(r=>r.person?.role==='leader'),
       leadersAbsent: absent.filter(p=>p.role==='leader'),
       absentMembers: absent.filter(p=>p.role==='member'),
-      memberCount: present.filter(r=>r.person?.role==='member').length,
-      visitorCount: present.filter(r=>r.person?.role==='visitor').length,
+      // Four mutually exclusive buckets that sum exactly to the attendance
+      // figure, so the breakdown always reconciles with the headline number.
+      //
+      // "Visitor" is a ROLE that persists until someone promotes the person,
+      // while "first time" is an EVENT true only on their very first check-in
+      // ever — so the two overlap and cannot both be counted by role alone.
+      // The event wins: whether this service was somebody's first visit is a
+      // permanent fact about that service, and it stays true even if they are
+      // made a member later.
       firstTimers: present.filter(r=>r.is_first_time).length,
-      // "Visitor" is a ROLE that persists until someone promotes the person;
-      // "first time" is an EVENT true only on their very first check-in ever.
-      // The gap between them is the number that actually matters pastorally:
-      // people who keep coming back but have never been made members.
-      visitorsFirstTime: present.filter(r=>r.person?.role==='visitor' && r.is_first_time).length,
-      visitorsReturning: present.filter(r=>r.person?.role==='visitor' && !r.is_first_time).length,
+      leaderCount: present.filter(r=>!r.is_first_time && r.person?.role==='leader').length,
+      memberCount: present.filter(r=>!r.is_first_time && r.person?.role==='member').length,
+      returningVisitors: present.filter(r=>!r.is_first_time && r.person?.role==='visitor').length,
       expectedCount: expected.length,
       turnout: expected.length>0 ? Math.round(((expected.length-absent.length)/expected.length)*100) : null,
       givingRows,
@@ -1060,7 +1064,7 @@ export default function AdminPage() {
               const TABS = [
                 {v:'summary'    as const, l:'Summary'},
                 {v:'attendance' as const, l:`Present (${b.present.length})`},
-                {v:'followup'   as const, l:`Follow Up (${b.absentMembers.length})`},
+                {v:'followup'   as const, l:`Absent (${b.absentMembers.length})`},
                 {v:'giving'     as const, l:`Giving (${b.givingRows.length})`},
               ];
               const th:React.CSSProperties = {textAlign:'left',fontSize:11,fontWeight:600,color:'#7A6E60',letterSpacing:'0.05em',textTransform:'uppercase',padding:'0 0 8px',borderBottom:'1px solid #E4DFD5'};
@@ -1098,59 +1102,66 @@ export default function AdminPage() {
 
                       {infoTab==='summary' && (
                         <>
-                          {(infoService.theme||infoService.scripture||infoService.message) && (
-                            <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.8,marginBottom:22,paddingBottom:20,borderBottom:'1px solid #F5F1EA'}}>
-                              {infoService.theme&&<div>📖 {infoService.theme}</div>}
-                              {infoService.scripture&&<div>📜 {infoService.scripture}</div>}
-                              {infoService.message&&<div style={{marginTop:6,color:'#9E9280'}}>{infoService.message}</div>}
-                            </div>
-                          )}
+                          {/* A labelled record, not a decorated list. The
+                              emoji-prefixed lines never said what they were —
+                              a theme and a scripture reference are only
+                              legible when the field is named. */}
+                          <dl style={{margin:'0 0 26px',paddingBottom:22,borderBottom:'1px solid #F5F1EA'}}>
+                            {[
+                              {k:'Date of service', v:`${new Date(infoService.service_date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}${infoService.service_time?` · ${infoService.service_time}`:''}`},
+                              {k:'Service theme',   v:infoService.theme},
+                              {k:'Scripture',       v:infoService.scripture},
+                              {k:'Announcement',    v:infoService.message},
+                            ].filter(r=>r.v).map(({k,v})=>(
+                              <div key={k} style={{display:'flex',flexWrap:'wrap',gap:'2px 16px',marginBottom:9}}>
+                                <dt style={{fontSize:11,fontWeight:600,color:'#A89D8E',letterSpacing:'0.05em',textTransform:'uppercase',minWidth:132,paddingTop:2}}>{k}</dt>
+                                <dd style={{margin:0,fontSize:13.5,color:'#16243A',fontWeight:400,flex:'1 1 220px'}}>{v}</dd>
+                              </div>
+                            ))}
+                          </dl>
 
-                          {/* The room, as one figure and one bar. Six identical
-                              tiles gave equal weight to six unequal facts and
-                              left the seventh orphaned on its own row; this
-                              leads with the number a pastor actually asks for
-                              and lets the bar carry the composition. */}
                           <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:20,flexWrap:'wrap',marginBottom:18}}>
                             <div>
                               <div style={{fontFamily:"'Playfair Display',serif",fontSize:44,color:'#16243A',lineHeight:1}}>{b.present.length}</div>
-                              <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginTop:4}}>{b.present.length===1?'person came':'people came'}</div>
+                              <div style={{fontSize:12,color:'#A89D8E',fontWeight:500,letterSpacing:'0.05em',textTransform:'uppercase',marginTop:6}}>Total attendance</div>
                             </div>
                             {b.turnout!==null && (
                               <div style={{textAlign:'right'}}>
                                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,lineHeight:1,color:b.turnout>=70?'#2E7D4E':b.turnout>=40?'#C97B1A':'#B23B3B'}}>{b.turnout}%</div>
-                                <div style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginTop:4}}>of {b.expectedCount} expected</div>
+                                <div style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginTop:5}}>of {b.expectedCount} expected</div>
                               </div>
                             )}
                           </div>
 
                           {(() => {
-                            // Denominator is everyone who could have filled the
-                            // room: the regulars on the books, plus the visitors
-                            // who turned up on top of them. The ghosted tail is
-                            // the absence, so presence and absence read in one
-                            // glance instead of as two separate figures.
-                            const barTotal = b.expectedCount + b.visitorCount;
+                            // Five categories, four of which sum to the
+                            // attendance figure. First-time and returning
+                            // visitors are counted separately rather than
+                            // rolled into one "visitors" total, because a
+                            // first visit and a fourth visit call for entirely
+                            // different follow-up.
+                            const barTotal = b.expectedCount + b.firstTimers + b.returningVisitors;
                             if (barTotal===0) return null;
                             const seg = [
-                              {label:'Members',  n:b.memberCount,           c:'#16243A'},
-                              {label:'Leaders',  n:b.leadersPresent.length, c:'#486581'},
-                              {label:'Visitors', n:b.visitorCount,          c:'#C97B1A'},
-                              {label:'Absent',   n:b.absent.length,         c:'#E4DFD5'},
+                              {label:'Leaders',               n:b.leaderCount,        c:'#486581'},
+                              {label:'Members',               n:b.memberCount,        c:'#16243A'},
+                              {label:'First-time visitors',   n:b.firstTimers,        c:'#2E7D4E'},
+                              {label:'Returning visitors',    n:b.returningVisitors,  c:'#C97B1A'},
+                              {label:'Absent members',        n:b.absent.length,      c:'#E4DFD5'},
                             ].filter(s=>s.n>0);
                             return (
-                              <div style={{marginBottom:28}}>
+                              <div style={{marginBottom:30}}>
                                 <div style={{display:'flex',height:10,borderRadius:99,overflow:'hidden',background:'#F0EBE3'}}>
                                   {seg.map(s=>(
                                     <div key={s.label} style={{width:`${(s.n/barTotal)*100}%`,background:s.c}} title={`${s.label}: ${s.n}`} />
                                   ))}
                                 </div>
-                                <div style={{display:'flex',flexWrap:'wrap',gap:'8px 18px',marginTop:12}}>
+                                <div style={{display:'flex',flexDirection:'column',gap:1,marginTop:16}}>
                                   {seg.map(s=>(
-                                    <div key={s.label} style={{display:'flex',alignItems:'center',gap:7,fontSize:12.5}}>
-                                      <span style={{width:9,height:9,borderRadius:3,background:s.c,flexShrink:0,border:s.label==='Absent'?'1px solid #D8D2C6':'none'}} />
-                                      <span style={{color:'#16243A',fontWeight:500}}>{s.n}</span>
-                                      <span style={{color:'#7A6E60',fontWeight:300}}>{s.label}</span>
+                                    <div key={s.label} style={{display:'flex',alignItems:'center',gap:10,fontSize:13,padding:'7px 0',borderBottom:'1px solid #F5F1EA'}}>
+                                      <span style={{width:9,height:9,borderRadius:3,background:s.c,flexShrink:0,border:s.c==='#E4DFD5'?'1px solid #D8D2C6':'none'}} />
+                                      <span style={{color:'#5A4E3C',flex:1}}>{s.label}</span>
+                                      <span style={{color:'#16243A',fontWeight:600,fontVariantNumeric:'tabular-nums'}}>{s.n}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -1158,28 +1169,6 @@ export default function AdminPage() {
                             );
                           })()}
 
-                          {/* "Visitors" and "first-timers" overlap in a way the
-                              raw labels never explained: one is a standing role,
-                              the other a one-off event. Spelling the split out
-                              turns that confusion into the most useful number
-                              here — who keeps coming but was never made a member. */}
-                          {b.visitorCount>0 && (
-                            <div style={{background:'#FDF9F2',border:'1px solid #F0E3CE',borderRadius:12,padding:'16px 18px',marginBottom:28}}>
-                              <div style={{fontSize:11,fontWeight:600,color:'#C97B1A',letterSpacing:'0.05em',textTransform:'uppercase',marginBottom:12}}>
-                                Who the {b.visitorCount} visitor{b.visitorCount===1?' was':'s were'}
-                              </div>
-                              <div style={{display:'flex',flexDirection:'column',gap:9}}>
-                                <div style={{display:'flex',alignItems:'baseline',gap:10,fontSize:13}}>
-                                  <span style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:'#2E7D4E',minWidth:22}}>{b.visitorsFirstTime}</span>
-                                  <span style={{color:'#5A4E3C'}}>here for the very first time</span>
-                                </div>
-                                <div style={{display:'flex',alignItems:'baseline',gap:10,fontSize:13}}>
-                                  <span style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:'#C97B1A',minWidth:22}}>{b.visitorsReturning}</span>
-                                  <span style={{color:'#5A4E3C'}}>been before, still not a member</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
 
                           <div style={{fontSize:11,fontWeight:600,color:'#7A6E60',letterSpacing:'0.05em',textTransform:'uppercase',marginBottom:10}}>Leadership roll call</div>
                           {b.leadersPresent.length+b.leadersAbsent.length===0 ? (
@@ -1212,7 +1201,7 @@ export default function AdminPage() {
 
                       {infoTab==='attendance' && (
                         b.present.length===0 ? (
-                          <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Nobody checked in for this service.</div>
+                          <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No attendance recorded for this service.</div>
                         ) : (
                           <table style={{width:'100%',borderCollapse:'collapse'}}>
                             <thead><tr><th style={th}>Time</th><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Role</th></tr></thead>
@@ -1222,7 +1211,7 @@ export default function AdminPage() {
                                   <td style={{...td,color:'#7A6E60',whiteSpace:'nowrap'}}>{b.fmtTime.format(new Date(r.checked_in_at))}</td>
                                   <td style={td}>
                                     {r.person?.full_name||'—'}
-                                    {r.is_first_time && <span style={{marginLeft:8,fontSize:10,background:'#E8F3EC',color:'#2E7D4E',borderRadius:20,padding:'2px 8px',fontWeight:600}}>1st visit</span>}
+                                    {r.is_first_time && <span style={{marginLeft:8,fontSize:10,background:'#E8F3EC',color:'#2E7D4E',borderRadius:20,padding:'2px 8px',fontWeight:600}}>First visit</span>}
                                   </td>
                                   <td style={{...td,color:'#7A6E60'}}>{r.person?.phone||'—'}</td>
                                   <td style={{...td,color:'#7A6E60',textTransform:'capitalize'}}>{r.person?.role||'—'}</td>
@@ -1235,10 +1224,10 @@ export default function AdminPage() {
 
                       {infoTab==='followup' && (
                         b.absentMembers.length===0 ? (
-                          <div style={{fontSize:13,color:'#2E7D4E',fontWeight:300}}>Every member attended — nobody to follow up.</div>
+                          <div style={{fontSize:13,color:'#2E7D4E',fontWeight:300}}>Every registered member attended this service.</div>
                         ) : (
                           <>
-                            <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:14}}>Longest away first. Three weeks or more is where a quiet drift becomes a real absence.</p>
+                            <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:14}}>Registered members who did not attend, ordered by length of absence.</p>
                             <table style={{width:'100%',borderCollapse:'collapse'}}>
                               <thead><tr><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Last visit</th><th style={th}>Visits</th></tr></thead>
                               <tbody>
