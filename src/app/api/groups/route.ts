@@ -14,7 +14,11 @@ export async function GET() {
     const supabase = getServerSupabase();
     const { data, error } = await supabase
       .from('groups')
-      .select('*, leader:people(id, full_name, phone)')
+      // people!leader_person_id disambiguates which of the two FKs between
+      // groups and people to embed through — groups.leader_person_id points
+      // at people, and people.group_id points back at groups, so PostgREST
+      // can't infer one from "people" alone.
+      .select('*, leader:people!leader_person_id(id, full_name, phone)')
       .eq('org_id', auth.session.orgId)
       .order('name');
 
@@ -50,7 +54,7 @@ export async function POST(request: NextRequest) {
         name: String(name).trim(),
         leader_person_id: leader_person_id || null,
       })
-      .select('*, leader:people(id, full_name, phone)')
+      .select('*, leader:people!leader_person_id(id, full_name, phone)')  // see GET's FK note
       .single();
 
     if (error) {
