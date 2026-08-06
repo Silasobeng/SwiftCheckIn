@@ -27,7 +27,16 @@ export interface Organization {
   subscription_end_date: string | null;
   timezone: string;
   paystack_customer_code: string | null;
-  group_label: string;
+}
+
+// A church-defined bucket of grouping — "Cell Group", "Department", or
+// whatever else it wants to track. Each category holds its own set of
+// Groups, and a person can hold one membership per category at once.
+export interface GroupCategory {
+  id: string;
+  created_at: string;
+  org_id: string;
+  name: string;
 }
 
 export interface Group {
@@ -35,9 +44,15 @@ export interface Group {
   created_at: string;
   updated_at: string;
   org_id: string;
+  category_id: string;
   name: string;
   leader_person_id: string | null;
   leader?: Person | null;
+}
+
+export interface PersonGroup {
+  person_id: string;
+  group_id: string;
 }
 
 export interface Payment {
@@ -74,8 +89,6 @@ export interface Person {
   total_checkins: number;
   last_checkin_at: string | null;
   archived: boolean;
-  group_id: string | null;
-  group?: Group | null;
 }
 
 export interface Service {

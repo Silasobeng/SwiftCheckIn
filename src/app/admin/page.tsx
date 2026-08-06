@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization, Group } from '@/types';
+import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization, Group, GroupCategory, PersonGroup } from '@/types';
 import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
 import { tzFormatter, timeFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel, yearKeyOf, yearRangeLabel } from '@/lib/monthWindow';
 import { StackedTrend, RankedBars, OrdinalBars, SplitBar } from '@/components/Charts';
@@ -53,13 +53,22 @@ const EMPTY_TEMPLATES: Record<'welcome'|'birthday'|'missed', {subject:string;bod
 
 /* ─── Edit Person Modal ─────────────────────────────────────────────────── */
 
-function EditPersonModal({ person, groups, groupLabel, onClose, onSaved }: { person: Person; groups: Group[]; groupLabel: string; onClose: () => void; onSaved: () => void }) {
+function EditPersonModal({ person, categories, groups, personGroupIds, onClose, onSaved }: { person: Person; categories: GroupCategory[]; groups: Group[]; personGroupIds: string[]; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     full_name: person.full_name || '', phone: person.phone || '', email: person.email || '',
     gender: person.gender || '', date_of_birth: person.date_of_birth || '', role: person.role || 'visitor',
     occupation: person.occupation || '', company: person.company || '',
     location: person.location || '', how_found_us: person.how_found_us || '', notes: person.notes || '',
-    group_id: person.group_id || '',
+  });
+  // One slot per category — a person can hold at most one group within any
+  // given category (one Cell Group, one Department) but one across each.
+  const [groupByCategory, setGroupByCategory] = useState<Record<string,string>>(() => {
+    const map: Record<string,string> = {};
+    for (const gid of personGroupIds) {
+      const g = groups.find(x=>x.id===gid);
+      if (g) map[g.category_id] = g.id;
+    }
+    return map;
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string|null>(null);
@@ -74,10 +83,15 @@ function EditPersonModal({ person, groups, groupLabel, onClose, onSaved }: { per
           gender: form.gender||null, occupation: form.occupation.trim()||null,
           company: form.company.trim()||null, location: form.location.trim()||null,
           how_found_us: form.how_found_us.trim()||null, notes: form.notes.trim()||null,
-          group_id: form.group_id||null,
         }})});
       const data = await res.json();
       if (!res.ok) { setErr(data.error||'Could not save.'); return; }
+
+      const groupIds = Object.values(groupByCategory).filter(Boolean);
+      const gRes = await fetch('/api/people-groups', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ personId: person.id, groupIds }) });
+      if (!gRes.ok) { const gData = await gRes.json(); setErr(gData.error||'Profile saved, but groups could not be updated.'); return; }
+
       onSaved(); onClose();
     } finally { setSaving(false); }
   };
@@ -122,14 +136,26 @@ function EditPersonModal({ person, groups, groupLabel, onClose, onSaved }: { per
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-navy-700 mb-1.5">{groupLabel}</label>
-                <select className="select" value={form.group_id} onChange={set('group_id')}>
-                  <option value="">Not assigned</option>
-                  {groups.map(g=>(<option key={g.id} value={g.id}>{g.name}</option>))}
-                </select>
-                {groups.length===0 && <p className="text-xs text-navy-400 mt-1.5">No {groupLabel.toLowerCase()}s yet — add one under Settings.</p>}
-              </div>
+              {categories.length === 0 ? (
+                <p className="text-xs text-navy-400">No groups set up yet — add a category under Settings.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {categories.map(cat => {
+                    const catGroups = groups.filter(g=>g.category_id===cat.id);
+                    return (
+                      <div key={cat.id}>
+                        <label className="block text-sm font-medium text-navy-700 mb-1.5">{cat.name}</label>
+                        <select className="select" value={groupByCategory[cat.id]||''}
+                          onChange={e=>setGroupByCategory(m=>({...m,[cat.id]:e.target.value}))}>
+                          <option value="">Not assigned</option>
+                          {catGroups.map(g=>(<option key={g.id} value={g.id}>{g.name}</option>))}
+                        </select>
+                        {catGroups.length===0 && <p className="text-xs text-navy-400 mt-1.5">No {cat.name.toLowerCase()}s yet.</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </fieldset>
 
@@ -219,15 +245,19 @@ export default function AdminPage() {
   const [reportService, setReportService] = useState<Service|null>(null);
   const [reportRecipient, setReportRecipient] = useState('');
   // Code-gated delete: one modal reused for services, people and giving.
-  const [deleteTarget, setDeleteTarget] = useState<{kind:'services'|'people'|'giving'|'groups'; id:string; label:string}|null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{kind:'services'|'people'|'giving'|'groups'|'group-categories'; id:string; label:string}|null>(null);
   const [deleteCode, setDeleteCode] = useState('');
   const [deletingBusy, setDeletingBusy] = useState(false);
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleRoleFilter, setPeopleRoleFilter] = useState<'all'|'member'|'leader'|'visitor'>('all');
   const [peopleGroupFilter, setPeopleGroupFilter] = useState<string>('all');
+  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set());
+  const [bulkAssignGroupId, setBulkAssignGroupId] = useState('');
+  const [bulkAssigning, setBulkAssigning] = useState(false);
   const [infoService, setInfoService] = useState<Service|null>(null);
   const [infoTab, setInfoTab] = useState<'summary'|'attendance'|'followup'|'giving'>('summary');
   const [presentFilter, setPresentFilter] = useState<'all'|'leader'|'member'|'firsttime'|'returning'>('all');
+  const [absentGroupCategoryId, setAbsentGroupCategoryId] = useState<string>('');
   const [giving, setGiving] = useState<Giving[]>([]);
   const [givingFormOpen, setGivingFormOpen] = useState(false);
   const [savingGiving, setSavingGiving] = useState(false);
@@ -240,9 +270,13 @@ export default function AdminPage() {
   });
   const [branding, setBranding] = useState({
   org_name: '',
-  tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'', timezone:'', group_label:'Cell Group' });
+  tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'', timezone:'' });
+  const [categories, setCategories] = useState<GroupCategory[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [groupForm, setGroupForm] = useState<{editingId:string|null; name:string; leader_person_id:string}>({editingId:null, name:'', leader_person_id:''});
+  const [personGroups, setPersonGroups] = useState<PersonGroup[]>([]);
+  const [groupForm, setGroupForm] = useState<{editingId:string|null; categoryId:string; name:string; leader_person_id:string}>({editingId:null, categoryId:'', name:'', leader_person_id:''});
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
   const [savingGroup, setSavingGroup] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
   const [uploading, setUploading] = useState<'logo'|'cover'|null>(null);
@@ -297,7 +331,7 @@ export default function AdminPage() {
       }
     };
 
-    const [sD, pD, cD, stD, tD, gD, grD] = await Promise.all([
+    const [sD, pD, cD, stD, tD, gD, grD, catD, pgD] = await Promise.all([
       safeFetch('/api/services', { services: [] }),
       safeFetch('/api/people', { people: [] }),
       safeFetch('/api/checkin', { checkins: [] }),
@@ -305,10 +339,12 @@ export default function AdminPage() {
       safeFetch('/api/email/templates', { templates: [] }),
       safeFetch('/api/giving', { giving: [] }),
       safeFetch('/api/groups', { groups: [] }),
+      safeFetch('/api/group-categories', { categories: [] }),
+      safeFetch('/api/people-groups', { memberships: [] }),
     ]);
 
     // Live data always refreshes.
-    setServices(sD.services||[]); setPeople(pD.people||[]); setCheckins(cD.checkins||[]); setSettings(stD.settings||null); setTemplates(tD.templates||[]); setGiving(gD.giving||[]); setGroups(grD.groups||[]);
+    setServices(sD.services||[]); setPeople(pD.people||[]); setCheckins(cD.checkins||[]); setSettings(stD.settings||null); setTemplates(tD.templates||[]); setGiving(gD.giving||[]); setGroups(grD.groups||[]); setCategories(catD.categories||[]); setPersonGroups(pgD.memberships||[]);
     if (stD.settings?.organization?.timezone) setOrgTimezone(stD.settings.organization.timezone);
     setLastUpdatedAt(new Date());
 
@@ -320,7 +356,7 @@ export default function AdminPage() {
       const org = stD.settings?.organization;
       if (org) setBranding({
         org_name: org.name || '',
-        tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'', timezone:org.timezone||'', group_label:org.group_label||'Cell Group' });
+        tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'', timezone:org.timezone||'' });
       if (!stD.settings) setError('Some dashboard data could not be refreshed — check your connection.');
     }
   }, [session]);
@@ -482,18 +518,62 @@ export default function AdminPage() {
   const saveGroup = async () => {
     const name = groupForm.name.trim();
     if (!name) { setError('Enter a name.'); return; }
+    if (!groupForm.categoryId) { setError('Choose a category.'); return; }
     setSavingGroup(true); setMessage(null); setError(null);
     try {
       const leader_person_id = groupForm.leader_person_id || null;
       const res = groupForm.editingId
         ? await fetch('/api/groups', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ groupId: groupForm.editingId, name, leader_person_id }) })
-        : await fetch('/api/groups', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, leader_person_id }) });
+        : await fetch('/api/groups', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, categoryId: groupForm.categoryId, leader_person_id }) });
       const data = await res.json();
       if (!res.ok) { setError(data.error||'Could not save.'); return; }
       setMessage(groupForm.editingId ? 'Group updated.' : 'Group added.');
-      setGroupForm({ editingId:null, name:'', leader_person_id:'' });
+      setGroupForm({ editingId:null, categoryId:groupForm.categoryId, name:'', leader_person_id:'' });
       loadData();
     } finally { setSavingGroup(false); }
+  };
+
+  const saveCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) { setError('Enter a name.'); return; }
+    setSavingCategory(true); setMessage(null); setError(null);
+    try {
+      const res = await fetch('/api/group-categories', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name }) });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error||'Could not save.'); return; }
+      setMessage('Category added.');
+      setNewCategoryName('');
+      loadData();
+    } finally { setSavingCategory(false); }
+  };
+
+  // Assigning a whole congregation to their real cell groups one edit-form
+  // at a time doesn't scale — this lets a filtered, selected batch of people
+  // get put into a group in one action. Each person's existing membership in
+  // any OTHER category is kept; only their slot in the target group's own
+  // category is replaced, same "one per category" rule the edit form follows.
+  const bulkAssignToGroup = async () => {
+    if (!bulkAssignGroupId || selectedPersonIds.size===0) return;
+    const targetGroup = groups.find(g=>g.id===bulkAssignGroupId);
+    if (!targetGroup) return;
+    setBulkAssigning(true); setMessage(null); setError(null);
+    try {
+      const ids = Array.from(selectedPersonIds);
+      let failed = 0;
+      for (const personId of ids) {
+        const current = groupsByPersonId[personId]||[];
+        const newGroupIds = [
+          ...current.filter(g=>g.category_id!==targetGroup.category_id).map(g=>g.id),
+          targetGroup.id,
+        ];
+        const res = await fetch('/api/people-groups', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ personId, groupIds: newGroupIds }) });
+        if (!res.ok) failed++;
+      }
+      setMessage(failed>0 ? `Assigned ${ids.length-failed} of ${ids.length} — ${failed} failed.` : `Assigned ${ids.length} ${ids.length===1?'person':'people'} to ${targetGroup.name}.`);
+      setSelectedPersonIds(new Set());
+      setBulkAssignGroupId('');
+      loadData();
+    } finally { setBulkAssigning(false); }
   };
 
   const saveKioskCode = async () => {
@@ -538,6 +618,18 @@ export default function AdminPage() {
   useEffect(() => { setDraftTemplates(templateMap); }, [templateMap]);
 
   const activePeople = people.filter(p=>!p.archived);
+  // personId -> the Group rows they belong to (across every category). Built
+  // once here from the flat membership list rather than re-joined everywhere
+  // it's needed.
+  const groupsByPersonId = useMemo(() => {
+    const map: Record<string, Group[]> = {};
+    for (const m of personGroups) {
+      const g = groups.find(x=>x.id===m.group_id);
+      if (!g) continue;
+      (map[m.person_id] ||= []).push(g);
+    }
+    return map;
+  }, [personGroups, groups]);
   const visitors = activePeople.filter(p=>p.role==='visitor');
   const members = activePeople.filter(p=>p.role!=='visitor');
   const activeService = services.find(s=>s.is_active)||null;
@@ -596,10 +688,10 @@ export default function AdminPage() {
     const q=peopleSearch.trim().toLowerCase();
     return activePeople.filter(p=>
       (peopleRoleFilter==='all' || p.role===peopleRoleFilter) &&
-      (peopleGroupFilter==='all' || (peopleGroupFilter==='unassigned' ? !p.group_id : p.group_id===peopleGroupFilter)) &&
+      (peopleGroupFilter==='all' || (groupsByPersonId[p.id]||[]).some(g=>g.id===peopleGroupFilter)) &&
       (!q || p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)||p.email?.toLowerCase().includes(q))
     );
-  }, [activePeople,peopleSearch,peopleRoleFilter,peopleGroupFilter]);
+  }, [activePeople,peopleSearch,peopleRoleFilter,peopleGroupFilter,groupsByPersonId]);
 
 
   const givingPersonMatches = useMemo(() => {
@@ -874,7 +966,7 @@ export default function AdminPage() {
 
   return (
     <div style={{minHeight:"100vh",background:"#F8F4EE"}}>
-      {editingPerson && <EditPersonModal person={editingPerson} groups={groups} groupLabel={branding.group_label||'Cell Group'} onClose={()=>setEditingPerson(null)} onSaved={()=>{loadData();setMessage('Profile updated.');}} />}
+      {editingPerson && <EditPersonModal person={editingPerson} categories={categories} groups={groups} personGroupIds={(groupsByPersonId[editingPerson.id]||[]).map(g=>g.id)} onClose={()=>setEditingPerson(null)} onSaved={()=>{loadData();setMessage('Profile updated.');}} />}
 
       {/* Code-gated delete confirmation — shared across services, people, giving */}
       {deleteTarget && (
@@ -889,6 +981,8 @@ export default function AdminPage() {
               <p style={{fontSize:14,color:'#7A6E60',fontWeight:300,lineHeight:1.7,marginBottom:16}}>
                 {deleteTarget.kind==='groups'
                   ? "People in this group aren't deleted — they're just unassigned from it."
+                  : deleteTarget.kind==='group-categories'
+                  ? "This can't be undone. Every group in this category is deleted too, and everyone's membership in them goes with it."
                   : <>This can&apos;t be undone.{deleteTarget.kind==='services' && ' Its check-ins are removed too.'}</>
                 } Type your kiosk code to confirm.
               </p>
@@ -1360,25 +1454,40 @@ export default function AdminPage() {
                         b.absentMembers.length===0 ? (
                           <div style={{fontSize:13,color:'#2E7D4E',fontWeight:300}}>Every registered member attended this service.</div>
                         ) : (() => {
-                          // Grouped by cell group so each leader's own people sit
-                          // together — a flat 20-name list is nobody's job, but
-                          // "here are your 4" is Kofi's job. Unassigned people
-                          // (nobody has put them in a group yet) fall into their
-                          // own section last rather than vanishing into "none".
+                          // Grouped by whichever category is selected, so each
+                          // leader's own people sit together — a flat 20-name
+                          // list is nobody's job, but "here are your 4" is
+                          // Kofi's job. People with no group in that category
+                          // fall into their own section last rather than
+                          // vanishing into "none". A church with more than one
+                          // category (Cell Group AND Department) picks which
+                          // one to follow up by, since a person's absence is
+                          // only one leader's to work at a time.
+                          const activeCatId = absentGroupCategoryId || categories[0]?.id || '';
+                          const catGroups = groups.filter(g=>g.category_id===activeCatId);
                           const byGroup = new Map<string, typeof b.absentMembers>();
                           for (const p of b.absentMembers) {
-                            const key = p.group_id || '__none';
+                            const inCat = (groupsByPersonId[p.id]||[]).find(g=>g.category_id===activeCatId);
+                            const key = inCat?.id || '__none';
                             if (!byGroup.has(key)) byGroup.set(key, []);
                             byGroup.get(key)!.push(p);
                           }
                           const sections = [
-                            ...groups.filter(g=>byGroup.has(g.id)).map(g=>({ id:g.id, label:g.name, sub:g.leader?`Led by ${g.leader.full_name}`:null, people:byGroup.get(g.id)! })),
-                            ...(byGroup.has('__none') ? [{ id:'__none', label:`No ${(branding.group_label||'Cell Group').toLowerCase()}`, sub:null, people:byGroup.get('__none')! }] : []),
+                            ...catGroups.filter(g=>byGroup.has(g.id)).map(g=>({ id:g.id, label:g.name, sub:g.leader?`Led by ${g.leader.full_name}`:null, people:byGroup.get(g.id)! })),
+                            ...(byGroup.has('__none') ? [{ id:'__none', label:'Not assigned', sub:null, people:byGroup.get('__none')! }] : []),
                           ];
-                          const showGrouping = groups.length>0;
+                          const showGrouping = categories.length>0 && catGroups.length>0;
                           return (
                             <>
-                              <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:18}}>Registered members who did not attend, longest away first{showGrouping?`, grouped by ${(branding.group_label||'Cell Group').toLowerCase()}`:''}.</p>
+                              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginBottom:18}}>
+                                <p style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>Registered members who did not attend, longest away first{showGrouping?', grouped below':''}.</p>
+                                {categories.length>1 && (
+                                  <select className="select text-xs" style={{width:'auto',padding:'6px 26px 6px 10px',height:'auto'}}
+                                    value={activeCatId} onChange={e=>setAbsentGroupCategoryId(e.target.value)}>
+                                    {categories.map(c=>(<option key={c.id} value={c.id}>Group by {c.name}</option>))}
+                                  </select>
+                                )}
+                              </div>
                               {sections.map((sec,i)=>(
                                 <div key={sec.id} style={{marginBottom:i===sections.length-1?0:24}}>
                                   {showGrouping && (
@@ -1573,7 +1682,7 @@ export default function AdminPage() {
                         )}
                       </div>
                       <div style={{display:'flex',gap:8,flexShrink:0}}>
-                        <button onClick={()=>{ setInfoTab('summary'); setPresentFilter('all'); setInfoService(s); }} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>View Service Info</button>
+                        <button onClick={()=>{ setInfoTab('summary'); setPresentFilter('all'); setAbsentGroupCategoryId(''); setInfoService(s); }} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>View Service Info</button>
                         <button onClick={()=>openReportModal(s)} disabled={sendingReportId===s.id} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:sendingReportId===s.id?'wait':'pointer'}}>{sendingReportId===s.id?'Sending…':'Email Report'}</button>
                         <button onClick={()=>openEditService(s)} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Edit</button>
                         {!s.is_active&&<button onClick={()=>setActiveService(s.id)} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Set Active</button>}
@@ -1619,12 +1728,44 @@ export default function AdminPage() {
               {groups.length>0 && (
                 <select className="select text-xs" style={{width:'auto',minWidth:150,padding:'6px 28px 6px 12px',height:'auto'}}
                   value={peopleGroupFilter} onChange={e=>setPeopleGroupFilter(e.target.value)}>
-                  <option value="all">Every {(branding.group_label||'Cell Group').toLowerCase()}</option>
-                  <option value="unassigned">No {(branding.group_label||'Cell Group').toLowerCase()}</option>
-                  {groups.map(g=>(<option key={g.id} value={g.id}>{g.name}</option>))}
+                  <option value="all">Every group</option>
+                  {categories.map(cat=>{
+                    const catGroups = groups.filter(g=>g.category_id===cat.id);
+                    return catGroups.length>0 ? (
+                      <optgroup key={cat.id} label={cat.name}>
+                        {catGroups.map(g=>(<option key={g.id} value={g.id}>{g.name}</option>))}
+                      </optgroup>
+                    ) : null;
+                  })}
                 </select>
               )}
             </div>
+
+            {selectedPersonIds.size>0 && (
+              <div className="alert" style={{background:'#EEF2F6',border:'1px solid #C9D6E3',color:'#16243A'}}>
+                <span style={{flex:1}}>{selectedPersonIds.size} selected</span>
+                {groups.length>0 ? (
+                  <>
+                    <select className="select text-xs" style={{width:'auto',padding:'6px 26px 6px 10px',height:'auto'}}
+                      value={bulkAssignGroupId} onChange={e=>setBulkAssignGroupId(e.target.value)}>
+                      <option value="">Assign to…</option>
+                      {categories.map(cat=>{
+                        const catGroups = groups.filter(g=>g.category_id===cat.id);
+                        return catGroups.length>0 ? (
+                          <optgroup key={cat.id} label={cat.name}>
+                            {catGroups.map(g=>(<option key={g.id} value={g.id}>{g.name}</option>))}
+                          </optgroup>
+                        ) : null;
+                      })}
+                    </select>
+                    <button onClick={bulkAssignToGroup} disabled={!bulkAssignGroupId || bulkAssigning} className="btn btn-primary text-xs py-1.5 px-3">
+                      {bulkAssigning ? 'Assigning…' : 'Assign'}
+                    </button>
+                  </>
+                ) : <span style={{fontSize:12,color:'#7A6E60'}}>No groups yet — add one under Settings.</span>}
+                <button onClick={()=>setSelectedPersonIds(new Set())} className="btn btn-ghost text-xs py-1.5 px-3">Clear</button>
+              </div>
+            )}
 
             {(missingBirthdayCount>0||missingEmailCount>0) && (
               <div className="alert alert-warning">
@@ -1635,15 +1776,20 @@ export default function AdminPage() {
 
             <div className="card p-0 overflow-hidden">
               {filteredPeople.length===0 ? (
-                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleGroupFilter!=='all'?(peopleGroupFilter==='unassigned'?`Everyone has a ${(branding.group_label||'Cell Group').toLowerCase()}.`:`Nobody in this ${(branding.group_label||'Cell Group').toLowerCase()} yet.`):peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. They appear after check-ins.'}</p></div>
+                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleGroupFilter!=='all'?'Nobody in this group yet.':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. They appear after check-ins.'}</p></div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead><tr className="bg-cream">
+                      <th className="table-header" style={{width:36}}>
+                        <input type="checkbox" aria-label="Select all"
+                          checked={filteredPeople.length>0 && filteredPeople.every(p=>selectedPersonIds.has(p.id))}
+                          onChange={e=>setSelectedPersonIds(e.target.checked ? new Set(filteredPeople.map(p=>p.id)) : new Set())} />
+                      </th>
                       <th className="table-header">Name</th>
                       <th className="table-header hidden sm:table-cell">Phone</th>
                       <th className="table-header">Role</th>
-                      <th className="table-header hidden lg:table-cell">{branding.group_label||'Cell Group'}</th>
+                      <th className="table-header hidden lg:table-cell">Groups</th>
                       <th className="table-header hidden lg:table-cell">First Visit</th>
                       <th className="table-header hidden lg:table-cell">Last Seen</th>
                       <th className="table-header hidden md:table-cell">Visits</th>
@@ -1655,8 +1801,14 @@ export default function AdminPage() {
                         const missing:string[]=[];
                         if(!p.email) missing.push('email');
                         if(!p.date_of_birth) missing.push('birthday');
+                        const personGroupList = groupsByPersonId[p.id]||[];
                         return (
                           <tr key={p.id} className="table-row">
+                            <td className="table-cell">
+                              <input type="checkbox" aria-label={`Select ${p.full_name}`}
+                                checked={selectedPersonIds.has(p.id)}
+                                onChange={e=>setSelectedPersonIds(prev=>{ const next=new Set(prev); if(e.target.checked) next.add(p.id); else next.delete(p.id); return next; })} />
+                            </td>
                             <td className="table-cell">
                               <div className="flex items-center gap-2.5">
                                 <div style={{width:28,height:28,borderRadius:"50%",background:"#F0EBE3",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#7A6048",fontFamily:"'Playfair Display',serif",fontWeight:600,flexShrink:0}}>{p.full_name.charAt(0)}</div>
@@ -1665,7 +1817,7 @@ export default function AdminPage() {
                             </td>
                             <td className="table-cell hidden sm:table-cell text-navy-500 text-sm">{p.phone}</td>
                             <td className="table-cell"><span className={`badge text-[11px] capitalize ${p.role==='leader'?'badge-purple':p.role==='member'?'badge-primary':'badge-warning'}`}>{p.role}</span></td>
-                            <td className="table-cell hidden lg:table-cell text-navy-500 text-sm">{groups.find(g=>g.id===p.group_id)?.name || <span className="text-navy-300">—</span>}</td>
+                            <td className="table-cell hidden lg:table-cell text-navy-500 text-sm">{personGroupList.length>0 ? personGroupList.map(g=>g.name).join(', ') : <span className="text-navy-300">—</span>}</td>
                             <td className="table-cell hidden lg:table-cell text-navy-500 text-sm whitespace-nowrap">{p.first_attendance_date ? new Date(p.first_attendance_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : <span className="text-navy-300">—</span>}</td>
                             <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null||!p.last_checkin_at) return <span className="text-navy-300">Never</span>; return (<><span className={w>=3?'text-red-600 font-medium':'text-navy-600'}>{new Date(p.last_checkin_at).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>{w>0&&<span className="text-navy-300"> · {w}w</span>}</>); })()}</td>
                             <td className="table-cell hidden md:table-cell text-navy-500 text-sm">{p.total_checkins}</td>
@@ -2233,69 +2385,95 @@ export default function AdminPage() {
               </p>
             </div>
 
-            {/* Cell groups / fellowships. Named "groups" in the schema, but
-                the label shown throughout the app is whatever this church
-                calls the concept — set once here. */}
+            {/* Groups, organised into categories the church defines for
+                itself — Cell Group, Department, whatever it actually uses.
+                Not every church has the same kinds of groups, so this isn't
+                one hardcoded concept: a category is a bucket a church creates,
+                and each one holds its own groups. A person can hold one
+                membership per category at once (one Cell Group AND one
+                Department), which is why they're kept separate rather than
+                forced into a single flat list. */}
             <div className="card">
-              <div className="panel-label mb-1" style={{display:'block'}}>{branding.group_label || 'Cell Group'}s</div>
+              <div className="panel-label mb-1" style={{display:'block'}}>Groups</div>
               <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginBottom:16,maxWidth:540,lineHeight:1.7}}>
-                Groups a member can belong to — cell groups, fellowships, zones, whatever your church calls them.
-                Assign people to one from the People tab, and Follow Up can then be worked one group at a time
-                instead of as one long list.
+                Create a category for each kind of grouping your church actually uses — Cell Group, Department,
+                whatever fits. Add groups under each one, then assign people from the People tab. Someone can
+                belong to one group per category at the same time — a cell group and a department, say.
               </p>
 
-              <div className="mb-5">
-                <label className="block text-xs font-medium text-navy-600 mb-1.5">What should we call this?</label>
-                <input className="input" style={{maxWidth:280}} value={branding.group_label}
-                  onChange={e=>setBranding(b=>({...b,group_label:e.target.value}))}
-                  placeholder="e.g. Cell Group, Fellowship, Zone, Bacenta" maxLength={40} />
-                <p style={{fontSize:11,color:'#A89D8E',marginTop:6,fontWeight:300}}>Saved with the rest of this page — hit Save Settings above.</p>
+              <div className="mb-5 flex flex-wrap items-end gap-3">
+                <div style={{flex:'1 1 220px'}}>
+                  <label className="block text-xs font-medium text-navy-600 mb-1.5">New category</label>
+                  <input className="input" value={newCategoryName} onChange={e=>setNewCategoryName(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==='Enter') saveCategory(); }} placeholder="e.g. Cell Group, Department" maxLength={40} />
+                </div>
+                <button onClick={saveCategory} disabled={savingCategory || !newCategoryName.trim()} className="btn btn-secondary text-sm">
+                  {savingCategory ? 'Adding…' : 'Add category'}
+                </button>
               </div>
 
-              {groups.length > 0 && (
-                <div style={{marginBottom:18}}>
-                  {groups.map(g=>(
-                    <div key={g.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'10px 0',borderBottom:'1px solid #F0EBE3'}}>
-                      <div style={{minWidth:0}}>
-                        <div style={{fontSize:14,color:'#16243A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.name}</div>
-                        <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{g.leader ? `Led by ${g.leader.full_name}` : 'No leader assigned'}</div>
+              {categories.length === 0 ? (
+                <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No categories yet — add one above to start creating groups.</p>
+              ) : (
+                <div style={{display:'flex',flexDirection:'column',gap:18,marginBottom:24}}>
+                  {categories.map(cat=>{
+                    const catGroups = groups.filter(g=>g.category_id===cat.id);
+                    return (
+                      <div key={cat.id} style={{border:'1px solid #E4DFD5',borderRadius:12,padding:'14px 16px'}}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:catGroups.length>0?10:0}}>
+                          <span style={{fontSize:13,fontWeight:600,color:'#16243A'}}>{cat.name}</span>
+                          <div style={{display:'flex',gap:8}}>
+                            <button onClick={()=>setGroupForm({editingId:null, categoryId:cat.id, name:'', leader_person_id:''})}
+                              className="btn btn-secondary text-xs py-1.5 px-3">+ Group</button>
+                            <button onClick={()=>{ setDeleteTarget({kind:'group-categories', id:cat.id, label:cat.name}); setDeleteCode(''); }}
+                              className="btn btn-ghost text-xs py-1.5 px-3 text-red-500">Delete category</button>
+                          </div>
+                        </div>
+                        {catGroups.map(g=>(
+                          <div key={g.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'8px 0',borderTop:'1px solid #F0EBE3'}}>
+                            <div style={{minWidth:0}}>
+                              <div style={{fontSize:14,color:'#16243A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.name}</div>
+                              <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{g.leader ? `Led by ${g.leader.full_name}` : 'No leader assigned'}</div>
+                            </div>
+                            <div style={{display:'flex',gap:8,flexShrink:0}}>
+                              <button onClick={()=>setGroupForm({editingId:g.id, categoryId:cat.id, name:g.name, leader_person_id:g.leader_person_id||''})}
+                                className="btn btn-secondary text-xs py-1.5 px-3">Edit</button>
+                              <button onClick={()=>{ setDeleteTarget({kind:'groups', id:g.id, label:g.name}); setDeleteCode(''); }}
+                                className="btn btn-ghost text-xs py-1.5 px-3 text-red-500">Delete</button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {groupForm.categoryId===cat.id && (
+                          <div style={{background:'#F8F4EE',border:'1px solid #E4DFD5',borderRadius:10,padding:'14px 16px',marginTop:10}}>
+                            <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',marginBottom:10}}>{groupForm.editingId ? `Edit group in ${cat.name}` : `Add a group to ${cat.name}`}</div>
+                            <div className="flex flex-wrap items-end gap-3">
+                              <div style={{flex:'1 1 160px'}}>
+                                <label className="block text-xs font-medium text-navy-600 mb-1.5">Name</label>
+                                <input className="input" value={groupForm.name} onChange={e=>setGroupForm(f=>({...f,name:e.target.value}))}
+                                  onKeyDown={e=>{ if(e.key==='Enter') saveGroup(); }} placeholder="e.g. Bethel" maxLength={80} autoFocus />
+                              </div>
+                              <div style={{flex:'1 1 180px'}}>
+                                <label className="block text-xs font-medium text-navy-600 mb-1.5">Leader (optional)</label>
+                                <select className="select" value={groupForm.leader_person_id} onChange={e=>setGroupForm(f=>({...f,leader_person_id:e.target.value}))}>
+                                  <option value="">No leader</option>
+                                  {activePeople.filter(p=>p.role==='leader'||p.role==='member').map(p=>(
+                                    <option key={p.id} value={p.id}>{p.full_name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <button onClick={saveGroup} disabled={savingGroup || !groupForm.name.trim()} className="btn btn-primary text-sm">
+                                {savingGroup ? 'Saving…' : groupForm.editingId ? 'Save changes' : 'Add'}
+                              </button>
+                              <button onClick={()=>setGroupForm({editingId:null,categoryId:'',name:'',leader_person_id:''})} className="btn btn-secondary text-sm">Cancel</button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div style={{display:'flex',gap:8,flexShrink:0}}>
-                        <button onClick={()=>setGroupForm({editingId:g.id, name:g.name, leader_person_id:g.leader_person_id||''})}
-                          className="btn btn-secondary text-xs py-1.5 px-3">Edit</button>
-                        <button onClick={()=>{ setDeleteTarget({kind:'groups', id:g.id, label:g.name}); setDeleteCode(''); }}
-                          className="btn btn-ghost text-xs py-1.5 px-3 text-red-500">Delete</button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
-
-              <div style={{background:'#F8F4EE',border:'1px solid #E4DFD5',borderRadius:12,padding:'16px 18px'}}>
-                <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',marginBottom:12}}>{groupForm.editingId ? 'Edit group' : `Add a ${(branding.group_label||'Cell Group').toLowerCase()}`}</div>
-                <div className="flex flex-wrap items-end gap-3">
-                  <div style={{flex:'1 1 180px'}}>
-                    <label className="block text-xs font-medium text-navy-600 mb-1.5">Name</label>
-                    <input className="input" value={groupForm.name} onChange={e=>setGroupForm(f=>({...f,name:e.target.value}))}
-                      onKeyDown={e=>{ if(e.key==='Enter') saveGroup(); }} placeholder="e.g. Bethel" maxLength={80} />
-                  </div>
-                  <div style={{flex:'1 1 200px'}}>
-                    <label className="block text-xs font-medium text-navy-600 mb-1.5">Leader (optional)</label>
-                    <select className="select" value={groupForm.leader_person_id} onChange={e=>setGroupForm(f=>({...f,leader_person_id:e.target.value}))}>
-                      <option value="">No leader</option>
-                      {activePeople.filter(p=>p.role==='leader'||p.role==='member').map(p=>(
-                        <option key={p.id} value={p.id}>{p.full_name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <button onClick={saveGroup} disabled={savingGroup || !groupForm.name.trim()} className="btn btn-primary text-sm">
-                    {savingGroup ? 'Saving…' : groupForm.editingId ? 'Save changes' : 'Add'}
-                  </button>
-                  {groupForm.editingId && (
-                    <button onClick={()=>setGroupForm({editingId:null,name:'',leader_person_id:''})} className="btn btn-secondary text-sm">Cancel</button>
-                  )}
-                </div>
-              </div>
             </div>
 
             <div className="card">

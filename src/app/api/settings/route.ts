@@ -21,7 +21,7 @@ export async function GET() {
 
     const { data: organization, error: orgError } = await supabase
       .from('organizations')
-      .select('name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, timezone, group_label')
+      .select('name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, timezone')
       .eq('id', auth.session.orgId)
       .single();
 
@@ -44,7 +44,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const supabase = getServerSupabase();
     const body = await request.json();
-    const { kiosk_open, active_service_id, org_name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, kiosk_access_code, timezone, group_label } = body;
+    const { kiosk_open, active_service_id, org_name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, kiosk_access_code, timezone } = body;
 
     // The timezone drives every "today" and "this month" in the app, plus the
     // day birthday emails fire on. A typo here would silently shift all of them,
@@ -159,9 +159,6 @@ export async function PATCH(request: NextRequest) {
     const orgFields: Record<string, unknown> = { tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, timezone };
     // Handle org name separately (it's 'name' in DB)
     if (org_name !== undefined && org_name.trim()) orgUpdateData['name'] = org_name.trim();
-    // group_label is NOT NULL with a default, unlike the rest of orgFields
-    // below — an empty submission is a no-op here rather than a cleared field.
-    if (group_label !== undefined && String(group_label).trim()) orgUpdateData['group_label'] = String(group_label).trim();
     Object.entries(orgFields).forEach(([key, value]) => {
       if (value !== undefined) orgUpdateData[key] = value === '' ? null : value;
     });

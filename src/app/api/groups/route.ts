@@ -41,16 +41,20 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getServerSupabase();
     const body = await request.json();
-    const { name, leader_person_id } = body;
+    const { name, categoryId, leader_person_id } = body;
 
     if (!name || !String(name).trim()) {
       return NextResponse.json({ error: 'A name is required' }, { status: 400 });
+    }
+    if (!categoryId) {
+      return NextResponse.json({ error: 'A category is required' }, { status: 400 });
     }
 
     const { data, error } = await supabase
       .from('groups')
       .insert({
         org_id: auth.session.orgId,
+        category_id: categoryId,
         name: String(name).trim(),
         leader_person_id: leader_person_id || null,
       })
@@ -114,8 +118,8 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// DELETE - Remove a group. People in it are not deleted — group_id on those
-// rows just goes back to null (subscription enforced).
+// DELETE - Remove a group. People in it are not deleted — only their
+// membership row in that specific group goes away (subscription enforced).
 export async function DELETE(request: NextRequest) {
   const auth = await requireActiveSubscription();
   if ('error' in auth) return auth.error;
