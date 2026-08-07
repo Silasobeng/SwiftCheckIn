@@ -1687,14 +1687,14 @@ export default function AdminPage() {
                       <div style={{flex:'1 1 260px',minWidth:0}}>
                         <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
                           <span style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:'#16243A'}}>{s.title||'Untitled Service'}</span>
-                          {/* "Active" used to mean only "this is the selected
-                              service" — shown even while check-in was closed,
-                              which read as a contradiction next to a header
-                              saying so. Split into what's actually true: is
-                              this the target, and is anyone able to check in
-                              right now. */}
+                          {/* Two distinct labels for two distinct states, not
+                              one word doing double duty — that's what made
+                              the original "Active" badge misleading next to a
+                              "Check-in closed" header. Safe to call the open
+                              case "Active" again now that the closed case has
+                              its own separate word ("Selected"). */}
                           {s.is_active && (settings?.kiosk_open
-                            ? <span style={{fontSize:11,background:'#E8F3EC',color:'#2E7D4E',border:'1px solid rgba(46,125,78,0.25)',borderRadius:20,padding:'2px 10px',fontWeight:500,display:'flex',alignItems:'center',gap:5}}><span className="animate-pulse" style={{width:5,height:5,borderRadius:'50%',background:'#2E7D4E',display:'inline-block'}}/>Checking In</span>
+                            ? <span style={{fontSize:11,background:'#E8F3EC',color:'#2E7D4E',border:'1px solid rgba(46,125,78,0.25)',borderRadius:20,padding:'2px 10px',fontWeight:500,display:'flex',alignItems:'center',gap:5}}><span className="animate-pulse" style={{width:5,height:5,borderRadius:'50%',background:'#2E7D4E',display:'inline-block'}}/>Active</span>
                             : <span style={{fontSize:11,background:'#F0EBE3',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:20,padding:'2px 10px',fontWeight:500}}>Selected</span>
                           )}
                         </div>
