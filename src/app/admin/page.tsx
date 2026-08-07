@@ -2268,7 +2268,7 @@ export default function AdminPage() {
             {/* Header */}
             <div>
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',fontWeight:400,marginBottom:4}}>Automatic Emails</h2>
-              <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Write these once â€” they send themselves, personalised with each person&apos;s name.</p>
+              <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Write these once &mdash; they send themselves, personalised with each person&apos;s name.</p>
             </div>
 
             {/* Three email templates â€” accordion, one open at a time */}
@@ -2276,9 +2276,9 @@ export default function AdminPage() {
               <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:2}}>Customize Emails</div>
               <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginBottom:14}}>Which email would you like to edit?</div>
               <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,overflow:'hidden'}}>
-                <WarmEmailCard title="Welcome Email" icon="ðŸ‘‹" description="Sent after someone's very first visit" churchName={session.orgName} activeService={activeService} showServiceInfo={true} value={draftTemplates.welcome} onChange={next=>setDraftTemplates(p=>({...p,welcome:next}))} onSave={()=>saveTemplate('welcome',draftTemplates.welcome.subject,draftTemplates.welcome.body)} saving={savingTemplate==='welcome'} expanded={expandedTemplate==='welcome'} onToggle={()=>setExpandedTemplate(t=>t==='welcome'?null:'welcome')} isFirst />
-                <WarmEmailCard title="Birthday Email" icon="ðŸŽ‚" description="Sent automatically on someone's birthday" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.birthday} onChange={next=>setDraftTemplates(p=>({...p,birthday:next}))} onSave={()=>saveTemplate('birthday',draftTemplates.birthday.subject,draftTemplates.birthday.body)} saving={savingTemplate==='birthday'} expanded={expandedTemplate==='birthday'} onToggle={()=>setExpandedTemplate(t=>t==='birthday'?null:'birthday')} />
-                <WarmEmailCard title="We Miss You" icon="ðŸ’›" description="Sent when a member misses 2 or more services" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.missed} onChange={next=>setDraftTemplates(p=>({...p,missed:next}))} onSave={()=>saveTemplate('missed',draftTemplates.missed.subject,draftTemplates.missed.body)} saving={savingTemplate==='missed'} expanded={expandedTemplate==='missed'} onToggle={()=>setExpandedTemplate(t=>t==='missed'?null:'missed')} isLast />
+                <WarmEmailCard title="Welcome Email" kind="welcome" description="Sent after someone's very first visit" churchName={session.orgName} activeService={activeService} showServiceInfo={true} value={draftTemplates.welcome} onChange={next=>setDraftTemplates(p=>({...p,welcome:next}))} onSave={()=>saveTemplate('welcome',draftTemplates.welcome.subject,draftTemplates.welcome.body)} saving={savingTemplate==='welcome'} expanded={expandedTemplate==='welcome'} onToggle={()=>setExpandedTemplate(t=>t==='welcome'?null:'welcome')} isFirst />
+                <WarmEmailCard title="Birthday Email" kind="birthday" description="Sent automatically on someone's birthday" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.birthday} onChange={next=>setDraftTemplates(p=>({...p,birthday:next}))} onSave={()=>saveTemplate('birthday',draftTemplates.birthday.subject,draftTemplates.birthday.body)} saving={savingTemplate==='birthday'} expanded={expandedTemplate==='birthday'} onToggle={()=>setExpandedTemplate(t=>t==='birthday'?null:'birthday')} />
+                <WarmEmailCard title="We Miss You" kind="missed" description="Sent when a member misses 2 or more services" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.missed} onChange={next=>setDraftTemplates(p=>({...p,missed:next}))} onSave={()=>saveTemplate('missed',draftTemplates.missed.subject,draftTemplates.missed.body)} saving={savingTemplate==='missed'} expanded={expandedTemplate==='missed'} onToggle={()=>setExpandedTemplate(t=>t==='missed'?null:'missed')} isLast />
               </div>
             </div>
 
@@ -2287,7 +2287,7 @@ export default function AdminPage() {
               <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:16}}>One-off message</div>
               <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'28px 32px'}}>
                 <div style={{display:'flex',alignItems:'flex-start',gap:14,marginBottom:24}}>
-                  <div style={{width:44,height:44,borderRadius:12,background:'#EEF2F8',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:20}}>ðŸ“¢</div>
+                  <div style={{width:44,height:44,borderRadius:12,background:'#EEF2F8',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:20}}>{'\u{1F4E3}'}</div>
                   <div>
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',marginBottom:3}}>Send a message to your congregation</div>
                     <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Announcements, reminders, special events</div>
@@ -2552,8 +2552,17 @@ export default function AdminPage() {
 
 /* â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-function WarmEmailCard({title,icon,description,churchName,activeService,showServiceInfo,value,onChange,onSave,saving,expanded,onToggle,isFirst,isLast}:{
-  title:string;icon:string;description:string;churchName:string;
+function EmailTemplateIcon({ kind, expanded }: { kind:'welcome'|'birthday'|'missed'; expanded:boolean }) {
+  const color = expanded ? '#F0A832' : '#486581';
+  const accents = {
+    welcome: <path d="M8 10l3 3 5-6" />,
+    birthday: <path d="M8 9h8M10 5v4m4-4v4M8 19h8M9 15h6" />,
+    missed: <path d="M8 9h8M8 13h5" />,
+  };
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2" />{accents[kind]}</svg>;
+}
+function WarmEmailCard({title,kind,description,churchName,activeService,showServiceInfo,value,onChange,onSave,saving,expanded,onToggle,isFirst,isLast}:{
+  title:string;kind:'welcome'|'birthday'|'missed';description:string;churchName:string;
   activeService?:{title:string|null;theme:string|null;scripture:string|null;message:string|null}|null;
   showServiceInfo:boolean;
   value:{subject:string;body:string};
@@ -2618,7 +2627,7 @@ function WarmEmailCard({title,icon,description,churchName,activeService,showServ
       {/* Collapsed / clickable header row â€” always visible */}
       <button type="button" onClick={onToggle}
         style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'20px 24px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left'}}>
-        <div style={{width:40,height:40,borderRadius:11,background:expanded?'#16243A':'#F8F4EE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,transition:'background .2s'}}>{icon}</div>
+        <div style={{width:40,height:40,borderRadius:8,background:expanded?'#16243A':'#EEF2F6',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'background .2s'}}><EmailTemplateIcon kind={kind} expanded={expanded} /></div>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:'#16243A',marginBottom:2}}>{title}</div>
           <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>
