@@ -183,6 +183,30 @@ The {ORG_NAME} Family`,
       console.error(`Default email templates not created for org ${org.id}:`, templateError);
     }
 
+    // Starter Department category. Departments (Choir, Ushering, Protocol,
+    // Media...) repeat across nearly every church in a way cell group names
+    // never do, so this is worth having ready on day one rather than making
+    // every new church type the same eight names in by hand. Not fatal, and
+    // not required — a church can rename, delete, or ignore all of it from
+    // Settings, same as anything it creates itself.
+    const { data: departmentCategory, error: categoryError } = await supabase
+      .from('group_categories')
+      .insert({ org_id: org.id, name: 'Department' })
+      .select('id')
+      .single();
+
+    if (categoryError || !departmentCategory) {
+      console.error(`Department category not created for org ${org.id}:`, categoryError);
+    } else {
+      const defaultDepartments = ['Choir', 'Ushering', 'Protocol', 'Media', 'Prayer Team', "Children's Ministry", 'Welfare', 'Security'];
+      const { error: groupsError } = await supabase
+        .from('groups')
+        .insert(defaultDepartments.map(name => ({ org_id: org.id, category_id: departmentCategory.id, name })));
+      if (groupsError) {
+        console.error(`Default departments not created for org ${org.id}:`, groupsError);
+      }
+    }
+
     // Create session
     const token = await createSession(org);
     await setSessionCookie(token);
