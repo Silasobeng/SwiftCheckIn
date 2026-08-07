@@ -277,6 +277,7 @@ export default function AdminPage() {
   const [groupForm, setGroupForm] = useState<{editingId:string|null; categoryId:string; name:string; leader_person_id:string}>({editingId:null, categoryId:'', name:'', leader_person_id:''});
   const [newCategoryName, setNewCategoryName] = useState('');
   const [savingCategory, setSavingCategory] = useState(false);
+  const [seedingDepartments, setSeedingDepartments] = useState(false);
   const [savingGroup, setSavingGroup] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
   const [uploading, setUploading] = useState<'logo'|'cover'|null>(null);
@@ -545,6 +546,37 @@ export default function AdminPage() {
       setNewCategoryName('');
       loadData();
     } finally { setSavingCategory(false); }
+  };
+
+  // Departments repeat across almost every church (Choir, Ushering,
+  // Protocol...) in a way cell group names never do, so this is the one
+  // place a starter set earns its keep — a one-click head start, not
+  // something forced on anyone. Everything it creates is then just an
+  // ordinary category and groups, freely renamed or deleted afterward.
+  const seedDefaultDepartments = async () => {
+    setSeedingDepartments(true); setMessage(null); setError(null);
+    try {
+      let categoryId = categories.find(c=>c.name.toLowerCase()==='department')?.id;
+      if (!categoryId) {
+        const res = await fetch('/api/group-categories', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name:'Department' }) });
+        const data = await res.json();
+        if (!res.ok) { setError(data.error||'Could not create the Department category.'); return; }
+        categoryId = data.category.id;
+      }
+
+      const defaults = ['Choir', 'Ushering', 'Protocol', 'Media', 'Prayer Team', "Children's Ministry", 'Welfare', 'Security'];
+      const existingNames = new Set(groups.filter(g=>g.category_id===categoryId).map(g=>g.name.toLowerCase()));
+      const toAdd = defaults.filter(name=>!existingNames.has(name.toLowerCase()));
+
+      let added = 0;
+      for (const name of toAdd) {
+        const res = await fetch('/api/groups', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, categoryId }) });
+        if (res.ok) added++;
+      }
+
+      setMessage(added>0 ? `Added ${added} department${added===1?'':'s'} — rename or delete any you don't use.` : 'You already have all of these.');
+      loadData();
+    } finally { setSeedingDepartments(false); }
   };
 
   // Assigning a whole congregation to their real cell groups one edit-form
@@ -2409,6 +2441,9 @@ export default function AdminPage() {
                 </div>
                 <button onClick={saveCategory} disabled={savingCategory || !newCategoryName.trim()} className="btn btn-secondary text-sm">
                   {savingCategory ? 'Adding…' : 'Add category'}
+                </button>
+                <button onClick={seedDefaultDepartments} disabled={seedingDepartments} className="btn btn-secondary text-sm">
+                  {seedingDepartments ? 'Adding…' : '+ Add common departments'}
                 </button>
               </div>
 
