@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,7 @@ import { StackedTrend, RankedBars, OrdinalBars, SplitBar } from '@/components/Ch
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
 
 // Module scope, not component scope: this is a static map, and re-creating it
-// each render would make it a fresh object every time — defeating the
+// each render would make it a fresh object every time â€” defeating the
 // useMemo that lists it as a dependency.
 const GIVING_TYPE_LABELS: Record<GivingType,string> = { tithe:'Tithe', offering:'Offering', seed:'Seed', pledge:'Pledge', other:'Other' };
 
@@ -19,23 +19,23 @@ const GIVING_TYPE_LABELS: Record<GivingType,string> = { tithe:'Tithe', offering:
 // and unusable in a dropdown; the API validates whatever is sent against the
 // platform's own zone database, so this list is a convenience, not the guard.
 const TIMEZONES = [
-  { value: 'Africa/Accra',        label: 'Accra — Ghana (GMT)' },
-  { value: 'Africa/Lagos',        label: 'Lagos — Nigeria (GMT+1)' },
-  { value: 'Africa/Abidjan',      label: 'Abidjan — Côte d’Ivoire (GMT)' },
-  { value: 'Africa/Nairobi',      label: 'Nairobi — Kenya (GMT+3)' },
-  { value: 'Africa/Johannesburg', label: 'Johannesburg — South Africa (GMT+2)' },
-  { value: 'Africa/Cairo',        label: 'Cairo — Egypt (GMT+2)' },
-  { value: 'Europe/London',       label: 'London — United Kingdom' },
-  { value: 'America/New_York',    label: 'New York — US Eastern' },
-  { value: 'America/Chicago',     label: 'Chicago — US Central' },
-  { value: 'America/Los_Angeles', label: 'Los Angeles — US Pacific' },
-  { value: 'America/Toronto',     label: 'Toronto — Canada Eastern' },
-  { value: 'Asia/Dubai',          label: 'Dubai — UAE (GMT+4)' },
-  { value: 'Australia/Sydney',    label: 'Sydney — Australia Eastern' },
+  { value: 'Africa/Accra',        label: 'Accra â€” Ghana (GMT)' },
+  { value: 'Africa/Lagos',        label: 'Lagos â€” Nigeria (GMT+1)' },
+  { value: 'Africa/Abidjan',      label: 'Abidjan â€” CÃ´te dâ€™Ivoire (GMT)' },
+  { value: 'Africa/Nairobi',      label: 'Nairobi â€” Kenya (GMT+3)' },
+  { value: 'Africa/Johannesburg', label: 'Johannesburg â€” South Africa (GMT+2)' },
+  { value: 'Africa/Cairo',        label: 'Cairo â€” Egypt (GMT+2)' },
+  { value: 'Europe/London',       label: 'London â€” United Kingdom' },
+  { value: 'America/New_York',    label: 'New York â€” US Eastern' },
+  { value: 'America/Chicago',     label: 'Chicago â€” US Central' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles â€” US Pacific' },
+  { value: 'America/Toronto',     label: 'Toronto â€” Canada Eastern' },
+  { value: 'Asia/Dubai',          label: 'Dubai â€” UAE (GMT+4)' },
+  { value: 'Australia/Sydney',    label: 'Sydney â€” Australia Eastern' },
   { value: 'UTC',                 label: 'UTC' },
 ];
 
-// Age bands in age order — the ordinal ramp is only meaningful if the rows are
+// Age bands in age order â€” the ordinal ramp is only meaningful if the rows are
 // rendered in the scale's own order, never sorted by count. Must stay in step
 // with getAgeGroup() in lib/utils.
 const AGE_BANDS = ['Under 20', '20-29', '30-39', '40-49', '50-59', '60+'];
@@ -51,7 +51,7 @@ const EMPTY_TEMPLATES: Record<'welcome'|'birthday'|'missed', {subject:string;bod
   missed:   { subject: 'We Miss You!',                    body: 'We noticed you have missed the last couple of gatherings. We hope everything is well with you.\n\nWe would love to see you again soon!' },
 };
 
-/* ─── Edit Person Modal ─────────────────────────────────────────────────── */
+/* â”€â”€â”€ Edit Person Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function EditPersonModal({ person, categories, groups, personGroupIds, onClose, onSaved }: { person: Person; categories: GroupCategory[]; groups: Group[]; personGroupIds: string[]; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
@@ -60,7 +60,7 @@ function EditPersonModal({ person, categories, groups, personGroupIds, onClose, 
     occupation: person.occupation || '', company: person.company || '',
     location: person.location || '', how_found_us: person.how_found_us || '', notes: person.notes || '',
   });
-  // One slot per category — a person can hold at most one group within any
+  // One slot per category â€” a person can hold at most one group within any
   // given category (one Cell Group, one Department) but one across each.
   const [groupByCategory, setGroupByCategory] = useState<Record<string,string>>(() => {
     const map: Record<string,string> = {};
@@ -137,7 +137,7 @@ function EditPersonModal({ person, categories, groups, personGroupIds, onClose, 
                 </div>
               </div>
               {categories.length === 0 ? (
-                <p className="text-xs text-navy-400">No groups set up yet — add a category under Settings.</p>
+                <p className="text-xs text-navy-400">No groups set up yet â€” add a category under Settings.</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {categories.map(cat => {
@@ -187,7 +187,7 @@ function EditPersonModal({ person, categories, groups, personGroupIds, onClose, 
               <div>
                 <label className="block text-sm font-medium text-navy-700 mb-1.5">How They Found Us</label>
                 <select className="select" value={form.how_found_us} onChange={set('how_found_us')}>
-                  <option value="">Select one…</option>
+                  <option value="">Select oneâ€¦</option>
                   <option value="Friend or family">Friend or family</option>
                   <option value="Social media">Social media</option>
                   <option value="Walked past / neighbourhood">Walked past / neighbourhood</option>
@@ -204,20 +204,20 @@ function EditPersonModal({ person, categories, groups, personGroupIds, onClose, 
 
           <fieldset>
             <legend className="text-[11px] font-bold uppercase tracking-widest text-navy-400 mb-3">Notes</legend>
-            <textarea className="textarea" value={form.notes} onChange={set('notes')} placeholder="Private admin notes…" rows={3} />
+            <textarea className="textarea" value={form.notes} onChange={set('notes')} placeholder="Private admin notesâ€¦" rows={3} />
           </fieldset>
         </div>
 
         <div className="px-6 py-4 border-t border-navy-100 flex gap-3 sticky bottom-0 bg-white rounded-b-2xl">
           <button onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
-          <button onClick={handleSave} className="btn btn-primary flex-1" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</button>
+          <button onClick={handleSave} className="btn btn-primary flex-1" disabled={saving}>{saving ? 'Savingâ€¦' : 'Save Changes'}</button>
         </div>
       </div>
     </div>
   );
 }
 
-/* ─── Main Page ─────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export default function AdminPage() {
   const router = useRouter();
@@ -300,8 +300,8 @@ export default function AdminPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const billing = params.get('billing');
-    if (billing === 'success') { setMessage('Payment received — subscription active.'); router.replace('/admin'); }
-    else if (billing === 'failed') { setError('Payment did not go through. No charge was made — try again.'); router.replace('/admin'); }
+    if (billing === 'success') { setMessage('Payment received â€” subscription active.'); router.replace('/admin'); }
+    else if (billing === 'failed') { setError('Payment did not go through. No charge was made â€” try again.'); router.replace('/admin'); }
   }, [router]);
 
   const startCheckout = async (plan: 'monthly'|'annual') => {
@@ -358,13 +358,13 @@ export default function AdminPage() {
       if (org) setBranding({
         org_name: org.name || '',
         tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'', timezone:org.timezone||'' });
-      if (!stD.settings) setError('Some dashboard data could not be refreshed — check your connection.');
+      if (!stD.settings) setError('Some dashboard data could not be refreshed â€” check your connection.');
     }
   }, [session]);
 
   useEffect(() => { if (session) loadData(); }, [session,loadData]);
-  // Faster while check-in is actually open — that's the moment someone is
-  // watching this screen and wants to see a number move — and paused
+  // Faster while check-in is actually open â€” that's the moment someone is
+  // watching this screen and wants to see a number move â€” and paused
   // whenever the tab isn't visible, so a browser left open overnight doesn't
   // spend the next 12 hours quietly polling six endpoints. Coming back to the
   // tab triggers an immediate refresh rather than waiting out the interval.
@@ -382,7 +382,7 @@ export default function AdminPage() {
     document.addEventListener('visibilitychange', onVisibility);
     return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
   }, [session, settings?.kiosk_open, loadData]);
-  // A light second-hand for "Updated Xs ago" — visual only, never fetches.
+  // A light second-hand for "Updated Xs ago" â€” visual only, never fetches.
   useEffect(() => {
     if (!session) return;
     const id = window.setInterval(()=>setNowTick(Date.now()), 1000);
@@ -487,7 +487,7 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) { setError(data.error||'Could not send report.'); return; }
       if (typeof window !== 'undefined') window.localStorage.setItem('swiftcheckin_report_email', recipient);
-      setMessage(`Report sent to ${data.recipient} — ${data.count} present, ${data.absent} absent.`);
+      setMessage(`Report sent to ${data.recipient} â€” ${data.count} present, ${data.absent} absent.`);
       setReportService(null);
     } finally { setSendingReportId(null); }
   };
@@ -550,7 +550,7 @@ export default function AdminPage() {
 
   // Departments repeat across almost every church (Choir, Ushering,
   // Protocol...) in a way cell group names never do, so this is the one
-  // place a starter set earns its keep — a one-click head start, not
+  // place a starter set earns its keep â€” a one-click head start, not
   // something forced on anyone. Everything it creates is then just an
   // ordinary category and groups, freely renamed or deleted afterward.
   const seedDefaultDepartments = async () => {
@@ -574,13 +574,13 @@ export default function AdminPage() {
         if (res.ok) added++;
       }
 
-      setMessage(added>0 ? `Added ${added} department${added===1?'':'s'} — rename or delete any you don't use.` : 'You already have all of these.');
+      setMessage(added>0 ? `Added ${added} department${added===1?'':'s'} â€” rename or delete any you don't use.` : 'You already have all of these.');
       loadData();
     } finally { setSeedingDepartments(false); }
   };
 
   // Assigning a whole congregation to their real cell groups one edit-form
-  // at a time doesn't scale — this lets a filtered, selected batch of people
+  // at a time doesn't scale â€” this lets a filtered, selected batch of people
   // get put into a group in one action. Each person's existing membership in
   // any OTHER category is kept; only their slot in the target group's own
   // category is replaced, same "one per category" rule the edit form follows.
@@ -601,7 +601,7 @@ export default function AdminPage() {
         const res = await fetch('/api/people-groups', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ personId, groupIds: newGroupIds }) });
         if (!res.ok) failed++;
       }
-      setMessage(failed>0 ? `Assigned ${ids.length-failed} of ${ids.length} — ${failed} failed.` : `Assigned ${ids.length} ${ids.length===1?'person':'people'} to ${targetGroup.name}.`);
+      setMessage(failed>0 ? `Assigned ${ids.length-failed} of ${ids.length} â€” ${failed} failed.` : `Assigned ${ids.length} ${ids.length===1?'person':'people'} to ${targetGroup.name}.`);
       setSelectedPersonIds(new Set());
       setBulkAssignGroupId('');
       loadData();
@@ -684,7 +684,7 @@ export default function AdminPage() {
   const topOccupations = Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.occupation?.trim()) return a; a[p.occupation.trim()]=(a[p.occupation.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const howFoundUs = Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.how_found_us?.trim()) return a; a[p.how_found_us.trim()]=(a[p.how_found_us.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
   // Retention: of last month's first-timers, how many came back at all this month.
-  // Must be measured per PERSON, not per check-in — otherwise someone who
+  // Must be measured per PERSON, not per check-in â€” otherwise someone who
   // attended three times this month counted as 300%, producing impossible
   // rates like 316%.
   const lastMonthFirstTimers = new Set(
@@ -696,7 +696,7 @@ export default function AdminPage() {
   // Top attenders
   const topAttenders = [...activePeople].sort((a,b)=>(b.total_checkins||0)-(a.total_checkins||0)).slice(0,5);
   // Split each month into returning vs first-time so the trend answers the
-  // question a pastor actually asks — "are we growing, or are the same people
+  // question a pastor actually asks â€” "are we growing, or are the same people
   // just coming back?" A single total bar cannot tell those apart.
   const monthlyTrend = Object.entries(
     checkins.reduce<Record<string,{returning:number;firstTime:number}>>((a,c)=>{
@@ -731,7 +731,7 @@ export default function AdminPage() {
     if (!q) return [];
     return activePeople.filter(p=>p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)).slice(0,6);
   }, [activePeople, givingPersonQuery]);
-  // "Mar 1–31, 2026" labels derived from the same church-timezone month keys,
+  // "Mar 1â€“31, 2026" labels derived from the same church-timezone month keys,
   // so every "this month / last month" figure states exactly which dates it covers.
   const currentMonthRangeLabel = monthRangeLabel(currentMonthKey);
   const lastMonthRangeLabel = monthRangeLabel(lastMonthKey);
@@ -744,14 +744,14 @@ export default function AdminPage() {
 
   // The on-screen equivalent of the emailed workbook. The report has always
   // carried four sheets (summary, attendance, follow-up, giving) while the UI
-  // showed none of it — so the email was the only way to actually read your own
+  // showed none of it â€” so the email was the only way to actually read your own
   // service. This computes the same figures client-side from data already
   // loaded, so nothing has to be emailed to be seen.
   //
   // Mirrors getDayAttendance() in src/lib/attendance.ts: absence is reckoned per
   // calendar DAY, unioning check-ins across every service held that date, so a
   // church running 9am and 11am doesn't mark 9am attendees absent from the 11am.
-  // Only members/leaders count as "expected" — a one-time visitor would
+  // Only members/leaders count as "expected" â€” a one-time visitor would
   // otherwise read as a no-show forever.
   const weeksSince = (iso: string|null|undefined): number|null => {
     if (!iso) return null;
@@ -818,7 +818,7 @@ export default function AdminPage() {
       //
       // "Visitor" is a ROLE that persists until someone promotes the person,
       // while "first time" is an EVENT true only on their very first check-in
-      // ever — so the two overlap and cannot both be counted by role alone.
+      // ever â€” so the two overlap and cannot both be counted by role alone.
       // The event wins: whether this service was somebody's first visit is a
       // permanent fact about that service, and it stays true even if they are
       // made a member later.
@@ -834,7 +834,7 @@ export default function AdminPage() {
       currency: givingRows[0]?.currency || givingCurrency,
     };
   }, [infoService, services, checkins, activePeople, giving, orgTimezone, givingCurrency]);
-  // Breakdown by type for the current month — "Tithe: 3 · GHS 450", etc.
+  // Breakdown by type for the current month â€” "Tithe: 3 Â· GHS 450", etc.
   const givingByType = (['tithe','offering','seed','pledge','other'] as GivingType[])
     .map(type => {
       const rows = givingThisMonth.filter(g=>g.giving_type===type);
@@ -842,7 +842,7 @@ export default function AdminPage() {
     })
     .filter(t => t.count > 0);
 
-  // Year-over-year, same timezone-aware reckoning as everything else here —
+  // Year-over-year, same timezone-aware reckoning as everything else here â€”
   // built once so it's ready the first time a church actually has two years
   // of history to compare, rather than something to bolt on under pressure
   // later. Costs nothing when there's no data yet: the panel just says so.
@@ -860,7 +860,7 @@ export default function AdminPage() {
   const currentYearRangeLabel = yearRangeLabel(currentYearKey);
   const lastYearRangeLabel = yearRangeLabel(lastYearKey);
   // null rather than a number when there's nothing last year to divide
-  // by — "up 400% from zero" is a meaningless figure, not an insight.
+  // by â€” "up 400% from zero" is a meaningless figure, not an insight.
   const pctDelta = (curr:number, prev:number): number|null => prev===0 ? null : Math.round(((curr-prev)/prev)*100);
   const yearComparisons = [
     { label:'Check-ins', curr:currentYearCheckins.length, prev:lastYearCheckins.length,
@@ -941,7 +941,7 @@ export default function AdminPage() {
     <div style={{minHeight:'100vh',background:'#F8F4EE',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{textAlign:'center'}}>
         <div style={{width:44,height:44,border:'3px solid #E4DFD5',borderTopColor:'#C97B1A',borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 16px'}} />
-        <p style={{color:'#7A6E60',fontSize:14}}>Loading…</p>
+        <p style={{color:'#7A6E60',fontSize:14}}>Loadingâ€¦</p>
       </div>
     </div>
   );
@@ -949,7 +949,7 @@ export default function AdminPage() {
 
   // Every data-fetching route behind requireActiveSubscription() 403s once a
   // trial or subscription ends, and safeFetch() in loadData() silently
-  // swallows those into empty fallbacks — so without this gate, an expired
+  // swallows those into empty fallbacks â€” so without this gate, an expired
   // church just sees a dashboard that quietly looks wiped clean, with no way
   // back in. /api/auth/session is deliberately NOT gated the same way, so
   // this screen is reachable exactly when everything else is locked.
@@ -960,7 +960,7 @@ export default function AdminPage() {
         <div style={{width:'100%',maxWidth:460}}>
           <div style={{textAlign:'center',marginBottom:28}}>
             <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',marginBottom:8}}>{session.orgName}</h1>
-            <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>{ended} Choose a plan to keep using WeMotiply — your data is safe and waiting.</p>
+            <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>{ended} Choose a plan to keep using WeMotiply â€” your data is safe and waiting.</p>
           </div>
 
           {billingError && <div className="alert alert-error" style={{marginBottom:16}}><span>{billingError}</span></div>}
@@ -971,17 +971,17 @@ export default function AdminPage() {
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 150<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / month</span></div>
             </div>
             <button onClick={()=>startCheckout('monthly')} disabled={billingBusy!==null} className="btn btn-secondary">
-              {billingBusy==='monthly' ? 'Redirecting…' : 'Choose'}
+              {billingBusy==='monthly' ? 'Redirectingâ€¦' : 'Choose'}
             </button>
           </div>
 
           <div className="card" style={{padding:'20px 22px',marginBottom:20,display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,border:'1px solid #C97B1A',background:'#FDF3E0'}}>
             <div>
-              <div style={{fontSize:12,color:'#7A4A0E',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Annual · Save GHS 300</div>
+              <div style={{fontSize:12,color:'#7A4A0E',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Annual Â· Save GHS 300</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 1,500<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / year</span></div>
             </div>
             <button onClick={()=>startCheckout('annual')} disabled={billingBusy!==null} className="btn btn-primary">
-              {billingBusy==='annual' ? 'Redirecting…' : 'Choose'}
+              {billingBusy==='annual' ? 'Redirectingâ€¦' : 'Choose'}
             </button>
           </div>
 
@@ -997,10 +997,10 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{minHeight:"100vh",background:"#F8F4EE"}}>
+    <div className="admin-shell" style={{minHeight:"100vh",background:"#F8F4EE"}}>
       {editingPerson && <EditPersonModal person={editingPerson} categories={categories} groups={groups} personGroupIds={(groupsByPersonId[editingPerson.id]||[]).map(g=>g.id)} onClose={()=>setEditingPerson(null)} onSaved={()=>{loadData();setMessage('Profile updated.');}} />}
 
-      {/* Code-gated delete confirmation — shared across services, people, giving */}
+      {/* Code-gated delete confirmation â€” shared across services, people, giving */}
       {deleteTarget && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center p-4" onClick={()=>setDeleteTarget(null)}>
           <div className="absolute inset-0 bg-navy-900/60 backdrop-blur-sm" />
@@ -1012,7 +1012,7 @@ export default function AdminPage() {
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',marginBottom:8}}>Delete {deleteTarget.label}?</h2>
               <p style={{fontSize:14,color:'#7A6E60',fontWeight:300,lineHeight:1.7,marginBottom:16}}>
                 {deleteTarget.kind==='groups'
-                  ? "People in this group aren't deleted — they're just unassigned from it."
+                  ? "People in this group aren't deleted â€” they're just unassigned from it."
                   : deleteTarget.kind==='group-categories'
                   ? "This can't be undone. Every group in this category is deleted too, and everyone's membership in them goes with it."
                   : <>This can&apos;t be undone.{deleteTarget.kind==='services' && ' Its check-ins are removed too.'}</>
@@ -1022,22 +1022,22 @@ export default function AdminPage() {
               <input className="input" style={{letterSpacing:'0.15em'}} value={deleteCode}
                 onChange={e=>setDeleteCode(e.target.value)}
                 onKeyDown={e=>{ if(e.key==='Enter' && deleteCode.trim()) confirmDelete(); }}
-                placeholder={settings?.kiosk_access_code ? '••••••' : 'No code set — leave blank'}
+                placeholder={settings?.kiosk_access_code ? 'â€¢â€¢â€¢â€¢â€¢â€¢' : 'No code set â€” leave blank'}
                 autoFocus autoComplete="off" spellCheck={false} />
-              <p style={{fontSize:11,color:'#A89D8E',marginTop:8,fontWeight:300}}>Find this under Settings → Kiosk access code.</p>
+              <p style={{fontSize:11,color:'#A89D8E',marginTop:8,fontWeight:300}}>Find this under Settings â†’ Kiosk access code.</p>
             </div>
             <div className="px-7 pb-7 flex gap-3">
               <button onClick={()=>setDeleteTarget(null)} className="btn btn-secondary flex-1">Cancel</button>
               <button onClick={confirmDelete} disabled={deletingBusy || (!!settings?.kiosk_access_code && !deleteCode.trim())} className="btn btn-danger flex-1">
-                {deletingBusy ? 'Deleting…' : 'Delete'}
+                {deletingBusy ? 'Deletingâ€¦' : 'Delete'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Header — fixed 68px so the tab bar below can stick flush against it */}
-      <header className="bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-0 z-40">
+      {/* Header â€” fixed 68px so the tab bar below can stick flush against it */}
+      <header className="admin-topbar bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto h-[68px] flex justify-between items-center gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div style={{width:36,height:36,background:"#16243A",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -1059,7 +1059,7 @@ export default function AdminPage() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
               <span className="hidden sm:inline">Open Kiosk</span>
             </Link>
-            {/* Logout stays reachable on mobile — icon only to save width */}
+            {/* Logout stays reachable on mobile â€” icon only to save width */}
             <button onClick={handleLogout} className="btn btn-ghost btn-icon sm:hidden" title="Logout" aria-label="Logout">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" /></svg>
             </button>
@@ -1069,7 +1069,7 @@ export default function AdminPage() {
       </header>
 
       {/* Tabs */}
-      <nav className="bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-[68px] z-30">
+      <nav className="admin-tabs bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-[68px] z-30">
         <div className="max-w-7xl mx-auto flex gap-1 overflow-x-auto hide-scrollbar" style={{paddingTop:10,paddingBottom:10}}>
           {(['dashboard','services','people','giving','analytics','emails','settings'] as Tab[]).map(t=>{
             const icons: Record<Tab,JSX.Element> = {
@@ -1113,9 +1113,9 @@ export default function AdminPage() {
       </div>
 
       {/* Main */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-7 sm:py-9 space-y-5">
+      <main className="admin-main max-w-7xl mx-auto px-4 sm:px-6 py-7 sm:py-9 space-y-5">
 
-        {/* ── DASHBOARD ── */}
+        {/* â”€â”€ DASHBOARD â”€â”€ */}
         {tab==='dashboard' && (
           <div className="animate-fade-in" style={{maxWidth:1060,margin:'0 auto'}}>
 
@@ -1127,12 +1127,12 @@ export default function AdminPage() {
                 </h2>
                 <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>
                   {settings?.kiosk_open
-                    ? <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:7,height:7,borderRadius:'50%',background:'#2E7D4E',display:'inline-block'}}/>Check-in is open{activeService?<> · {activeService.title}</>:null}</span>
+                    ? <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:7,height:7,borderRadius:'50%',background:'#2E7D4E',display:'inline-block'}}/>Check-in is open{activeService?<> Â· {activeService.title}</>:null}</span>
                     : 'Check-in is closed'
                   }
                 </p>
                 {/* This screen actually refreshes on its own every few
-                    seconds — the point of this line is to make that visible
+                    seconds â€” the point of this line is to make that visible
                     rather than something you have to take on faith. */}
                 {lastUpdatedAt && (
                   <p style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginTop:5,display:'flex',alignItems:'center',gap:6}}>
@@ -1140,7 +1140,7 @@ export default function AdminPage() {
                     {(() => {
                       const secs = Math.max(0, Math.round((nowTick - lastUpdatedAt.getTime())/1000));
                       const ago = secs<5 ? 'just now' : secs<60 ? `${secs}s ago` : `${Math.round(secs/60)}m ago`;
-                      return settings?.kiosk_open ? `Live · updated ${ago}` : `Last updated ${ago}`;
+                      return settings?.kiosk_open ? `Live Â· updated ${ago}` : `Last updated ${ago}`;
                     })()}
                   </p>
                 )}
@@ -1154,14 +1154,14 @@ export default function AdminPage() {
             </div>
 
             {/* Check-in stays open until someone closes it, and the day it was
-                opened for can quietly pass — the server now auto-closes it the
+                opened for can quietly pass â€” the server now auto-closes it the
                 moment anyone loads or submits to a stale kiosk, but this warns
                 here too in case nobody visits the kiosk before the next
                 service. */}
             {settings?.kiosk_open && activeService && activeService.service_date !== today && (
               <div className="alert alert-warning" style={{marginBottom:24}}>
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
-                <span style={{flex:1}}>Check-in has been left open since <strong>{new Date(activeService.service_date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</strong> — anyone checking in now would be recorded against that service, not today&apos;s.</span>
+                <span style={{flex:1}}>Check-in has been left open since <strong>{new Date(activeService.service_date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</strong> â€” anyone checking in now would be recorded against that service, not today&apos;s.</span>
                 <button onClick={toggleKiosk} className="btn btn-secondary text-xs py-1.5 px-3" style={{flexShrink:0}}>Close now</button>
               </div>
             )}
@@ -1181,7 +1181,7 @@ export default function AdminPage() {
               ))}
             </div>
 
-            {/* Two column grid — stacks below lg so neither panel gets squeezed */}
+            {/* Two column grid â€” stacks below lg so neither panel gets squeezed */}
             <div className="grid gap-5 grid-cols-1 lg:grid-cols-[1.3fr_1fr]">
 
               {/* Today&apos;s check-ins */}
@@ -1189,7 +1189,7 @@ export default function AdminPage() {
                 <div className="panel-label" style={{display:'block',marginBottom:18}}>Today&apos;s check-ins</div>
                 {todayCheckins.length===0 ? (
                   <div style={{textAlign:'center',padding:'32px 0',color:'#A89D8E'}}>
-                    <div style={{fontSize:32,marginBottom:10,opacity:0.4}}>🕐</div>
+                    <div style={{fontSize:32,marginBottom:10,opacity:0.4}}>ðŸ•</div>
                     <div style={{fontSize:14,fontWeight:300}}>Nobody checked in yet</div>
                   </div>
                 ) : (<>
@@ -1200,7 +1200,7 @@ export default function AdminPage() {
                       </div>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:14,color:'#1C2A3A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.person?.full_name}</div>
-                        {c.is_first_time && <div style={{fontSize:11,color:'#2E7D4E',fontWeight:500}}>First visit ✓</div>}
+                        {c.is_first_time && <div style={{fontSize:11,color:'#2E7D4E',fontWeight:500}}>First visit âœ“</div>}
                       </div>
                       <div style={{fontSize:12,color:'#A89D8E',flexShrink:0}}>{new Date(c.checked_in_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
                     </div>
@@ -1226,7 +1226,7 @@ export default function AdminPage() {
                     <span style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{row.label}</span>
                     <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
                       <span style={{fontSize:15,fontWeight:600,color:row.urgent?'#C97B1A':'#16243A',fontFamily:"'Playfair Display',serif"}}>{row.value}</span>
-                      {row.action && row.value>0 && <button onClick={row.action} style={{fontSize:11,color:'#C97B1A',background:'none',border:'none',cursor:'pointer',fontWeight:500}}>Fix →</button>}
+                      {row.action && row.value>0 && <button onClick={row.action} style={{fontSize:11,color:'#C97B1A',background:'none',border:'none',cursor:'pointer',fontWeight:500}}>Fix â†’</button>}
                     </div>
                   </div>
                 ))}
@@ -1235,11 +1235,11 @@ export default function AdminPage() {
           </div>
         )}
 
-                {/* ── SERVICES ── */}
+                {/* â”€â”€ SERVICES â”€â”€ */}
         {tab==='services' && (
           <div className="animate-fade-in" style={{maxWidth:1060,margin:'0 auto'}}>
 
-            {/* Report recipient modal — confirm/redirect where the CSV goes */}
+            {/* Report recipient modal â€” confirm/redirect where the CSV goes */}
             {reportService && (
               <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
                 onClick={()=>setReportService(null)}>
@@ -1256,14 +1256,14 @@ export default function AdminPage() {
                   <div style={{padding:'16px 28px 24px',display:'flex',gap:10}}>
                     <button onClick={()=>setReportService(null)} className="btn btn-secondary" style={{flex:1}}>Cancel</button>
                     <button onClick={sendReport} disabled={sendingReportId===reportService.id} className="btn btn-primary" style={{flex:1}}>
-                      {sendingReportId===reportService.id?'Sending…':'Send report'}
+                      {sendingReportId===reportService.id?'Sendingâ€¦':'Send report'}
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Service info modal — the on-screen twin of the emailed workbook.
+            {/* Service info modal â€” the on-screen twin of the emailed workbook.
                 Same four views (summary, attendance, follow-up, giving) so the
                 report never has to be emailed just to be read. */}
             {infoService && serviceBreakdown && (() => {
@@ -1271,7 +1271,7 @@ export default function AdminPage() {
               const money = (n:number) => `${b.currency} ${n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
               // An exact date, not "2 weeks ago". Churches run midweek services
               // and one-off programmes, so a relative figure is ambiguous about
-              // WHICH gathering was missed — the date never is. The week count
+              // WHICH gathering was missed â€” the date never is. The week count
               // stays as a muted suffix because it's still the fastest way to
               // spot a drift at a glance.
               const lastSeen = (iso:string|null) => {
@@ -1286,7 +1286,7 @@ export default function AdminPage() {
                 return (
                   <>
                     <span style={{color:(weeks??0)>=3?'#B23B3B':'#16243A',fontWeight:(weeks??0)>=3?500:400}}>{date}</span>
-                    {weeks!==null && weeks>0 && <span style={{color:'#A89D8E',fontWeight:300}}> · {weeks}w</span>}
+                    {weeks!==null && weeks>0 && <span style={{color:'#A89D8E',fontWeight:300}}> Â· {weeks}w</span>}
                   </>
                 );
               };
@@ -1310,10 +1310,10 @@ export default function AdminPage() {
                         <div>
                           <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:21,color:'#16243A',marginBottom:4}}>{infoService.title||'Untitled Service'}</h3>
                           <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>
-                            {new Date(infoService.service_date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}{infoService.service_time&&` · ${infoService.service_time}`}
+                            {new Date(infoService.service_date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}{infoService.service_time&&` Â· ${infoService.service_time}`}
                           </p>
                         </div>
-                        <button onClick={()=>setInfoService(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#A89D8E',fontSize:22,lineHeight:1,padding:4}}>×</button>
+                        <button onClick={()=>setInfoService(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#A89D8E',fontSize:22,lineHeight:1,padding:4}}>Ã—</button>
                       </div>
                       <div style={{display:'flex',gap:4,marginTop:18,overflowX:'auto'}}>
                         {TABS.map(({v,l})=>(
@@ -1332,12 +1332,12 @@ export default function AdminPage() {
                       {infoTab==='summary' && (
                         <>
                           {/* A labelled record, not a decorated list. The
-                              emoji-prefixed lines never said what they were —
+                              emoji-prefixed lines never said what they were â€”
                               a theme and a scripture reference are only
                               legible when the field is named. */}
                           <dl style={{margin:'0 0 26px',paddingBottom:22,borderBottom:'1px solid #F5F1EA'}}>
                             {[
-                              {k:'Date of service', v:`${new Date(infoService.service_date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}${infoService.service_time?` · ${infoService.service_time}`:''}`},
+                              {k:'Date of service', v:`${new Date(infoService.service_date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}${infoService.service_time?` Â· ${infoService.service_time}`:''}`},
                               {k:'Service theme',   v:infoService.theme},
                               {k:'Scripture',       v:infoService.scripture},
                               {k:'Announcement',    v:infoService.message},
@@ -1410,7 +1410,7 @@ export default function AdminPage() {
                                   <tr key={r.person?.id}>
                                     <td style={td}>{r.person?.full_name}</td>
                                     <td style={{...td,color:'#2E7D4E',fontWeight:500}}>Present</td>
-                                    <td style={{...td,color:'#7A6E60'}}>{r.person?.phone||'—'}</td>
+                                    <td style={{...td,color:'#7A6E60'}}>{r.person?.phone||'â€”'}</td>
                                     <td style={{...td,color:'#7A6E60'}}>Today, {b.fmtTime.format(new Date(r.checked_in_at))}</td>
                                   </tr>
                                 ))}
@@ -1418,7 +1418,7 @@ export default function AdminPage() {
                                   <tr key={p.id}>
                                     <td style={td}>{p.full_name}</td>
                                     <td style={{...td,color:'#B23B3B',fontWeight:500}}>Absent</td>
-                                    <td style={{...td,color:'#7A6E60'}}>{p.phone||'—'}</td>
+                                    <td style={{...td,color:'#7A6E60'}}>{p.phone||'â€”'}</td>
                                     <td style={{...td,color:'#7A6E60'}}><LastSeenCell iso={p.last_checkin_at} weeks={p.weeksAway} /></td>
                                   </tr>
                                 ))}
@@ -1433,7 +1433,7 @@ export default function AdminPage() {
                           <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No attendance recorded for this service.</div>
                         ) : (() => {
                           // The same categories as the summary breakdown, made
-                          // selectable — the totals there are only useful if you
+                          // selectable â€” the totals there are only useful if you
                           // can open one up and see the names behind it.
                           const CATS = [
                             {v:'all'       as const, l:'All',                 n:b.present.length,       c:'#16243A'},
@@ -1465,8 +1465,8 @@ export default function AdminPage() {
                                   {rows.map(r=>(
                                     <tr key={r.person?.id||r.checked_in_at}>
                                       <td style={{...td,color:'#7A6E60',whiteSpace:'nowrap'}}>{b.fmtTime.format(new Date(r.checked_in_at))}</td>
-                                      <td style={td}>{r.person?.full_name||'—'}</td>
-                                      <td style={{...td,color:'#7A6E60'}}>{r.person?.phone||'—'}</td>
+                                      <td style={td}>{r.person?.full_name||'â€”'}</td>
+                                      <td style={{...td,color:'#7A6E60'}}>{r.person?.phone||'â€”'}</td>
                                       <td style={{...td,whiteSpace:'nowrap'}}>
                                         <span style={{display:'inline-flex',alignItems:'center',gap:6,color:'#5A4E3C'}}>
                                           <span style={{width:8,height:8,borderRadius:2,background:catColor[r.category],flexShrink:0}} />
@@ -1487,7 +1487,7 @@ export default function AdminPage() {
                           <div style={{fontSize:13,color:'#2E7D4E',fontWeight:300}}>Every registered member attended this service.</div>
                         ) : (() => {
                           // Grouped by whichever category is selected, so each
-                          // leader's own people sit together — a flat 20-name
+                          // leader's own people sit together â€” a flat 20-name
                           // list is nobody's job, but "here are your 4" is
                           // Kofi's job. People with no group in that category
                           // fall into their own section last rather than
@@ -1525,7 +1525,7 @@ export default function AdminPage() {
                                   {showGrouping && (
                                     <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:8}}>
                                       <span style={{fontSize:12,fontWeight:600,color:'#16243A'}}>{sec.label}</span>
-                                      <span style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>{sec.sub||'No leader assigned'} · {sec.people.length}</span>
+                                      <span style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>{sec.sub||'No leader assigned'} Â· {sec.people.length}</span>
                                     </div>
                                   )}
                                   <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -1534,7 +1534,7 @@ export default function AdminPage() {
                                       {sec.people.map(p=>(
                                         <tr key={p.id}>
                                           <td style={td}>{p.full_name}</td>
-                                          <td style={{...td,color:'#7A6E60'}}>{p.phone||'—'}</td>
+                                          <td style={{...td,color:'#7A6E60'}}>{p.phone||'â€”'}</td>
                                           <td style={{...td,whiteSpace:'nowrap'}}>
                                             <LastSeenCell iso={p.last_checkin_at} weeks={p.weeksAway} />
                                           </td>
@@ -1559,12 +1559,12 @@ export default function AdminPage() {
                               {b.givingByType.map(t=>(
                                 <div key={t.label} style={{borderLeft:'2px solid #EDE7DC',paddingLeft:12}}>
                                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',lineHeight:1.2}}>{money(t.amount)}</div>
-                                  <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{t.label} · {t.count}</div>
+                                  <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{t.label} Â· {t.count}</div>
                                 </div>
                               ))}
                               <div style={{borderLeft:'2px solid #C97B1A',paddingLeft:12}}>
                                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#C97B1A',lineHeight:1.2}}>{money(b.givingTotal)}</div>
-                                <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>Total · {b.givingRows.length}</div>
+                                <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>Total Â· {b.givingRows.length}</div>
                               </div>
                             </div>
                             <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -1605,7 +1605,7 @@ export default function AdminPage() {
                       <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',fontWeight:400}}>{editingService?'Edit Service':'New Service'}</h2>
                       <p style={{fontSize:13,color:'#A89D8E',fontWeight:300,marginTop:3}}>Details here will be included in the welcome email sent to first-timers today.</p>
                     </div>
-                    <button onClick={()=>setServiceFormOpen(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#A89D8E',fontSize:22,lineHeight:1,padding:4}}>×</button>
+                    <button onClick={()=>setServiceFormOpen(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#A89D8E',fontSize:22,lineHeight:1,padding:4}}>Ã—</button>
                   </div>
                   <div style={{padding:'24px 28px'}}>
                     <div className="grid grid-cols-1 sm:grid-cols-2" style={{gap:14,marginBottom:16}}>
@@ -1623,7 +1623,7 @@ export default function AdminPage() {
                       <input className="input" value={serviceForm.service_time} onChange={e=>setServiceForm(p=>({...p,service_time:e.target.value}))} placeholder="e.g. 9:00 AM" />
                     </div>
                     <div style={{background:'#FDF3E0',border:'1px solid rgba(201,123,26,0.2)',borderRadius:12,padding:'14px 16px',marginBottom:16}}>
-                      <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase' as const,color:'#C97B1A',fontWeight:600,marginBottom:4}}>📧 Included in today&apos;s welcome emails</div>
+                      <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase' as const,color:'#C97B1A',fontWeight:600,marginBottom:4}}>ðŸ“§ Included in today&apos;s welcome emails</div>
                       <div style={{fontSize:12,color:'#8A5A10',fontWeight:300}}>Fill in what you want first-timers to receive. All fields below are optional.</div>
                     </div>
                     <div style={{marginBottom:16}}>
@@ -1636,12 +1636,12 @@ export default function AdminPage() {
                     </div>
                     <div style={{marginBottom:8}}>
                       <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase' as const,display:'block',marginBottom:8}}>Special note or announcement</label>
-                      <textarea className="textarea" value={serviceForm.message} rows={3} onChange={e=>setServiceForm(p=>({...p,message:e.target.value}))} placeholder="e.g. Join us next Sunday for our special thanksgiving service…" />
+                      <textarea className="textarea" value={serviceForm.message} rows={3} onChange={e=>setServiceForm(p=>({...p,message:e.target.value}))} placeholder="e.g. Join us next Sunday for our special thanksgiving serviceâ€¦" />
                       <div style={{fontSize:12,color:'#A89D8E',marginTop:5}}>This appears at the end of the service details in the welcome email.</div>
                     </div>
                     {(serviceForm.theme||serviceForm.scripture||serviceForm.message) && (
                       <div style={{background:'#F8F4EE',border:'1px solid #E4DFD5',borderRadius:10,padding:'14px 16px',marginTop:16}}>
-                        <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase' as const,color:'#A89D8E',marginBottom:10}}>Preview — service section in email</div>
+                        <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase' as const,color:'#A89D8E',marginBottom:10}}>Preview â€” service section in email</div>
                         <div style={{fontSize:13,color:'#4A4038',lineHeight:1.8,fontWeight:300}}>
                           {serviceForm.title    && <div><em style={{color:'#16243A'}}>Today&apos;s gathering:</em> {serviceForm.title}</div>}
                           {serviceForm.theme    && <div><em style={{color:'#16243A'}}>Theme:</em> {serviceForm.theme}</div>}
@@ -1654,7 +1654,7 @@ export default function AdminPage() {
                   <div style={{padding:'16px 28px 24px',borderTop:'1px solid #E4DFD5',display:'flex',gap:10}}>
                     <button onClick={()=>setServiceFormOpen(false)} style={{flex:1,background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:10,padding:'12px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:'pointer'}}>Cancel</button>
                     <button onClick={saveService} disabled={savingService} style={{flex:2,background:savingService?'#B8A898':'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'12px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:savingService?'wait':'pointer',transition:'all .2s'}}>
-                      {savingService?'Saving…':editingService?'Save changes':'Create service'}
+                      {savingService?'Savingâ€¦':editingService?'Save changes':'Create service'}
                     </button>
                   </div>
                 </div>
@@ -1674,7 +1674,7 @@ export default function AdminPage() {
 
             {services.length===0 ? (
               <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'60px 20px',textAlign:'center'}}>
-                <div style={{fontSize:40,marginBottom:14,opacity:0.3}}>📅</div>
+                <div style={{fontSize:40,marginBottom:14,opacity:0.3}}>ðŸ“…</div>
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',marginBottom:8}}>No services yet</div>
                 <div style={{fontSize:14,color:'#A89D8E',fontWeight:300,marginBottom:24}}>Create your first service to open check-in.</div>
                 <button onClick={openNewService} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'12px 28px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:'pointer'}}>Create first service</button>
@@ -1682,13 +1682,13 @@ export default function AdminPage() {
             ) : (
               <div style={{display:'flex',flexDirection:'column',gap:12}}>
                 {services.map(s=>(
-                  <div key={s.id} style={{background:s.is_active?'#FEFAF4':'#fff',border:`1px solid ${s.is_active?'rgba(201,123,26,0.35)':'#E4DFD5'}`,borderRadius:16,padding:'20px 24px',transition:'all .15s'}}>
+                  <div key={s.id} className="service-row" style={{background:s.is_active?'#FEFAF4':'#fff',border:`1px solid ${s.is_active?'rgba(201,123,26,0.35)':'#E4DFD5'}`,borderRadius:16,padding:'20px 24px',transition:'all .15s'}}>
                     <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
                       <div style={{flex:'1 1 260px',minWidth:0}}>
                         <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
                           <span style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:'#16243A'}}>{s.title||'Untitled Service'}</span>
                           {/* Two distinct labels for two distinct states, not
-                              one word doing double duty — that's what made
+                              one word doing double duty â€” that's what made
                               the original "Active" badge misleading next to a
                               "Check-in closed" header. Safe to call the open
                               case "Active" again now that the closed case has
@@ -1699,26 +1699,31 @@ export default function AdminPage() {
                           )}
                         </div>
                         <div style={{fontSize:13,color:'#A89D8E',fontWeight:300,marginBottom:6}}>
-                          {new Date(s.service_date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}{s.service_time&&` · ${s.service_time}`}
+                          {new Date(s.service_date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}{s.service_time&&` Â· ${s.service_time}`}
                         </div>
                         {(s.theme||s.scripture||s.message) ? (
                           <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.7}}>
-                            {s.theme&&<span style={{marginRight:16}}>📖 {s.theme}</span>}
-                            {s.scripture&&<span style={{marginRight:16}}>📜 {s.scripture}</span>}
-                            {s.message&&<div style={{marginTop:4,color:'#9E9280',fontSize:12}}>{s.message.length>80?s.message.slice(0,80)+'…':s.message}</div>}
+                            {s.theme&&<span style={{marginRight:16}}>ðŸ“– {s.theme}</span>}
+                            {s.scripture&&<span style={{marginRight:16}}>ðŸ“œ {s.scripture}</span>}
+                            {s.message&&<div style={{marginTop:4,color:'#9E9280',fontSize:12}}>{s.message.length>80?s.message.slice(0,80)+'â€¦':s.message}</div>}
                           </div>
                         ) : (
                           <div style={{fontSize:12,color:'#C8C0B4',fontStyle:'italic'}}>
-                            No service details added — <button onClick={()=>openEditService(s)} style={{background:'none',border:'none',cursor:'pointer',color:'#C97B1A',fontSize:12,fontStyle:'normal',padding:0}}>add theme & scripture</button> to enrich the welcome email
+                            No service details added â€” <button onClick={()=>openEditService(s)} style={{background:'none',border:'none',cursor:'pointer',color:'#C97B1A',fontSize:12,fontStyle:'normal',padding:0}}>add theme & scripture</button> to enrich the welcome email
                           </div>
                         )}
                       </div>
-                      <div style={{display:'flex',gap:8,flexShrink:0}}>
-                        <button onClick={()=>{ setInfoTab('summary'); setPresentFilter('all'); setAbsentGroupCategoryId(''); setInfoService(s); }} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>View Service Info</button>
-                        <button onClick={()=>openReportModal(s)} disabled={sendingReportId===s.id} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:sendingReportId===s.id?'wait':'pointer'}}>{sendingReportId===s.id?'Sending…':'Email Report'}</button>
-                        <button onClick={()=>openEditService(s)} style={{background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Edit</button>
-                        {!s.is_active&&<button onClick={()=>setActiveService(s.id)} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Set Active</button>}
-                        <button onClick={()=>askDelete('services', s.id, s.title||'this service')} style={{background:'#fff',color:'#B23B3B',border:'1px solid #E4DFD5',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>Delete</button>
+                      <div className="service-actions" style={{display:'flex',gap:8,flexShrink:0}}>
+                        <button onClick={()=>{ setInfoTab('summary'); setPresentFilter('all'); setAbsentGroupCategoryId(''); setInfoService(s); }} className="service-action-primary" style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>View service</button>
+                        <details className="service-more">
+                          <summary aria-label={`More actions for ${s.title||'service'}`}>•••</summary>
+                          <div className="service-more-menu">
+                            <button onClick={()=>openReportModal(s)} disabled={sendingReportId===s.id}>{sendingReportId===s.id?'Sending…':'Email report'}</button>
+                            <button onClick={()=>openEditService(s)}>Edit service</button>
+                            {!s.is_active&&<button onClick={()=>setActiveService(s.id)}>Set as active</button>}
+                            <button className="service-danger" onClick={()=>askDelete('services', s.id, s.title||'this service')}>Delete service</button>
+                          </div>
+                        </details>
                       </div>
                     </div>
                   </div>
@@ -1728,13 +1733,13 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ── PEOPLE ── */}
+        {/* â”€â”€ PEOPLE â”€â”€ */}
         {tab==='people' && (
           <div className="space-y-5 animate-fade-in">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400}}>People <span style={{fontSize:16,color:'#A89D8E',fontWeight:300}}>({activePeople.length})</span></h2>
               <div className="flex gap-2 w-full sm:w-auto">
-                <input className="input text-sm flex-1 sm:w-60" placeholder="Search by name, phone or email…" value={peopleSearch} onChange={e=>setPeopleSearch(e.target.value)} />
+                <input className="input text-sm flex-1 sm:w-60" placeholder="Search by name, phone or emailâ€¦" value={peopleSearch} onChange={e=>setPeopleSearch(e.target.value)} />
                 <a href="/api/export?type=people" className="btn btn-secondary text-sm shrink-0">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                   Export
@@ -1780,7 +1785,7 @@ export default function AdminPage() {
                   <>
                     <select className="select text-xs" style={{width:'auto',padding:'6px 26px 6px 10px',height:'auto'}}
                       value={bulkAssignGroupId} onChange={e=>setBulkAssignGroupId(e.target.value)}>
-                      <option value="">Assign to…</option>
+                      <option value="">Assign toâ€¦</option>
                       {categories.map(cat=>{
                         const catGroups = groups.filter(g=>g.category_id===cat.id);
                         return catGroups.length>0 ? (
@@ -1791,10 +1796,10 @@ export default function AdminPage() {
                       })}
                     </select>
                     <button onClick={bulkAssignToGroup} disabled={!bulkAssignGroupId || bulkAssigning} className="btn btn-primary text-xs py-1.5 px-3">
-                      {bulkAssigning ? 'Assigning…' : 'Assign'}
+                      {bulkAssigning ? 'Assigningâ€¦' : 'Assign'}
                     </button>
                   </>
-                ) : <span style={{fontSize:12,color:'#7A6E60'}}>No groups yet — add one under Settings.</span>}
+                ) : <span style={{fontSize:12,color:'#7A6E60'}}>No groups yet â€” add one under Settings.</span>}
                 <button onClick={()=>setSelectedPersonIds(new Set())} className="btn btn-ghost text-xs py-1.5 px-3">Clear</button>
               </div>
             )}
@@ -1802,7 +1807,7 @@ export default function AdminPage() {
             {(missingBirthdayCount>0||missingEmailCount>0) && (
               <div className="alert alert-warning">
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
-                <span><strong>{missingBirthdayCount}</strong> {missingBirthdayCount===1?'person is':'people are'} missing birthdays and <strong>{missingEmailCount}</strong> missing emails — click <em>Edit</em> to fill them in.</span>
+                <span><strong>{missingBirthdayCount}</strong> {missingBirthdayCount===1?'person is':'people are'} missing birthdays and <strong>{missingEmailCount}</strong> missing emails â€” click <em>Edit</em> to fill them in.</span>
               </div>
             )}
 
@@ -1849,11 +1854,11 @@ export default function AdminPage() {
                             </td>
                             <td className="table-cell hidden sm:table-cell text-navy-500 text-sm">{p.phone}</td>
                             <td className="table-cell"><span className={`badge text-[11px] capitalize ${p.role==='leader'?'badge-purple':p.role==='member'?'badge-primary':'badge-warning'}`}>{p.role}</span></td>
-                            <td className="table-cell hidden lg:table-cell text-navy-500 text-sm">{personGroupList.length>0 ? personGroupList.map(g=>g.name).join(', ') : <span className="text-navy-300">—</span>}</td>
-                            <td className="table-cell hidden lg:table-cell text-navy-500 text-sm whitespace-nowrap">{p.first_attendance_date ? new Date(p.first_attendance_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : <span className="text-navy-300">—</span>}</td>
-                            <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null||!p.last_checkin_at) return <span className="text-navy-300">Never</span>; return (<><span className={w>=3?'text-red-600 font-medium':'text-navy-600'}>{new Date(p.last_checkin_at).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>{w>0&&<span className="text-navy-300"> · {w}w</span>}</>); })()}</td>
+                            <td className="table-cell hidden lg:table-cell text-navy-500 text-sm">{personGroupList.length>0 ? personGroupList.map(g=>g.name).join(', ') : <span className="text-navy-300">â€”</span>}</td>
+                            <td className="table-cell hidden lg:table-cell text-navy-500 text-sm whitespace-nowrap">{p.first_attendance_date ? new Date(p.first_attendance_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : <span className="text-navy-300">â€”</span>}</td>
+                            <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null||!p.last_checkin_at) return <span className="text-navy-300">Never</span>; return (<><span className={w>=3?'text-red-600 font-medium':'text-navy-600'}>{new Date(p.last_checkin_at).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>{w>0&&<span className="text-navy-300"> Â· {w}w</span>}</>); })()}</td>
                             <td className="table-cell hidden md:table-cell text-navy-500 text-sm">{p.total_checkins}</td>
-                            <td className="table-cell">{missing.length>0?<span className="text-amber-600 text-xs font-medium">{missing.join(', ')}</span>:<span className="text-emerald-600 text-xs">✓ complete</span>}</td>
+                            <td className="table-cell">{missing.length>0?<span className="text-amber-600 text-xs font-medium">{missing.join(', ')}</span>:<span className="text-emerald-600 text-xs">âœ“ complete</span>}</td>
                             <td className="table-cell text-right">
                               <div className="flex gap-2 justify-end">
                                 <button onClick={()=>setEditingPerson(p)} className="btn btn-secondary text-xs py-1.5 px-3">Edit</button>
@@ -1871,14 +1876,14 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ── GIVING ── */}
+        {/* â”€â”€ GIVING â”€â”€ */}
         {tab==='giving' && (
           <div className="animate-fade-in" style={{maxWidth:1060,margin:'0 auto'}}>
 
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:20,marginBottom:24,flexWrap:'wrap'}}>
               <div>
                 <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400}}>Giving</h2>
-                <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginTop:2}}>Record tithes, offerings, seed and pledges — and send receipts.</p>
+                <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginTop:2}}>Record tithes, offerings, seed and pledges â€” and send receipts.</p>
               </div>
               <button onClick={()=>{resetGivingForm(); setGivingPersonQuery(''); setGivingFormOpen(true);}}
                 style={{background:'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'10px 20px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>
@@ -1892,7 +1897,7 @@ export default function AdminPage() {
                 {label:'Received this month', sub:currentMonthRangeLabel,                 value:`${givingCurrency} ${givingTotalThisMonth.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`},
                 {label:'Gifts this month',    sub:`${givingThisMonth.length} record${givingThisMonth.length===1?'':'s'}`, value:String(givingThisMonth.length)},
                 {label:'Awaiting receipt',    sub:'Not yet emailed',                       value:String(givingPendingCount)},
-                {label:'Received all-time',   sub:`Since you started · ${giving.length} gift${giving.length===1?'':'s'}`, value:`${givingCurrency} ${givingTotalAllTime.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}`},
+                {label:'Received all-time',   sub:`Since you started Â· ${giving.length} gift${giving.length===1?'':'s'}`, value:`${givingCurrency} ${givingTotalAllTime.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}`},
               ].map(({label,sub,value})=>(
                 <div key={label} className="panel card-hover" style={{padding:'22px 24px'}}>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',lineHeight:1.15,marginBottom:6}}>{value}</div>
@@ -1902,8 +1907,8 @@ export default function AdminPage() {
               ))}
             </div>
 
-            {/* This-month breakdown by giving type — so "13 gifts" becomes
-                "Tithe 3, Offering 5, Seed 4…" with amounts. */}
+            {/* This-month breakdown by giving type â€” so "13 gifts" becomes
+                "Tithe 3, Offering 5, Seed 4â€¦" with amounts. */}
             <div className="panel" style={{padding:'20px 24px',marginBottom:24}}>
               <div className="panel-label" style={{display:'block',marginBottom:2}}>This month by type</div>
               <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:16}}>{currentMonthRangeLabel}</div>
@@ -1937,7 +1942,7 @@ export default function AdminPage() {
 
                     <div style={{position:'relative'}}>
                       <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase',display:'block',marginBottom:6}}>Giver</label>
-                      <input className="input text-sm" placeholder="Search People, or type a name…"
+                      <input className="input text-sm" placeholder="Search People, or type a nameâ€¦"
                         value={givingPersonQuery}
                         onChange={e=>{ setGivingPersonQuery(e.target.value); setGivingForm(f=>({...f, person_id:'', giver_name:e.target.value})); }} />
                       {givingPersonMatches.length>0 && givingForm.person_id==='' && (
@@ -1947,13 +1952,13 @@ export default function AdminPage() {
                               className="w-full text-left transition-colors hover:bg-[var(--cream)]"
                               style={{padding:'10px 14px',fontSize:13,borderBottom:i===arr.length-1?'none':'1px solid #F0EBE3'}}>
                               <div style={{color:'#16243A',fontWeight:500}}>{p.full_name}</div>
-                              <div style={{color:'#A89D8E',fontSize:12}}>{p.phone}{p.email?` · ${p.email}`:''}</div>
+                              <div style={{color:'#A89D8E',fontSize:12}}>{p.phone}{p.email?` Â· ${p.email}`:''}</div>
                             </button>
                           ))}
                         </div>
                       )}
                       <div style={{fontSize:11,color:'#A89D8E',marginTop:5}}>
-                        {givingForm.person_id ? 'Linked to a person in your list.' : 'Not in your list? Just type their name — you can add their email below.'}
+                        {givingForm.person_id ? 'Linked to a person in your list.' : 'Not in your list? Just type their name â€” you can add their email below.'}
                       </div>
                     </div>
 
@@ -2006,7 +2011,7 @@ export default function AdminPage() {
                     <button onClick={()=>setGivingFormOpen(false)} className="btn btn-secondary text-sm">Cancel</button>
                     <button onClick={handleSaveGiving} disabled={savingGiving || !givingForm.giver_name.trim() || !givingForm.amount}
                       style={{background:savingGiving?'#B8A898':'#C97B1A',color:'#fff',border:'none',borderRadius:10,padding:'10px 22px',fontSize:13,fontWeight:500,cursor:savingGiving?'wait':'pointer'}}>
-                      {savingGiving ? 'Saving…' : 'Save record'}
+                      {savingGiving ? 'Savingâ€¦' : 'Save record'}
                     </button>
                   </div>
                 </div>
@@ -2017,7 +2022,7 @@ export default function AdminPage() {
             <div className="card p-0 overflow-hidden">
               {giving.length===0 ? (
                 <div style={{textAlign:'center',padding:'60px 20px'}}>
-                  <div style={{fontSize:40,marginBottom:14,opacity:0.3}}>🤲</div>
+                  <div style={{fontSize:40,marginBottom:14,opacity:0.3}}>ðŸ¤²</div>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',marginBottom:8}}>No gifts recorded yet</div>
                   <div style={{fontSize:14,color:'#A89D8E',fontWeight:300,marginBottom:24}}>Record a tithe, offering or seed and we&apos;ll email the receipt for you.</div>
                   <button onClick={()=>{resetGivingForm(); setGivingPersonQuery(''); setGivingFormOpen(true);}}
@@ -2054,7 +2059,7 @@ export default function AdminPage() {
                               {g.giver_email && (
                                 <button onClick={()=>handleSendReceipt(g.id)} disabled={sendingReceiptId===g.id}
                                   className="btn btn-secondary text-xs py-1.5 px-3">
-                                  {sendingReceiptId===g.id ? 'Sending…' : g.status==='sent' ? 'Resend' : 'Send Receipt'}
+                                  {sendingReceiptId===g.id ? 'Sendingâ€¦' : g.status==='sent' ? 'Resend' : 'Send Receipt'}
                                 </button>
                               )}
                               <button onClick={()=>askDelete('giving', g.id, `${g.giver_name}'s gift`)} className="btn btn-ghost text-xs py-1.5 px-3 text-red-500">Delete</button>
@@ -2070,7 +2075,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ── ANALYTICS ── */}
+        {/* â”€â”€ ANALYTICS â”€â”€ */}
         {tab==='analytics' && (
           <div className="animate-fade-in" style={{maxWidth:1060,margin:'0 auto'}}>
 
@@ -2095,16 +2100,16 @@ export default function AdminPage() {
               ))}
             </div>
 
-            {/* Attendance trend — returning vs first-time, stacked */}
+            {/* Attendance trend â€” returning vs first-time, stacked */}
             <div className="panel" style={{padding:'28px',marginBottom:20}}>
-              <div className="panel-label" style={{display:'block',marginBottom:4}}>Monthly attendance — last 6 months</div>
+              <div className="panel-label" style={{display:'block',marginBottom:4}}>Monthly attendance â€” last 6 months</div>
               <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,margin:'0 0 18px'}}>Each column is one month&apos;s check-ins, split by who was new.</p>
               <StackedTrend data={monthlyTrend.map(([month,v])=>({label:formatMonth(month),returning:v.returning,firstTime:v.firstTime}))} />
             </div>
 
-            {/* Giving by type — one series, so every bar takes the same hue */}
+            {/* Giving by type â€” one series, so every bar takes the same hue */}
             <div className="panel" style={{padding:'28px',marginBottom:20}}>
-              <div className="panel-label" style={{display:'block',marginBottom:4}}>Giving by type — this month</div>
+              <div className="panel-label" style={{display:'block',marginBottom:4}}>Giving by type â€” this month</div>
               <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,margin:'0 0 18px'}}>{currentMonthRangeLabel}</p>
               <RankedBars
                 empty="No giving recorded this month yet."
@@ -2116,7 +2121,7 @@ export default function AdminPage() {
               />
             </div>
 
-            {/* Year over year — quiet until there's a second year to compare
+            {/* Year over year â€” quiet until there's a second year to compare
                 against, then it's already there. */}
             <div className="panel" style={{padding:'28px',marginBottom:20}}>
               <div className="panel-label" style={{display:'block',marginBottom:4}}>Year over year</div>
@@ -2132,7 +2137,7 @@ export default function AdminPage() {
                         <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:'#16243A',lineHeight:1}}>{c.currDisplay}</div>
                         {c.delta !== null && (
                           <span style={{fontSize:13,fontWeight:600,color:c.delta>=0?'#2E7D4E':'#B23B3B'}}>
-                            {c.delta>=0?'▲':'▼'} {Math.abs(c.delta)}%
+                            {c.delta>=0?'â–²':'â–¼'} {Math.abs(c.delta)}%
                           </span>
                         )}
                       </div>
@@ -2151,10 +2156,10 @@ export default function AdminPage() {
               {/* Gender */}
               <div className="panel" style={{padding:'24px 28px'}}>
                 <div className="panel-label" style={{display:'block',marginBottom:16}}>Gender</div>
-                {/* Part-to-whole, so one split bar rather than a pie — two slices
+                {/* Part-to-whole, so one split bar rather than a pie â€” two slices
                     is the case a pie handles worst, and this survives a phone. */}
                 <SplitBar
-                  empty="No data yet — add genders in People tab"
+                  empty="No data yet â€” add genders in People tab"
                   segments={Object.entries(genderCounts).map(([label,count],i)=>({
                     label,
                     value:count,
@@ -2166,11 +2171,11 @@ export default function AdminPage() {
               {/* Age groups */}
               <div className="panel" style={{padding:'24px 28px'}}>
                 <div className="panel-label" style={{display:'block',marginBottom:16}}>Age groups</div>
-                {/* Age bands have a natural order, so they take the ordinal ramp —
-                    the reader sees young→old in the colour, not just the length.
+                {/* Age bands have a natural order, so they take the ordinal ramp â€”
+                    the reader sees youngâ†’old in the colour, not just the length.
                     Bands are listed in age order, never sorted by size. */}
                 <OrdinalBars
-                  empty="No data yet — add birthdays in People tab"
+                  empty="No data yet â€” add birthdays in People tab"
                   rows={AGE_BANDS.filter(b=>ageGroups[b]).map(b=>({label:b,value:ageGroups[b]}))}
                 />
               </div>
@@ -2210,7 +2215,7 @@ export default function AdminPage() {
                     Shading them by size would spend the colour channel repeating
                     what the bar length already says. */}
                 <RankedBars
-                  empty="No data yet — add occupations in People tab"
+                  empty="No data yet â€” add occupations in People tab"
                   rows={topOccupations.map(([label,count])=>({label,value:count}))}
                 />
               </div>
@@ -2219,7 +2224,7 @@ export default function AdminPage() {
               <div className="panel" style={{padding:'24px 28px'}}>
                 <div className="panel-label" style={{display:'block',marginBottom:16}}>Visitor retention</div>
                 {retentionRate === null
-                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Not enough data yet — needs first-timers last month to measure.</p>
+                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Not enough data yet â€” needs first-timers last month to measure.</p>
                   : <>
                       <div style={{fontFamily:"'Playfair Display',serif",fontSize:40,color:retentionRate>=50?'#2E7D4E':'#C97B1A',lineHeight:1,marginBottom:8}}>{retentionRate}%</div>
                       <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.5}}>
@@ -2256,24 +2261,24 @@ export default function AdminPage() {
           </div>
         )}
 
-                {/* ── EMAILS ── */}
+                {/* â”€â”€ EMAILS â”€â”€ */}
         {tab==='emails' && (
           <div className="space-y-8 animate-fade-in">
 
             {/* Header */}
             <div>
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',fontWeight:400,marginBottom:4}}>Automatic Emails</h2>
-              <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Write these once — they send themselves, personalised with each person&apos;s name.</p>
+              <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Write these once â€” they send themselves, personalised with each person&apos;s name.</p>
             </div>
 
-            {/* Three email templates — accordion, one open at a time */}
+            {/* Three email templates â€” accordion, one open at a time */}
             <div>
               <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:2}}>Customize Emails</div>
               <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginBottom:14}}>Which email would you like to edit?</div>
               <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,overflow:'hidden'}}>
-                <WarmEmailCard title="Welcome Email" icon="👋" description="Sent after someone's very first visit" churchName={session.orgName} activeService={activeService} showServiceInfo={true} value={draftTemplates.welcome} onChange={next=>setDraftTemplates(p=>({...p,welcome:next}))} onSave={()=>saveTemplate('welcome',draftTemplates.welcome.subject,draftTemplates.welcome.body)} saving={savingTemplate==='welcome'} expanded={expandedTemplate==='welcome'} onToggle={()=>setExpandedTemplate(t=>t==='welcome'?null:'welcome')} isFirst />
-                <WarmEmailCard title="Birthday Email" icon="🎂" description="Sent automatically on someone's birthday" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.birthday} onChange={next=>setDraftTemplates(p=>({...p,birthday:next}))} onSave={()=>saveTemplate('birthday',draftTemplates.birthday.subject,draftTemplates.birthday.body)} saving={savingTemplate==='birthday'} expanded={expandedTemplate==='birthday'} onToggle={()=>setExpandedTemplate(t=>t==='birthday'?null:'birthday')} />
-                <WarmEmailCard title="We Miss You" icon="💛" description="Sent when a member misses 2 or more services" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.missed} onChange={next=>setDraftTemplates(p=>({...p,missed:next}))} onSave={()=>saveTemplate('missed',draftTemplates.missed.subject,draftTemplates.missed.body)} saving={savingTemplate==='missed'} expanded={expandedTemplate==='missed'} onToggle={()=>setExpandedTemplate(t=>t==='missed'?null:'missed')} isLast />
+                <WarmEmailCard title="Welcome Email" icon="ðŸ‘‹" description="Sent after someone's very first visit" churchName={session.orgName} activeService={activeService} showServiceInfo={true} value={draftTemplates.welcome} onChange={next=>setDraftTemplates(p=>({...p,welcome:next}))} onSave={()=>saveTemplate('welcome',draftTemplates.welcome.subject,draftTemplates.welcome.body)} saving={savingTemplate==='welcome'} expanded={expandedTemplate==='welcome'} onToggle={()=>setExpandedTemplate(t=>t==='welcome'?null:'welcome')} isFirst />
+                <WarmEmailCard title="Birthday Email" icon="ðŸŽ‚" description="Sent automatically on someone's birthday" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.birthday} onChange={next=>setDraftTemplates(p=>({...p,birthday:next}))} onSave={()=>saveTemplate('birthday',draftTemplates.birthday.subject,draftTemplates.birthday.body)} saving={savingTemplate==='birthday'} expanded={expandedTemplate==='birthday'} onToggle={()=>setExpandedTemplate(t=>t==='birthday'?null:'birthday')} />
+                <WarmEmailCard title="We Miss You" icon="ðŸ’›" description="Sent when a member misses 2 or more services" churchName={session.orgName} showServiceInfo={false} value={draftTemplates.missed} onChange={next=>setDraftTemplates(p=>({...p,missed:next}))} onSave={()=>saveTemplate('missed',draftTemplates.missed.subject,draftTemplates.missed.body)} saving={savingTemplate==='missed'} expanded={expandedTemplate==='missed'} onToggle={()=>setExpandedTemplate(t=>t==='missed'?null:'missed')} isLast />
               </div>
             </div>
 
@@ -2282,7 +2287,7 @@ export default function AdminPage() {
               <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:16}}>One-off message</div>
               <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'28px 32px'}}>
                 <div style={{display:'flex',alignItems:'flex-start',gap:14,marginBottom:24}}>
-                  <div style={{width:44,height:44,borderRadius:12,background:'#EEF2F8',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:20}}>📢</div>
+                  <div style={{width:44,height:44,borderRadius:12,background:'#EEF2F8',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:20}}>ðŸ“¢</div>
                   <div>
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',marginBottom:3}}>Send a message to your congregation</div>
                     <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Announcements, reminders, special events</div>
@@ -2307,25 +2312,25 @@ export default function AdminPage() {
                 </div>
                 <div style={{marginBottom:20}}>
                   <label style={{fontSize:12,fontWeight:500,color:'#7A6E60',letterSpacing:'0.06em',textTransform:'uppercase' as const,display:'block' as const,marginBottom:8}}>Your message</label>
-                  <textarea value={customEmail.message} onChange={e=>setCustomEmail(p=>({...p,message:e.target.value}))} className="textarea min-h-[130px]" placeholder="Write your message here…" />
+                  <textarea value={customEmail.message} onChange={e=>setCustomEmail(p=>({...p,message:e.target.value}))} className="textarea min-h-[130px]" placeholder="Write your message hereâ€¦" />
                   <div style={{fontSize:12,color:'#A89D8E',marginTop:6}}>Each person will receive this with their own name at the top.</div>
                 </div>
                 <button onClick={sendCustomEmail}
                   disabled={sendingCustom||!customEmail.subject||!customEmail.message}
                   style={{width:'100%',background:sendingCustom||!customEmail.subject||!customEmail.message?'#B8A898':'#C97B1A',color:'#fff',border:'none',borderRadius:10,padding:'14px',fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:500,cursor:sendingCustom||!customEmail.subject||!customEmail.message?'not-allowed':'pointer',transition:'all .2s'}}>
-                  {sendingCustom ? 'Sending…' : 'Send Broadcast'}
+                  {sendingCustom ? 'Sendingâ€¦' : 'Send Broadcast'}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── SETTINGS ── */}
+        {/* â”€â”€ SETTINGS â”€â”€ */}
         {tab==='settings' && (
           <div className="space-y-5 animate-fade-in">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div><h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400,marginBottom:4}}>Settings</h2><p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Set these once and you&apos;re done.</p></div>
-              <button onClick={saveBranding} disabled={savingBranding} style={{background:"#C97B1A",color:"#fff",border:"none",borderRadius:10,padding:"10px 22px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",flexShrink:0}}>{savingBranding?'Saving…':'Save Settings'}</button>
+              <button onClick={saveBranding} disabled={savingBranding} style={{background:"#C97B1A",color:"#fff",border:"none",borderRadius:10,padding:"10px 22px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",flexShrink:0}}>{savingBranding?'Savingâ€¦':'Save Settings'}</button>
             </div>
             <div className="grid lg:grid-cols-2 gap-5">
               <div className="card space-y-4">
@@ -2337,7 +2342,7 @@ export default function AdminPage() {
                   <label className="block text-sm font-medium text-navy-700 mb-1.5">Time Zone</label>
                   <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Decides what counts as &ldquo;today&rdquo; and &ldquo;this month&rdquo; in your reports, and which day birthday emails go out on.</p>
                   <select className="select" value={branding.timezone} onChange={e=>setBranding(b=>({...b,timezone:e.target.value}))}>
-                    <option value="">Not set — using UTC</option>
+                    <option value="">Not set â€” using UTC</option>
                     {TIMEZONES.map(tz=>(<option key={tz.value} value={tz.value}>{tz.label}</option>))}
                   </select>
                 </div>
@@ -2346,12 +2351,12 @@ export default function AdminPage() {
                   <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Shown on your kiosk screen.</p>
                   <div className="flex items-start gap-4">
                     {branding.logo_url?<img src={branding.logo_url} alt="Logo" className="w-16 h-16 rounded-xl border border-navy-200 object-cover bg-white flex-shrink-0" />:<div style={{width:64,height:64,borderRadius:12,border:"2px dashed #E4DFD5",background:"#FAF9F6",display:"flex",alignItems:"center",justifyContent:"center",color:"#A89D8E",fontSize:12,flexShrink:0}}>Logo</div>}
-                    <div className="flex-1"><input type="file" accept="image/*" className="block w-full text-sm text-navy-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-navy-100 file:text-navy-700 file:text-sm hover:file:bg-navy-200 cursor-pointer" onChange={e=>uploadBrandingImage('logo',e.target.files?.[0]||null)} />{uploading==='logo'&&<p className="text-xs text-navy-400 mt-1.5">Uploading…</p>}</div>
+                    <div className="flex-1"><input type="file" accept="image/*" className="block w-full text-sm text-navy-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-navy-100 file:text-navy-700 file:text-sm hover:file:bg-navy-200 cursor-pointer" onChange={e=>uploadBrandingImage('logo',e.target.files?.[0]||null)} />{uploading==='logo'&&<p className="text-xs text-navy-400 mt-1.5">Uploadingâ€¦</p>}</div>
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-navy-700 mb-1.5">Your Kiosk Color</label>
-                  <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Colors the screen your visitors check in on — not this dashboard.</p>
+                  <p style={{fontSize:11,color:'#A89D8E',marginBottom:8,fontWeight:300}}>Colors the screen your visitors check in on â€” not this dashboard.</p>
                   <div className="flex gap-2 items-center">
                     <input type="color" className="h-10 w-12 rounded-lg border border-navy-200 cursor-pointer" value={branding.brand_color||'#102a43'} onChange={e=>setBranding(b=>({...b,brand_color:e.target.value}))} />
                     <input className="input flex-1" value={branding.brand_color} onChange={e=>setBranding(b=>({...b,brand_color:e.target.value}))} />
@@ -2370,8 +2375,8 @@ export default function AdminPage() {
                     <input type="file" accept="image/*" className="block flex-1 text-sm text-navy-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-navy-100 file:text-navy-700 file:text-sm hover:file:bg-navy-200 cursor-pointer" onChange={e=>uploadBrandingImage('cover',e.target.files?.[0]||null)} />
                     {branding.cover_image_url && <button type="button" onClick={()=>setBranding(b=>({...b,cover_image_url:''}))} style={{fontSize:12,color:'#B23B3B',background:'none',border:'none',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>Remove</button>}
                   </div>
-                  {branding.cover_image_url && <p style={{fontSize:11,color:'#A89D8E',marginTop:5,fontWeight:300}}>Remove the image to use your kiosk color instead — save settings to apply.</p>}
-                  {uploading==='cover'&&<p className="text-xs text-navy-400 mt-1.5">Uploading…</p>}
+                  {branding.cover_image_url && <p style={{fontSize:11,color:'#A89D8E',marginTop:5,fontWeight:300}}>Remove the image to use your kiosk color instead â€” save settings to apply.</p>}
+                  {uploading==='cover'&&<p className="text-xs text-navy-400 mt-1.5">Uploadingâ€¦</p>}
                 </div>
                 <div>
                   <h4 className="font-medium text-navy-800 text-sm mb-3 mt-1">Contact Details</h4>
@@ -2384,14 +2389,14 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Kiosk access code — the church picks its own, because this gets
+            {/* Kiosk access code â€” the church picks its own, because this gets
                 told to an usher out loud and has to be memorable. */}
             <div className="card">
               <div className="panel-label mb-1" style={{display:'block'}}>Kiosk access code</div>
               <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginBottom:16,maxWidth:540,lineHeight:1.7}}>
                 Choose something your ushers will remember. They tap the padlock in the
                 bottom-right corner of the kiosk screen and type this to unlock the tablet.
-                Change it any time — for example when someone leaves the team.
+                Change it any time â€” for example when someone leaves the team.
               </p>
               <div className="flex flex-wrap items-end gap-3">
                 <div>
@@ -2409,16 +2414,16 @@ export default function AdminPage() {
                   />
                 </div>
                 <button onClick={saveKioskCode} disabled={savingKioskCode || kioskCode === (settings?.kiosk_access_code || '')} className="btn btn-secondary text-sm">
-                  {savingKioskCode ? 'Saving…' : 'Save code'}
+                  {savingKioskCode ? 'Savingâ€¦' : 'Save code'}
                 </button>
               </div>
               <p style={{fontSize:11,color:'#A89D8E',marginTop:10,fontWeight:300}}>
-                4–12 letters or numbers. Not case sensitive. Leave it empty if you don&apos;t want a code at all.
+                4â€“12 letters or numbers. Not case sensitive. Leave it empty if you don&apos;t want a code at all.
               </p>
             </div>
 
             {/* Groups, organised into categories the church defines for
-                itself — Cell Group, Department, whatever it actually uses.
+                itself â€” Cell Group, Department, whatever it actually uses.
                 Not every church has the same kinds of groups, so this isn't
                 one hardcoded concept: a category is a bucket a church creates,
                 and each one holds its own groups. A person can hold one
@@ -2428,9 +2433,9 @@ export default function AdminPage() {
             <div className="card">
               <div className="panel-label mb-1" style={{display:'block'}}>Groups</div>
               <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginBottom:16,maxWidth:540,lineHeight:1.7}}>
-                Create a category for each kind of grouping your church actually uses — Cell Group, Department,
+                Create a category for each kind of grouping your church actually uses â€” Cell Group, Department,
                 whatever fits. Add groups under each one, then assign people from the People tab. Someone can
-                belong to one group per category at the same time — a cell group and a department, say.
+                belong to one group per category at the same time â€” a cell group and a department, say.
               </p>
 
               <div className="mb-5 flex flex-wrap items-end gap-3">
@@ -2440,15 +2445,15 @@ export default function AdminPage() {
                     onKeyDown={e=>{ if(e.key==='Enter') saveCategory(); }} placeholder="e.g. Cell Group, Department" maxLength={40} />
                 </div>
                 <button onClick={saveCategory} disabled={savingCategory || !newCategoryName.trim()} className="btn btn-secondary text-sm">
-                  {savingCategory ? 'Adding…' : 'Add category'}
+                  {savingCategory ? 'Addingâ€¦' : 'Add category'}
                 </button>
                 <button onClick={seedDefaultDepartments} disabled={seedingDepartments} className="btn btn-secondary text-sm">
-                  {seedingDepartments ? 'Adding…' : '+ Add common departments'}
+                  {seedingDepartments ? 'Addingâ€¦' : '+ Add common departments'}
                 </button>
               </div>
 
               {categories.length === 0 ? (
-                <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No categories yet — add one above to start creating groups.</p>
+                <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No categories yet â€” add one above to start creating groups.</p>
               ) : (
                 <div style={{display:'flex',flexDirection:'column',gap:18,marginBottom:24}}>
                   {categories.map(cat=>{
@@ -2470,7 +2475,7 @@ export default function AdminPage() {
                               <div style={{fontSize:14,color:'#16243A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.name}</div>
                               <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{g.leader ? `Led by ${g.leader.full_name}` : 'No leader assigned'}</div>
                             </div>
-                            <div style={{display:'flex',gap:8,flexShrink:0}}>
+                            <div className="service-actions" style={{display:'flex',gap:8,flexShrink:0}}>
                               <button onClick={()=>setGroupForm({editingId:g.id, categoryId:cat.id, name:g.name, leader_person_id:g.leader_person_id||''})}
                                 className="btn btn-secondary text-xs py-1.5 px-3">Edit</button>
                               <button onClick={()=>{ setDeleteTarget({kind:'groups', id:g.id, label:g.name}); setDeleteCode(''); }}
@@ -2498,7 +2503,7 @@ export default function AdminPage() {
                                 </select>
                               </div>
                               <button onClick={saveGroup} disabled={savingGroup || !groupForm.name.trim()} className="btn btn-primary text-sm">
-                                {savingGroup ? 'Saving…' : groupForm.editingId ? 'Save changes' : 'Add'}
+                                {savingGroup ? 'Savingâ€¦' : groupForm.editingId ? 'Save changes' : 'Add'}
                               </button>
                               <button onClick={()=>setGroupForm({editingId:null,categoryId:'',name:'',leader_person_id:''})} className="btn btn-secondary text-sm">Cancel</button>
                             </div>
@@ -2530,12 +2535,12 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Second save action — the header button scrolls out of reach on
+            {/* Second save action â€” the header button scrolls out of reach on
                 this page, which is long on phones. */}
             <div className="flex justify-end pt-1">
               <button onClick={saveBranding} disabled={savingBranding}
                 style={{background:savingBranding?'#B8A898':'#C97B1A',color:'#fff',border:'none',borderRadius:10,padding:'12px 28px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:savingBranding?'wait':'pointer'}}>
-                {savingBranding?'Saving…':'Save Settings'}
+                {savingBranding?'Savingâ€¦':'Save Settings'}
               </button>
             </div>
           </div>
@@ -2545,7 +2550,7 @@ export default function AdminPage() {
   );
 }
 
-/* ─── Sub-components ─────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function WarmEmailCard({title,icon,description,churchName,activeService,showServiceInfo,value,onChange,onSave,saving,expanded,onToggle,isFirst,isLast}:{
   title:string;icon:string;description:string;churchName:string;
@@ -2595,13 +2600,13 @@ function WarmEmailCard({title,icon,description,churchName,activeService,showServ
     .replace(/\{SERVICE_INFO\}/g, buildServicePreview())
     .trim();
 
-  // What shows in the subject input — replace {ORG_NAME} with real name for clarity
+  // What shows in the subject input â€” replace {ORG_NAME} with real name for clarity
   const displaySubject = value.subject.replace(/\{ORG_NAME\}/g, churchName);
 
-  // What shows in the body textarea — stripped of auto-managed parts
+  // What shows in the body textarea â€” stripped of auto-managed parts
   const displayBody = cleanBody(value.body);
 
-  // What shows in preview — full clean email
+  // What shows in preview â€” full clean email
   const previewBody = previewText(cleanBody(value.body));
   const previewSubject = previewText(value.subject);
 
@@ -2610,7 +2615,7 @@ function WarmEmailCard({title,icon,description,churchName,activeService,showServ
   return (
     <div style={{borderBottom: isLast ? 'none' : '1px solid #E4DFD5', background: expanded ? '#FDFCFA' : '#fff'}}>
 
-      {/* Collapsed / clickable header row — always visible */}
+      {/* Collapsed / clickable header row â€” always visible */}
       <button type="button" onClick={onToggle}
         style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'20px 24px',background:'transparent',border:'none',cursor:'pointer',textAlign:'left'}}>
         <div style={{width:40,height:40,borderRadius:11,background:expanded?'#16243A':'#F8F4EE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,transition:'background .2s'}}>{icon}</div>
@@ -2627,7 +2632,7 @@ function WarmEmailCard({title,icon,description,churchName,activeService,showServ
       {expanded && (
         <div style={{padding:'0 24px 28px'}}>
 
-          {/* Subject — shows real church name, saves with {ORG_NAME} */}
+          {/* Subject â€” shows real church name, saves with {ORG_NAME} */}
           <div style={{marginBottom:16}}>
             <label style={labelStyle}>Subject line</label>
             <input
@@ -2638,7 +2643,7 @@ function WarmEmailCard({title,icon,description,churchName,activeService,showServ
             />
           </div>
 
-          {/* Body — shows clean message, saves full template */}
+          {/* Body â€” shows clean message, saves full template */}
           <div style={{marginBottom:20}}>
             <label style={labelStyle}>Your message</label>
             <textarea
@@ -2646,14 +2651,14 @@ function WarmEmailCard({title,icon,description,churchName,activeService,showServ
               onChange={e => onChange({...value, body: fullBody(e.target.value)})}
               className="textarea"
               style={{minHeight:110}}
-              placeholder="Write your message here in plain English…"
+              placeholder="Write your message here in plain Englishâ€¦"
             />
             <div style={{fontSize:12,color:'#A89D8E',marginTop:5}}>
               {showServiceInfo ? 'Names and service info are added automatically.' : 'Names are added automatically.'}
             </div>
           </div>
 
-          {/* Clean preview — collapsible-lite, de-emphasized */}
+          {/* Clean preview â€” collapsible-lite, de-emphasized */}
           <details style={{marginBottom:20}}>
             <summary style={{fontSize:12,color:'#7A6E60',cursor:'pointer',listStyle:'none',display:'flex',alignItems:'center',gap:6,userSelect:'none'}}>
               <svg style={{width:13,height:13}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
@@ -2679,7 +2684,7 @@ function WarmEmailCard({title,icon,description,churchName,activeService,showServ
 
           <button onClick={onSave} disabled={saving}
             style={{width:'100%',background:saving?'#B8A898':'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'13px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:saving?'wait':'pointer',transition:'all .2s'}}>
-            {saving ? 'Saving…' : `Save ${title}`}
+            {saving ? 'Savingâ€¦' : `Save ${title}`}
           </button>
         </div>
       )}
