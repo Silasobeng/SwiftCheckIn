@@ -1117,7 +1117,7 @@ export default function AdminPage() {
 
         {/* ── DASHBOARD ── */}
         {tab==='dashboard' && (
-          <div className="animate-fade-in" style={{maxWidth:1060,margin:'0 auto'}}>
+          <div className="admin-page animate-fade-in">
 
             {/* Greeting + Open Kiosk */}
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:20,marginBottom:28,flexWrap:'wrap'}}>
@@ -1166,14 +1166,14 @@ export default function AdminPage() {
             )}
 
             {/* Stat cards */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,marginBottom:24}}>
+            <div className="admin-stat-grid">
               {[
                 {label:"Checked in today",    value:todayCheckins.length},
                 {label:"Members",             value:members.length},
                 {label:"Visitors",            value:visitors.length},
                 {label:"Total services",      value:services.length},
               ].map(({label,value})=>(
-                <div key={label} className="panel card-hover" style={{padding:'22px 24px'}}>
+                <div key={label} className="panel admin-stat" style={{padding:'22px 24px'}}>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:34,color:'#16243A',lineHeight:1,marginBottom:6}}>{value}</div>
                   <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{label}</div>
                 </div>
@@ -1235,7 +1235,7 @@ export default function AdminPage() {
 
                 {/* ── SERVICES ── */}
         {tab==='services' && (
-          <div className="animate-fade-in" style={{maxWidth:1060,margin:'0 auto'}}>
+          <div className="admin-page animate-fade-in">
 
             {/* Report recipient modal — confirm/redirect where the CSV goes */}
             {reportService && (
@@ -1732,7 +1732,7 @@ export default function AdminPage() {
 
         {/* ── PEOPLE ── */}
         {tab==='people' && (
-          <div className="space-y-5 animate-fade-in">
+          <div className="admin-page space-y-5 animate-fade-in">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400}}>People <span style={{fontSize:16,color:'#A89D8E',fontWeight:300}}>({activePeople.length})</span></h2>
               <div className="flex gap-2 w-full sm:w-auto">
@@ -1875,7 +1875,7 @@ export default function AdminPage() {
 
         {/* ── GIVING ── */}
         {tab==='giving' && (
-          <div className="animate-fade-in" style={{maxWidth:1060,margin:'0 auto'}}>
+          <div className="admin-page animate-fade-in">
 
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:20,marginBottom:24,flexWrap:'wrap'}}>
               <div>
@@ -1888,14 +1888,14 @@ export default function AdminPage() {
             </div>
 
             {/* Stat cards */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,marginBottom:24}}>
+            <div className="admin-stat-grid">
               {[
                 {label:'Received this month', sub:currentMonthRangeLabel,                 value:`${givingCurrency} ${givingTotalThisMonth.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`},
                 {label:'Gifts this month',    sub:`${givingThisMonth.length} record${givingThisMonth.length===1?'':'s'}`, value:String(givingThisMonth.length)},
                 {label:'Awaiting receipt',    sub:'Not yet emailed',                       value:String(givingPendingCount)},
                 {label:'Received all-time',   sub:`Since you started · ${giving.length} gift${giving.length===1?'':'s'}`, value:`${givingCurrency} ${givingTotalAllTime.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}`},
               ].map(({label,sub,value})=>(
-                <div key={label} className="panel card-hover" style={{padding:'22px 24px'}}>
+                <div key={label} className="panel admin-stat" style={{padding:'22px 24px'}}>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',lineHeight:1.15,marginBottom:6}}>{value}</div>
                   <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{label}</div>
                   {sub && <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginTop:2}}>{sub}</div>}
@@ -2070,7 +2070,7 @@ export default function AdminPage() {
 
         {/* ── ANALYTICS ── */}
         {tab==='analytics' && (
-          <div className="animate-fade-in" style={{maxWidth:1060,margin:'0 auto'}}>
+          <div className="admin-page animate-fade-in">
 
             <div style={{marginBottom:28}}>
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',fontWeight:400,marginBottom:4}}>Attendance Trends</h2>
@@ -2078,14 +2078,14 @@ export default function AdminPage() {
             </div>
 
             {/* Top stat cards */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,marginBottom:24}}>
+            <div className="admin-stat-grid">
               {[
                 {label:'Check-ins this month', sub:currentMonthRangeLabel,        value:currentMonthCheckins.length},
                 {label:'Check-ins last month', sub:lastMonthRangeLabel,           value:lastMonthCheckins.length},
                 {label:'New this month',       sub:'First-time visitors',         value:firstTimersThisMonth},
                 {label:'Total congregation',   sub:'Active members & visitors',   value:activePeople.length},
               ].map(({label,sub,value})=>(
-                <div key={label} className="panel card-hover" style={{padding:'22px 24px'}}>
+                <div key={label} className="panel admin-stat" style={{padding:'22px 24px'}}>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:34,color:'#16243A',lineHeight:1,marginBottom:6}}>{value}</div>
                   <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{label}</div>
                   <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginTop:2}}>{sub}</div>
@@ -2256,7 +2256,7 @@ export default function AdminPage() {
 
                 {/* ── EMAILS ── */}
         {tab==='emails' && (
-          <div className="space-y-8 animate-fade-in">
+          <div className="admin-page space-y-8 animate-fade-in">
 
             {/* Header */}
             <div>
@@ -2323,7 +2323,7 @@ export default function AdminPage() {
 
         {/* ── SETTINGS ── */}
         {tab==='settings' && (
-          <div className="space-y-5 animate-fade-in">
+          <div className="admin-page space-y-5 animate-fade-in">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div><h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400,marginBottom:4}}>Settings</h2><p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Set these once and you&apos;re done.</p></div>
               <button onClick={saveBranding} disabled={savingBranding} className="btn btn-gold text-sm shrink-0">{savingBranding?'Saving…':'Save Settings'}</button>
