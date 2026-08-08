@@ -720,7 +720,7 @@ export default function AdminPage() {
     const q=peopleSearch.trim().toLowerCase();
     return activePeople.filter(p=>
       (peopleRoleFilter==='all' || p.role===peopleRoleFilter) &&
-      (peopleGroupFilter==='all' || (groupsByPersonId[p.id]||[]).some(g=>g.id===peopleGroupFilter)) &&
+      (peopleGroupFilter==='all' || (groupsByPersonId[p.id]||[]).some(g=>g.category_id===peopleGroupFilter)) &&
       (!q || p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)||p.email?.toLowerCase().includes(q))
     );
   }, [activePeople,peopleSearch,peopleRoleFilter,peopleGroupFilter,groupsByPersonId]);
@@ -1493,28 +1493,28 @@ export default function AdminPage() {
                           // category (Cell Group AND Department) picks which
                           // one to follow up by, since a person's absence is
                           // only one leader's to work at a time.
-                          const activeCatId = absentGroupCategoryId || categories[0]?.id || '';
-                          const catGroups = groups.filter(g=>g.category_id===activeCatId);
+                          const activeCatId = absentGroupCategoryId;
+                          const catGroups = activeCatId ? groups.filter(g=>g.category_id===activeCatId) : [];
                           const byGroup = new Map<string, typeof b.absentMembers>();
                           for (const p of b.absentMembers) {
-                            const inCat = (groupsByPersonId[p.id]||[]).find(g=>g.category_id===activeCatId);
-                            const key = inCat?.id || '__none';
+                            const inCat = activeCatId ? (groupsByPersonId[p.id]||[]).find(g=>g.category_id===activeCatId) : undefined;
+                            const key = activeCatId ? (inCat?.id || '__none') : '__none';
                             if (!byGroup.has(key)) byGroup.set(key, []);
                             byGroup.get(key)!.push(p);
                           }
                           const sections = [
                             ...catGroups.filter(g=>byGroup.has(g.id)).map(g=>({ id:g.id, label:g.name, sub:g.leader?`Led by ${g.leader.full_name}`:null, people:byGroup.get(g.id)! })),
-                            ...(byGroup.has('__none') ? [{ id:'__none', label:'Not assigned', sub:null, people:byGroup.get('__none')! }] : []),
+                            ...(byGroup.has('__none') ? [{ id:'__none', label:activeCatId ? 'Not assigned' : 'All absent members', sub:null, people:byGroup.get('__none')! }] : []),
                           ];
-                          const showGrouping = categories.length>0 && catGroups.length>0;
+                          const showGrouping = Boolean(activeCatId && catGroups.length>0);
                           return (
                             <>
                               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginBottom:18}}>
                                 <p style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>Registered members who did not attend, longest away first{showGrouping?', grouped below':''}.</p>
-                                {categories.length>1 && (
+                                {categories.length>0 && (
                                   <select className="select text-xs" style={{width:'auto',padding:'6px 26px 6px 10px',height:'auto'}}
-                                    value={activeCatId} onChange={e=>setAbsentGroupCategoryId(e.target.value)}>
-                                    {categories.map(c=>(<option key={c.id} value={c.id}>Group by {c.name}</option>))}
+                                    value={absentGroupCategoryId} onChange={e=>setAbsentGroupCategoryId(e.target.value)}>
+                                    <option value="">All absent members</option>{categories.map(c=>(<option key={c.id} value={c.id}>Group by {c.name}</option>))}
                                   </select>
                                 )}
                               </div>
@@ -1762,15 +1762,8 @@ export default function AdminPage() {
               {groups.length>0 && (
                 <select className="select text-xs" style={{width:'auto',minWidth:150,padding:'6px 28px 6px 12px',height:'auto'}}
                   value={peopleGroupFilter} onChange={e=>setPeopleGroupFilter(e.target.value)}>
-                  <option value="all">Every group</option>
-                  {categories.map(cat=>{
-                    const catGroups = groups.filter(g=>g.category_id===cat.id);
-                    return catGroups.length>0 ? (
-                      <optgroup key={cat.id} label={cat.name}>
-                        {catGroups.map(g=>(<option key={g.id} value={g.id}>{g.name}</option>))}
-                      </optgroup>
-                    ) : null;
-                  })}
+                  <option value="all">All categories</option>
+                  {categories.filter(cat=>groups.some(g=>g.category_id===cat.id)).map(cat=>(<option key={cat.id} value={cat.id}>{cat.name}</option>))}
                 </select>
               )}
             </div>
@@ -1810,7 +1803,7 @@ export default function AdminPage() {
 
             <div className="card p-0 overflow-hidden">
               {filteredPeople.length===0 ? (
-                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleGroupFilter!=='all'?'Nobody in this group yet.':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. They appear after check-ins.'}</p></div>
+                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleGroupFilter!=='all'?'Nobody in this category yet.':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. They appear after check-ins.'}</p></div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
