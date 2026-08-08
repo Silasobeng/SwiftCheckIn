@@ -1,4 +1,4 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -22,30 +22,30 @@
   --muted:      #7A6E60;
   --light:      #A89D8E;
 
-  /* Vertical rhythm for marketing sections â€” tightens on small screens */
+  /* Vertical rhythm for marketing sections — tightens on small screens */
   --section-y:  clamp(64px, 9vw, 104px);
   --ring:       0 0 0 3px rgba(201, 123, 26, 0.25);
 
   /* ---------------------------------------------------------------
-     CHART PALETTE â€” validated, not hand-picked.
+     CHART PALETTE — validated, not hand-picked.
      Checked with the dataviz validator against the white panel
      surface (#FFFFFF), all-pairs, light mode.
 
      Brand navy (--navy #16243A) CANNOT be a series colour: OKLCH
-     L 0.26 sits below the 0.43â€“0.77 legibility band and chroma
+     L 0.26 sits below the 0.43–0.77 legibility band and chroma
      0.046 is under the 0.10 floor, so it reads as grey rather than
      as an identity. --series-1 is the nearest passing step in the
      same hue family. Navy stays what it always was: ink.
 
-     If you change any value here, re-run the validator â€” these
+     If you change any value here, re-run the validator — these
      clear CVD separation, the normal-vision floor and 3:1 contrast
      as a set, not individually.
      --------------------------------------------------------------- */
-  --series-1:  #2F5C99;   /* identity slot 1 â€” returning, and every single-series bar */
-  --series-2:  #C97B1A;   /* identity slot 2 â€” first-time visitors */
-  --series-3:  #2E7D4E;   /* identity slot 3 â€” held in reserve */
+  --series-1:  #2F5C99;   /* identity slot 1 — returning, and every single-series bar */
+  --series-2:  #C97B1A;   /* identity slot 2 — first-time visitors */
+  --series-3:  #2E7D4E;   /* identity slot 3 — held in reserve */
 
-  /* Ordinal ramp â€” for scales whose order carries meaning (age bands).
+  /* Ordinal ramp — for scales whose order carries meaning (age bands).
      Monotone lightness, single hue, light end clears 2:1 on white. */
   --ord-1: #8AAAD4;
   --ord-2: #6B92C7;
@@ -54,7 +54,7 @@
   --ord-5: #2A5288;
   --ord-6: #1A3D68;
 
-  /* Chart chrome â€” recessive by design; the data is the only loud thing. */
+  /* Chart chrome — recessive by design; the data is the only loud thing. */
   --chart-surface: #FFFFFF;
   --chart-grid:    #EFEDE7;
   --chart-axis:    #DDD8CE;
@@ -174,7 +174,7 @@ body {
   .alert-error   { @apply bg-red-50 text-red-700 border border-red-200; }
   .alert-warning { @apply bg-[var(--amber-pale)] text-[var(--amber)] border border-gold-200; }
 
-  /* Floating notification stack â€” keeps transient messages from shifting
+  /* Floating notification stack — keeps transient messages from shifting
      the page content underneath them. */
   .toast-stack {
     @apply fixed z-[60] flex flex-col gap-2 pointer-events-none;
@@ -190,7 +190,7 @@ body {
   }
 
   /* Marketing-page interaction states. The landing/auth pages are built with
-     inline styles, which cannot express :hover â€” these supply it. */
+     inline styles, which cannot express :hover — these supply it. */
   .lp-link        { transition: color .2s ease; }
   .lp-link:hover  { color: var(--navy) !important; }
   .lp-cta         { transition: transform .2s ease, box-shadow .2s ease, filter .2s ease; }
@@ -199,7 +199,7 @@ body {
   .lp-cta-ghost   { transition: border-color .2s ease, color .2s ease, background .2s ease; }
   .lp-cta-ghost:hover { border-color: var(--amber) !important; color: var(--amber) !important; }
   /* The hero's secondary button sits on dark video/photo, not the cream
-     page background â€” brightening on hover reads correctly there, where
+     page background — brightening on hover reads correctly there, where
      the light-mode ghost's darken-toward-amber would just disappear. */
   .lp-cta-ghost-dark { transition: border-color .2s ease, background .2s ease, transform .2s ease; }
   .lp-cta-ghost-dark:hover { border-color: rgba(255,255,255,.55) !important; background: rgba(255,255,255,.18) !important; transform: translateY(-2px); }
@@ -214,10 +214,10 @@ body {
   .table-cell    { @apply px-4 py-4 align-middle; }
 }
 
-/* â”€â”€ Keyframes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── Keyframes ───────────────────────────────────────────────────────────
    Declared here rather than in tailwind.config so they are always emitted.
    Several are referenced from inline `style` attributes, which Tailwind's
-   content scanner cannot see â€” as class-based animations they were being
+   content scanner cannot see — as class-based animations they were being
    dropped from the build entirely. */
 @keyframes float      { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 @keyframes pulseSoft  { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
@@ -230,7 +230,7 @@ body {
 @keyframes ringOut    { from { transform: scale(0.4); opacity: 0; } 30% { opacity: 1; } to { transform: scale(1); opacity: 0; } }
 @keyframes toastIn    { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: none; } }
 /* The track renders its content twice back to back, then slides exactly one
-   copy's width â€” the duplicate lines up perfectly where the original
+   copy's width — the duplicate lines up perfectly where the original
    started, so the loop point is invisible. */
 @keyframes marquee    { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
@@ -248,7 +248,7 @@ body {
   /* Elements that animate in from opacity:0 must not be left invisible */
   [class*='animate-fade'], [class*='animate-scale'] { opacity: 1 !important; }
   /* The universal animation-duration:0.01ms rule above still runs the
-     marquee once and freezes it on its final frame â€” halfway through the
+     marquee once and freezes it on its final frame — halfway through the
      duplicated list, not the clean opening one. Show it as a plain static
      row instead. */
   .marquee-track { animation: none !important; transform: none !important; }
