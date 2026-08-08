@@ -1146,8 +1146,7 @@ export default function AdminPage() {
                 )}
               </div>
               <div style={{display:'flex',gap:10}}>
-                <button onClick={toggleKiosk}
-                  style={{background:settings?.kiosk_open?'#fff':'#16243A',color:settings?.kiosk_open?'#7A6E60':'#fff',border:'1px solid',borderColor:settings?.kiosk_open?'#E4DFD5':'#16243A',borderRadius:10,padding:'10px 20px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer',transition:'all .15s'}}>
+                <button onClick={toggleKiosk} className={`btn ${settings?.kiosk_open ? 'btn-secondary' : 'btn-primary'} text-sm`}>
                   {settings?.kiosk_open ? 'Close Check-In' : 'Open Check-In'}
                 </button>
               </div>
@@ -1199,7 +1198,7 @@ export default function AdminPage() {
                       </div>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:14,color:'#1C2A3A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.person?.full_name}</div>
-                        {c.is_first_time && <div style={{fontSize:11,color:'#2E7D4E',fontWeight:500}}>First visit ✓</div>}
+                        {c.is_first_time && <div style={{fontSize:11,color:'#2E7D4E',fontWeight:500,display:'flex',alignItems:'center',gap:4}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.2 4L19 7" /></svg>First visit</div>}
                       </div>
                       <div style={{fontSize:12,color:'#A89D8E',flexShrink:0}}>{new Date(c.checked_in_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
                     </div>
@@ -1651,8 +1650,8 @@ export default function AdminPage() {
                     )}
                   </div>
                   <div style={{padding:'16px 28px 24px',borderTop:'1px solid #E4DFD5',display:'flex',gap:10}}>
-                    <button onClick={()=>setServiceFormOpen(false)} style={{flex:1,background:'#fff',color:'#7A6E60',border:'1px solid #E4DFD5',borderRadius:10,padding:'12px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:'pointer'}}>Cancel</button>
-                    <button onClick={saveService} disabled={savingService} style={{flex:2,background:savingService?'#B8A898':'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'12px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:savingService?'wait':'pointer',transition:'all .2s'}}>
+                    <button onClick={()=>setServiceFormOpen(false)} className="btn btn-secondary" style={{flex:1}}>Cancel</button>
+                    <button onClick={saveService} disabled={savingService} className="btn btn-primary" style={{flex:2}}>
                       {savingService?'Saving…':editingService?'Save changes':'Create service'}
                     </button>
                   </div>
@@ -1665,7 +1664,7 @@ export default function AdminPage() {
                 <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400,marginBottom:4}}>Services</h2>
                 <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Create a service before opening check-in. Details go into the welcome email.</p>
               </div>
-              <button onClick={openNewService} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'11px 20px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+              <button onClick={openNewService} className="btn btn-primary text-sm shrink-0">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
                 New Service
               </button>
@@ -1675,7 +1674,7 @@ export default function AdminPage() {
               <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'60px 20px',textAlign:'center'}}>
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',marginBottom:8}}>No services yet</div>
                 <div style={{fontSize:14,color:'#A89D8E',fontWeight:300,marginBottom:24}}>Create your first service to open check-in.</div>
-                <button onClick={openNewService} style={{background:'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'12px 28px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:'pointer'}}>Create first service</button>
+                <button onClick={openNewService} className="btn btn-primary">Create first service</button>
               </div>
             ) : (
               <div style={{display:'flex',flexDirection:'column',gap:12}}>
@@ -1856,7 +1855,7 @@ export default function AdminPage() {
                             <td className="table-cell hidden lg:table-cell text-navy-500 text-sm whitespace-nowrap">{p.first_attendance_date ? new Date(p.first_attendance_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : <span className="text-navy-300">—</span>}</td>
                             <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null||!p.last_checkin_at) return <span className="text-navy-300">Never</span>; return (<><span className={w>=3?'text-red-600 font-medium':'text-navy-600'}>{new Date(p.last_checkin_at).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>{w>0&&<span className="text-navy-300"> · {w}w</span>}</>); })()}</td>
                             <td className="table-cell hidden md:table-cell text-navy-500 text-sm">{p.total_checkins}</td>
-                            <td className="table-cell">{missing.length>0?<span className="text-amber-600 text-xs font-medium">{missing.join(', ')}</span>:<span className="text-emerald-600 text-xs">✓ complete</span>}</td>
+                            <td className="table-cell">{missing.length>0?<span className="text-amber-600 text-xs font-medium">{missing.join(', ')}</span>:<span className="text-emerald-600 text-xs inline-flex items-center gap-1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.2 4L19 7" /></svg>Complete</span>}</td>
                             <td className="table-cell text-right">
                               <div className="flex gap-2 justify-end">
                                 <button onClick={()=>setEditingPerson(p)} className="btn btn-secondary text-xs py-1.5 px-3">Edit</button>
@@ -1883,8 +1882,7 @@ export default function AdminPage() {
                 <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400}}>Giving</h2>
                 <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginTop:2}}>Record tithes, offerings, seed and pledges — and send receipts.</p>
               </div>
-              <button onClick={()=>{resetGivingForm(); setGivingPersonQuery(''); setGivingFormOpen(true);}}
-                style={{background:'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'10px 20px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>
+              <button onClick={()=>{resetGivingForm(); setGivingPersonQuery(''); setGivingFormOpen(true);}} className="btn btn-primary text-sm">
                 + Record a gift
               </button>
             </div>
@@ -2007,8 +2005,7 @@ export default function AdminPage() {
                   </div>
                   <div style={{padding:'18px 28px',borderTop:'1px solid #E4DFD5',display:'flex',justifyContent:'flex-end',gap:10}}>
                     <button onClick={()=>setGivingFormOpen(false)} className="btn btn-secondary text-sm">Cancel</button>
-                    <button onClick={handleSaveGiving} disabled={savingGiving || !givingForm.giver_name.trim() || !givingForm.amount}
-                      style={{background:savingGiving?'#B8A898':'#C97B1A',color:'#fff',border:'none',borderRadius:10,padding:'10px 22px',fontSize:13,fontWeight:500,cursor:savingGiving?'wait':'pointer'}}>
+                    <button onClick={handleSaveGiving} disabled={savingGiving || !givingForm.giver_name.trim() || !givingForm.amount} className="btn btn-gold text-sm">
                       {savingGiving ? 'Saving…' : 'Save record'}
                     </button>
                   </div>
@@ -2022,8 +2019,7 @@ export default function AdminPage() {
                 <div style={{textAlign:'center',padding:'60px 20px'}}>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',marginBottom:8}}>No gifts recorded yet</div>
                   <div style={{fontSize:14,color:'#A89D8E',fontWeight:300,marginBottom:24}}>Record a tithe, offering or seed and we&apos;ll email the receipt for you.</div>
-                  <button onClick={()=>{resetGivingForm(); setGivingPersonQuery(''); setGivingFormOpen(true);}}
-                    style={{background:'#16243A',color:'#fff',border:'none',borderRadius:10,padding:'12px 28px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:'pointer'}}>
+                  <button onClick={()=>{resetGivingForm(); setGivingPersonQuery(''); setGivingFormOpen(true);}} className="btn btn-primary">
                     Record your first gift
                   </button>
                 </div>
@@ -2317,9 +2313,7 @@ export default function AdminPage() {
                   <textarea value={customEmail.message} onChange={e=>setCustomEmail(p=>({...p,message:e.target.value}))} className="textarea min-h-[130px]" placeholder="Write your message here…" />
                   <div style={{fontSize:12,color:'#A89D8E',marginTop:6}}>Each person will receive this with their own name at the top.</div>
                 </div>
-                <button onClick={sendCustomEmail}
-                  disabled={sendingCustom||!customEmail.subject||!customEmail.message}
-                  style={{width:'100%',background:sendingCustom||!customEmail.subject||!customEmail.message?'#B8A898':'#C97B1A',color:'#fff',border:'none',borderRadius:10,padding:'14px',fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:500,cursor:sendingCustom||!customEmail.subject||!customEmail.message?'not-allowed':'pointer',transition:'all .2s'}}>
+                <button onClick={sendCustomEmail} disabled={sendingCustom||!customEmail.subject||!customEmail.message} className="btn btn-gold w-full">
                   {sendingCustom ? 'Sending…' : 'Send Broadcast'}
                 </button>
               </div>
@@ -2332,7 +2326,7 @@ export default function AdminPage() {
           <div className="space-y-5 animate-fade-in">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div><h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400,marginBottom:4}}>Settings</h2><p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Set these once and you&apos;re done.</p></div>
-              <button onClick={saveBranding} disabled={savingBranding} style={{background:"#C97B1A",color:"#fff",border:"none",borderRadius:10,padding:"10px 22px",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:"pointer",flexShrink:0}}>{savingBranding?'Saving…':'Save Settings'}</button>
+              <button onClick={saveBranding} disabled={savingBranding} className="btn btn-gold text-sm shrink-0">{savingBranding?'Saving…':'Save Settings'}</button>
             </div>
             <div className="grid lg:grid-cols-2 gap-5">
               <div className="card space-y-4">
@@ -2540,8 +2534,7 @@ export default function AdminPage() {
             {/* Second save action — the header button scrolls out of reach on
                 this page, which is long on phones. */}
             <div className="flex justify-end pt-1">
-              <button onClick={saveBranding} disabled={savingBranding}
-                style={{background:savingBranding?'#B8A898':'#C97B1A',color:'#fff',border:'none',borderRadius:10,padding:'12px 28px',fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,cursor:savingBranding?'wait':'pointer'}}>
+              <button onClick={saveBranding} disabled={savingBranding} className="btn btn-gold">
                 {savingBranding?'Saving…':'Save Settings'}
               </button>
             </div>
