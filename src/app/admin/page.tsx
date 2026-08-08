@@ -2265,7 +2265,7 @@ export default function AdminPage() {
             {/* Header */}
             <div>
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',fontWeight:400,marginBottom:4}}>Automatic Emails</h2>
-              <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Write these once &mdash; they send themselves, personalised with each person&apos;s name.</p>
+              <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Write these once — they send themselves, personalised with each person&apos;s name.</p>
             </div>
 
             {/* Three email templates — accordion, one open at a time */}
@@ -2284,7 +2284,12 @@ export default function AdminPage() {
               <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:16}}>One-off message</div>
               <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'28px 32px'}}>
                 <div style={{display:'flex',alignItems:'flex-start',gap:14,marginBottom:24}}>
-                  <div style={{width:44,height:44,borderRadius:12,background:'#EEF2F8',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:20}}>{'\u{1F4E3}'}</div>
+                  <div style={{width:44,height:44,borderRadius:12,background:'#EEF2F8',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="#486581" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3.5 8.5v7a1.5 1.5 0 001.5 1.5h1.5l5 4v-18l-5 4H5a1.5 1.5 0 00-1.5 1.5z" />
+                      <path d="M16.5 9a4 4 0 010 6M19.5 6.5a8 8 0 010 11" />
+                    </svg>
+                  </div>
                   <div>
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',marginBottom:3}}>Send a message to your congregation</div>
                     <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Announcements, reminders, special events</div>
