@@ -137,7 +137,7 @@ function EditPersonModal({ person, categories, groups, personGroupIds, onClose, 
                 </div>
               </div>
               {categories.length === 0 ? (
-                <p className="text-xs text-navy-400">No groups set up yet — add a category under Settings.</p>
+                <p className="text-xs text-navy-400">No fields set up yet — add one under Settings.</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {categories.map(cat => {
@@ -1012,9 +1012,9 @@ export default function AdminPage() {
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',marginBottom:8}}>Delete {deleteTarget.label}?</h2>
               <p style={{fontSize:14,color:'#7A6E60',fontWeight:300,lineHeight:1.7,marginBottom:16}}>
                 {deleteTarget.kind==='groups'
-                  ? "People in this group aren't deleted — they're just unassigned from it."
+                  ? "People with this choice aren't deleted — it's just cleared from their profile."
                   : deleteTarget.kind==='group-categories'
-                  ? "This can't be undone. Every group in this category is deleted too, and everyone's membership in them goes with it."
+                  ? "This can't be undone. Every choice under this field is deleted too, and everyone's answer for it goes with it."
                   : <>This can&apos;t be undone.{deleteTarget.kind==='services' && ' Its check-ins are removed too.'}</>
                 } Type your kiosk code to confirm.
               </p>
@@ -1762,7 +1762,7 @@ export default function AdminPage() {
               {groups.length>0 && (
                 <select className="select text-xs" style={{width:'auto',minWidth:150,padding:'6px 28px 6px 12px',height:'auto'}}
                   value={peopleGroupFilter} onChange={e=>setPeopleGroupFilter(e.target.value)}>
-                  <option value="all">All categories</option>
+                  <option value="all">All fields</option>
                   {categories.filter(cat=>groups.some(g=>g.category_id===cat.id)).map(cat=>(<option key={cat.id} value={cat.id}>{cat.name}</option>))}
                 </select>
               )}
@@ -1803,7 +1803,7 @@ export default function AdminPage() {
 
             <div className="card p-0 overflow-hidden">
               {filteredPeople.length===0 ? (
-                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleGroupFilter!=='all'?'Nobody in this category yet.':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. They appear after check-ins.'}</p></div>
+                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleGroupFilter!=='all'?'Nobody has this field set yet.':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. They appear after check-ins.'}</p></div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -1816,7 +1816,7 @@ export default function AdminPage() {
                       <th className="table-header">Name</th>
                       <th className="table-header hidden sm:table-cell">Phone</th>
                       <th className="table-header">Role</th>
-                      <th className="table-header hidden lg:table-cell">Groups</th>
+                      <th className="table-header hidden lg:table-cell">Fields</th>
                       <th className="table-header hidden lg:table-cell">First Visit</th>
                       <th className="table-header hidden lg:table-cell">Last Seen</th>
                       <th className="table-header hidden md:table-cell">Visits</th>
@@ -2411,30 +2411,34 @@ export default function AdminPage() {
               </p>
             </div>
 
-            {/* Groups, organised into categories the church defines for
-                itself — Cell Group, Department, whatever it actually uses.
-                Not every church has the same kinds of groups, so this isn't
-                one hardcoded concept: a category is a bucket a church creates,
-                and each one holds its own groups. A person can hold one
-                membership per category at once (one Cell Group AND one
-                Department), which is why they're kept separate rather than
-                forced into a single flat list. */}
+            {/* Member form fields — a church-defined question with a set of
+                choices, added to every person's profile. Framed around the
+                form itself ("field" / "choice") rather than the underlying
+                data model ("category" / "group"), since that's what an admin
+                actually recognises: this is the thing that makes a new
+                dropdown appear on the Edit Profile screen. Not every church
+                needs the same fields, so this isn't one hardcoded concept —
+                a field is a bucket a church creates, holding its own
+                choices. A person can pick one choice per field at once (one
+                Cell Group AND one Department), which is why fields are kept
+                separate rather than forced into a single flat list. */}
             <div className="card">
-              <div className="panel-label mb-1" style={{display:'block'}}>Groups</div>
+              <div className="panel-label mb-1" style={{display:'block'}}>Member form fields</div>
               <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginBottom:16,maxWidth:540,lineHeight:1.7}}>
-                Create a category for each kind of grouping your church actually uses — Cell Group, Department,
-                whatever fits. Add groups under each one, then assign people from the People tab. Someone can
-                belong to one group per category at the same time — a cell group and a department, say.
+                Add a field for anything you want to ask about a member — Cell Group, Department, whatever
+                fits — then add the choices people can pick from. It shows up as a dropdown on every
+                person&apos;s profile in the People tab. Someone can pick one choice per field at the same
+                time — a cell group and a department, say.
               </p>
 
               <div className="mb-5 flex flex-wrap items-end gap-3">
                 <div style={{flex:'1 1 220px'}}>
-                  <label className="block text-xs font-medium text-navy-600 mb-1.5">New category</label>
+                  <label className="block text-xs font-medium text-navy-600 mb-1.5">New field</label>
                   <input className="input" value={newCategoryName} onChange={e=>setNewCategoryName(e.target.value)}
                     onKeyDown={e=>{ if(e.key==='Enter') saveCategory(); }} placeholder="e.g. Cell Group, Department" maxLength={40} />
                 </div>
                 <button onClick={saveCategory} disabled={savingCategory || !newCategoryName.trim()} className="btn btn-secondary text-sm">
-                  {savingCategory ? 'Adding…' : 'Add category'}
+                  {savingCategory ? 'Adding…' : 'Add field'}
                 </button>
                 <button onClick={seedDefaultDepartments} disabled={seedingDepartments} className="btn btn-secondary text-sm">
                   {seedingDepartments ? 'Adding…' : '+ Add common departments'}
@@ -2442,7 +2446,7 @@ export default function AdminPage() {
               </div>
 
               {categories.length === 0 ? (
-                <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No categories yet — add one above to start creating groups.</p>
+                <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No fields yet — add one above, then add choices under it.</p>
               ) : (
                 <div style={{display:'flex',flexDirection:'column',gap:18,marginBottom:24}}>
                   {categories.map(cat=>{
@@ -2453,9 +2457,9 @@ export default function AdminPage() {
                           <span style={{fontSize:13,fontWeight:600,color:'#16243A'}}>{cat.name}</span>
                           <div style={{display:'flex',gap:8}}>
                             <button onClick={()=>setGroupForm({editingId:null, categoryId:cat.id, name:'', leader_person_id:''})}
-                              className="btn btn-secondary text-xs py-1.5 px-3">+ Group</button>
+                              className="btn btn-secondary text-xs py-1.5 px-3">+ Choice</button>
                             <button onClick={()=>{ setDeleteTarget({kind:'group-categories', id:cat.id, label:cat.name}); setDeleteCode(''); }}
-                              className="btn btn-ghost text-xs py-1.5 px-3 text-red-500">Delete category</button>
+                              className="btn btn-ghost text-xs py-1.5 px-3 text-red-500">Delete field</button>
                           </div>
                         </div>
                         {catGroups.map(g=>(
@@ -2475,7 +2479,7 @@ export default function AdminPage() {
 
                         {groupForm.categoryId===cat.id && (
                           <div style={{background:'#F8F4EE',border:'1px solid #E4DFD5',borderRadius:10,padding:'14px 16px',marginTop:10}}>
-                            <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',marginBottom:10}}>{groupForm.editingId ? `Edit group in ${cat.name}` : `Add a group to ${cat.name}`}</div>
+                            <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',marginBottom:10}}>{groupForm.editingId ? `Edit choice in ${cat.name}` : `Add a choice to ${cat.name}`}</div>
                             <div className="flex flex-wrap items-end gap-3">
                               <div style={{flex:'1 1 160px'}}>
                                 <label className="block text-xs font-medium text-navy-600 mb-1.5">Name</label>
