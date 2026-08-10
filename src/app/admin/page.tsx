@@ -1769,7 +1769,7 @@ export default function AdminPage() {
             </div>
 
             {selectedPersonIds.size>0 && (
-              <div className="alert" style={{background:'#EEF2F6',border:'1px solid #C9D6E3',color:'#16243A'}}>
+              <div className="alert" style={{background:'var(--chart-track)',border:'1px solid rgba(47,92,153,0.28)',color:'#16243A'}}>
                 <span style={{flex:1}}>{selectedPersonIds.size} selected</span>
                 {groups.length>0 ? (
                   <>
@@ -2136,7 +2136,52 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* Insight cards grid */}
+            {/* Actionable insights — the two panels worth acting on (who's
+                slipping, who to thank) lead and carry a touch more weight,
+                ahead of the passive demographic breakdowns below. */}
+            <div className="grid gap-5 grid-cols-1 md:grid-cols-2" style={{marginBottom:20}}>
+
+              {/* Retention rate */}
+              <div className="panel" style={{padding:'24px 28px',borderLeft:'3px solid var(--series-1)'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:16}}>Visitor retention</div>
+                {retentionRate === null
+                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Not enough data yet — needs first-timers last month to measure.</p>
+                  : <>
+                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:40,color:retentionRate>=50?'#2E7D4E':'#C97B1A',lineHeight:1,marginBottom:8}}>{retentionRate}%</div>
+                      <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.5}}>
+                        <strong style={{color:'#16243A',fontWeight:600}}>{retained} of {lastMonthFirstTimers.size}</strong> first-time visitors from last month ({lastMonthRangeLabel}) came back this month ({currentMonthRangeLabel}).
+                      </div>
+                      {/* Meter: the unfilled track is a light step of the fill's
+                          own ramp, so the state reads across the whole bar. */}
+                      <div style={{height:8,background:'var(--chart-track)',borderRadius:4,overflow:'hidden',marginTop:14}}>
+                        <div style={{height:8,width:`${retentionRate}%`,background:retentionRate>=50?'var(--series-3)':'var(--series-2)',borderRadius:4,transition:'all .5s'}}/>
+                      </div>
+                    </>
+                }
+              </div>
+
+              {/* Most consistent attenders */}
+              <div className="panel" style={{padding:'24px 28px',borderLeft:'3px solid var(--series-1)'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:16}}>Most faithful attenders</div>
+                {topAttenders.length===0
+                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No attendance data yet</p>
+                  : topAttenders.map((p,i)=>(
+                      <div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid #F0EBE3'}}>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:'#C97B1A',width:20,flexShrink:0}}>{i+1}</div>
+                        <div style={{width:32,height:32,borderRadius:'50%',background:'#F0EBE3',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'#7A6048',fontFamily:"'Playfair Display',serif",flexShrink:0}}>
+                          {p.full_name.charAt(0)}
+                        </div>
+                        <div style={{flex:1,fontSize:13,color:'#1C2A3A',fontWeight:500}}>{p.full_name}</div>
+                        <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{p.total_checkins} visits</div>
+                      </div>
+                    ))
+                }
+              </div>
+
+            </div>
+
+            {/* Demographic breakdowns — background reading, not action items,
+                so they stay in a lighter, denser grid below the fold. */}
             <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
 
               {/* Gender */}
@@ -2204,43 +2249,6 @@ export default function AdminPage() {
                   empty="No data yet — add occupations in People tab"
                   rows={topOccupations.map(([label,count])=>({label,value:count}))}
                 />
-              </div>
-
-              {/* Retention rate */}
-              <div className="panel" style={{padding:'24px 28px'}}>
-                <div className="panel-label" style={{display:'block',marginBottom:16}}>Visitor retention</div>
-                {retentionRate === null
-                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Not enough data yet — needs first-timers last month to measure.</p>
-                  : <>
-                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:40,color:retentionRate>=50?'#2E7D4E':'#C97B1A',lineHeight:1,marginBottom:8}}>{retentionRate}%</div>
-                      <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.5}}>
-                        <strong style={{color:'#16243A',fontWeight:600}}>{retained} of {lastMonthFirstTimers.size}</strong> first-time visitors from last month ({lastMonthRangeLabel}) came back this month ({currentMonthRangeLabel}).
-                      </div>
-                      {/* Meter: the unfilled track is a light step of the fill's
-                          own ramp, so the state reads across the whole bar. */}
-                      <div style={{height:8,background:'var(--chart-track)',borderRadius:4,overflow:'hidden',marginTop:14}}>
-                        <div style={{height:8,width:`${retentionRate}%`,background:retentionRate>=50?'var(--series-3)':'var(--series-2)',borderRadius:4,transition:'all .5s'}}/>
-                      </div>
-                    </>
-                }
-              </div>
-
-              {/* Most consistent attenders */}
-              <div className="panel" style={{padding:'24px 28px'}}>
-                <div className="panel-label" style={{display:'block',marginBottom:16}}>Most faithful attenders</div>
-                {topAttenders.length===0
-                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No attendance data yet</p>
-                  : topAttenders.map((p,i)=>(
-                      <div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid #F0EBE3'}}>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:'#C97B1A',width:20,flexShrink:0}}>{i+1}</div>
-                        <div style={{width:32,height:32,borderRadius:'50%',background:'#F0EBE3',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'#7A6048',fontFamily:"'Playfair Display',serif",flexShrink:0}}>
-                          {p.full_name.charAt(0)}
-                        </div>
-                        <div style={{flex:1,fontSize:13,color:'#1C2A3A',fontWeight:500}}>{p.full_name}</div>
-                        <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{p.total_checkins} visits</div>
-                      </div>
-                    ))
-                }
               </div>
 
             </div>
