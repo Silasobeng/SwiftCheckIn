@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.1114.0",
     "@supabase/supabase-js": "^2.39.0",
     "bcryptjs": "^2.4.3",
     "exceljs": "^4.4.0",

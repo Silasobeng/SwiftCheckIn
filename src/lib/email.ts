@@ -1,3 +1,4 @@
+import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { getServerSupabase } from './supabase';
 import type { Organization, Service, Person } from '@/types';
 import { buildBrandedEmail } from './emailTemplate';
@@ -6,6 +7,16 @@ interface EmailRecipient { email: string; name?: string; }
 interface EmailAttachment { content: string; name: string; }
 interface SendEmailResult { success: boolean; error?: string; }
 export interface ReplyTo { email: string; name?: string; }
+
+function getSESClient(): SESClient {
+  return new SESClient({
+    region: process.env.AWS_REGION || 'eu-west-1',
+    credentials: {
+      accessKeyId:     process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+  });
+}
 
 /**
  * Reply-to for anything sent TO a member.
@@ -24,36 +35,79 @@ export function orgReplyTo(
   return email ? { email, name: org.name || undefined } : undefined;
 }
 
+function formatAddress(email: string, name?: string): string {
+  return name ? `${name.replace(/[,<>]/g, '')} <${email}>` : email;
+}
+
 export async function sendBrevoEmail(
   to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string,
   attachments?: EmailAttachment[], replyTo?: ReplyTo
 ): Promise<SendEmailResult> {
-  const apiKey = process.env.BREVO_API_KEY;
-  if (!apiKey) {
-    console.warn('BREVO_API_KEY not configured - email not sent');
+  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+    console.warn('AWS credentials not configured - email not sent');
     return { success: false, error: 'Email not configured' };
   }
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@wemotiply.com';
-  const senderName  = orgName || process.env.BREVO_SENDER_NAME || 'WeMotiply';
-  try {
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'accept':'application/json', 'api-key':apiKey, 'content-type':'application/json' },
-      body: JSON.stringify({
-        sender:{ name:senderName, email:senderEmail }, to, subject, htmlContent,
-        // A real reply-to address is a "this came from a person" signal that
-        // helps land in Primary rather than Promotions.
-        ...(replyTo?.email ? { replyTo } : {}),
-        ...(attachments && attachments.length > 0 ? { attachment: attachments } : {}),
-      }),
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      return { success: false, error: error.message || 'Failed to send email' };
+
+  const senderEmail = process.env.SES_SENDER_EMAIL || 'noreply@wemotiply.com';
+  const senderName  = orgName || 'WeMotiply';
+  const fromAddress = formatAddress(senderEmail, senderName);
+
+  if (attachments && attachments.length > 0) {
+    // Attachments require raw MIME email
+    const boundary = `boundary_${Date.now()}`;
+    const toHeader = to.map(r => formatAddress(r.email, r.name)).join(', ');
+    const replyToHeader = replyTo?.email ? `Reply-To: ${formatAddress(replyTo.email, replyTo.name)}\r\n` : '';
+
+    let raw = [
+      `From: ${fromAddress}`,
+      `To: ${toHeader}`,
+      `Subject: ${subject}`,
+      replyToHeader.trim(),
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/html; charset=UTF-8',
+      'Content-Transfer-Encoding: quoted-printable',
+      '',
+      htmlContent,
+    ].filter(Boolean).join('\r\n');
+
+    for (const att of attachments) {
+      raw += `\r\n--${boundary}\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename="${att.name}"\r\n\r\n${att.content}\r\n`;
     }
+    raw += `\r\n--${boundary}--`;
+
+    try {
+      const client = getSESClient();
+      await client.send(new SendRawEmailCommand({
+        RawMessage: { Data: Buffer.from(raw) },
+      }));
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send email';
+      console.error('SES raw send error:', msg);
+      return { success: false, error: msg };
+    }
+  }
+
+  // No attachments — use the simpler SendEmail API
+  try {
+    const client = getSESClient();
+    await client.send(new SendEmailCommand({
+      Source: fromAddress,
+      Destination: { ToAddresses: to.map(r => formatAddress(r.email, r.name)) },
+      Message: {
+        Subject: { Data: subject, Charset: 'UTF-8' },
+        Body:    { Html: { Data: htmlContent, Charset: 'UTF-8' } },
+      },
+      ...(replyTo?.email ? { ReplyToAddresses: [formatAddress(replyTo.email, replyTo.name)] } : {}),
+    }));
     return { success: true };
-  } catch (err) {
-    return { success: false, error: 'Failed to send email' };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Failed to send email';
+    console.error('SES send error:', msg);
+    return { success: false, error: msg };
   }
 }
 
