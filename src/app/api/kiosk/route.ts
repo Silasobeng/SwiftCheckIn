@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase, isSubscriptionValid } from '@/lib/supabase';
 import { sendWelcomeEmail } from '@/lib/email';
+import { sendSMS, welcomeMessage } from '@/lib/sms';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { tzFormatter, dayKeyOf } from '@/lib/monthWindow';
 
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
     // Get org
     const { data: org } = await supabase
       .from('organizations')
-      .select('id, name, subscription_status, subscription_end_date, timezone')
+      .select('id, name, subscription_status, subscription_end_date, timezone, sms_welcome_enabled, sms_credits')
       .eq('slug', orgSlug)
       .single();
 
@@ -294,6 +295,12 @@ export async function POST(request: NextRequest) {
     // Send welcome email for first-timers with email
     if (isFirstTime && person.email) {
       sendWelcomeEmail(person, org.id, service).catch(console.error);
+    }
+
+    // Send welcome SMS for first-timers without email (phone is always present)
+    if (isFirstTime && !person.email && org.sms_welcome_enabled && org.sms_credits > 0 && !person.sms_opted_out) {
+      const firstName = person.full_name.split(' ')[0];
+      sendSMS(person.phone, welcomeMessage(firstName, org.name), org.id, 'welcome', person.id).catch(console.error);
     }
 
     return NextResponse.json({

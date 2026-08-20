@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase, isSubscriptionValid } from '@/lib/supabase';
 import { sendBrevoEmail, processTemplate, orgReplyTo } from '@/lib/email';
 import { buildBrandedEmail } from '@/lib/emailTemplate';
+import { sendSMS, birthdayMessage } from '@/lib/sms';
 import { tzFormatter, dayKeyOf } from '@/lib/monthWindow';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const { data: orgs } = await supabase
       .from('organizations')
-      .select('id, name, brand_color, logo_url, address, phone, email, admin_email, timezone, subscription_status, subscription_end_date');
+      .select('id, name, brand_color, logo_url, address, phone, email, admin_email, timezone, subscription_status, subscription_end_date, sms_birthday_enabled, sms_credits');
 
     if (!orgs) return NextResponse.json({ success: true, sent: 0 });
 
@@ -40,19 +41,24 @@ export async function GET(request: NextRequest) {
       // Today, as this church reckons it.
       const [, month, day] = dayKeyOf(tzFormatter(org.timezone || 'UTC'), now).split('-');
 
-      // ── Fixed: filter birthdays in the database, not in JS ──
+      // Fetch all people with a birthday today — both email and SMS paths
       const { data: people } = await supabase
         .from('people').select('*')
         .eq('org_id', org.id).eq('archived', false)
-        .not('email', 'is', null)
         .not('date_of_birth', 'is', null)
-        // Match month and day using substring — works on YYYY-MM-DD format
         .like('date_of_birth', `%-${month}-${day}`);
 
       if (!people || people.length === 0) continue;
 
       for (const person of people) {
-        if (!person.email) continue;
+        // SMS path: people without email, if org has SMS birthday enabled
+        if (!person.email) {
+          if (org.sms_birthday_enabled && org.sms_credits > 0 && !person.sms_opted_out) {
+            const firstName = person.full_name.split(' ')[0];
+            await sendSMS(person.phone, birthdayMessage(firstName, org.name), org.id, 'birthday', person.id);
+          }
+          continue;
+        }
         const subject = processTemplate(template.subject, person, org as any);
         const body    = processTemplate(template.body,    person, org as any);
         // Parse the processed body into greeting/body/sign-off for the premium template

@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { creditsFromPesewas } from './sms';
 
 // =============================================================
 // PAYSTACK BILLING
@@ -104,6 +105,85 @@ export function verifyWebhookSignature(rawBody: string, signatureHeader: string 
   const b = Buffer.from(signatureHeader, 'hex');
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
+}
+
+export interface SmsTopupResult { applied: boolean; credits?: number; reason?: string; }
+
+export async function initializeSmsTopup(
+  email: string,
+  orgId: string,
+  amountGHS: number,
+  callbackUrl: string
+): Promise<InitResult> {
+  const reference = generateReference();
+  const pesewas   = Math.round(amountGHS * SUBUNIT);
+  const credits   = creditsFromPesewas(pesewas);
+
+  const res = await fetch(`${PAYSTACK_API}/transaction/initialize`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${secretKey()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email,
+      amount: pesewas,
+      currency: 'GHS',
+      reference,
+      callback_url: callbackUrl,
+      metadata: { org_id: orgId, purpose: 'sms_topup', credits },
+    }),
+  });
+
+  const json = await res.json();
+  if (!res.ok || !json.status) throw new Error(json.message || 'Could not start SMS top-up.');
+  return { authorization_url: json.data.authorization_url, reference: json.data.reference };
+}
+
+export async function creditSmsTopup(
+  supabase: SupabaseClient,
+  reference: string
+): Promise<SmsTopupResult> {
+  const res  = await fetch(`${PAYSTACK_API}/transaction/verify/${encodeURIComponent(reference)}`, {
+    headers: { Authorization: `Bearer ${secretKey()}` },
+  });
+  const json = await res.json();
+  const data = json?.data;
+
+  if (!res.ok || !json.status || data?.status !== 'success') {
+    return { applied: false, reason: 'Transaction not successful.' };
+  }
+
+  const orgId   = data?.metadata?.org_id as string | undefined;
+  const credits = data?.metadata?.credits as number | undefined;
+  const amountGHS = (data?.amount ?? 0) / SUBUNIT;
+
+  if (!orgId || !credits || credits < 1) {
+    return { applied: false, reason: 'Missing or invalid metadata.' };
+  }
+
+  // Idempotent insert — UNIQUE constraint on paystack_reference means a retry is a no-op
+  const { error: insertError } = await supabase.from('sms_topups').insert({
+    org_id:             orgId,
+    paystack_reference: reference,
+    amount_ghs:         amountGHS,
+    credits,
+  });
+  if (insertError) {
+    if (insertError.code === '23505') return { applied: false, reason: 'Already processed.' };
+    return { applied: false, reason: insertError.message };
+  }
+
+  // Fetch current balance and add credits
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('sms_credits')
+    .eq('id', orgId)
+    .single();
+
+  await supabase
+    .from('organizations')
+    .update({ sms_credits: (org?.sms_credits ?? 0) + credits, updated_at: new Date().toISOString() })
+    .eq('id', orgId);
+
+  return { applied: true, credits };
 }
 
 export interface ActivationResult { applied: boolean; reason?: string; }

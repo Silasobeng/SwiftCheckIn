@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
-import { verifyWebhookSignature, verifyTransaction, activateSubscription } from '@/lib/paystack';
+import { verifyWebhookSignature, verifyTransaction, activateSubscription, creditSmsTopup } from '@/lib/paystack';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,12 +32,19 @@ export async function POST(request: NextRequest) {
   // Paystack sends is acknowledged and otherwise ignored.
   if (event.event === 'charge.success' && event.data?.reference) {
     try {
-      // Re-verify against Paystack's own API rather than trusting the webhook
-      // payload's fields directly — the signature proves the request came
-      // from Paystack, not that the embedded data is the current, final state.
-      const result = await verifyTransaction(event.data.reference);
       const supabase = getServerSupabase();
-      await activateSubscription(supabase, result, event);
+      const meta    = (event.data as Record<string, unknown>)?.metadata as Record<string, unknown> | undefined;
+      const purpose  = meta?.purpose;
+
+      if (purpose === 'sms_topup') {
+        await creditSmsTopup(supabase, event.data.reference);
+      } else {
+        // Re-verify against Paystack's own API rather than trusting the webhook
+        // payload's fields directly — the signature proves the request came
+        // from Paystack, not that the embedded data is the current, final state.
+        const result = await verifyTransaction(event.data.reference);
+        await activateSubscription(supabase, result, event);
+      }
     } catch (error) {
       console.error('Billing webhook processing error:', error);
       // Still respond 200 below — Paystack retries on a non-2xx response,

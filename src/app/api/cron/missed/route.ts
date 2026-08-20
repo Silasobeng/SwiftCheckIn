@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase, isSubscriptionValid } from '@/lib/supabase';
 import { sendBrevoEmail, processTemplate, orgReplyTo } from '@/lib/email';
 import { buildBrandedEmail } from '@/lib/emailTemplate';
+import { sendSMS, missedMessage } from '@/lib/sms';
 import { getRecentServiceDates } from '@/lib/attendance';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     // Get all active organizations
     const { data: orgs } = await supabase
       .from('organizations')
-      .select('id, name, brand_color, logo_url, address, phone, email, admin_email, subscription_status, subscription_end_date');
+      .select('id, name, brand_color, logo_url, address, phone, email, admin_email, subscription_status, subscription_end_date, sms_missed_enabled, sms_credits');
 
     if (!orgs) {
       return NextResponse.json({ success: true, sent: 0 });
@@ -83,14 +84,13 @@ export async function GET(request: NextRequest) {
 
       if (!template) continue;
 
-      // Find members/leaders who missed the last 2 services
+      // Fetch all members/leaders (email and non-email) — SMS fills the gap for people without email
       const { data: allMembers } = await supabase
         .from('people')
         .select('*')
         .eq('org_id', org.id)
         .eq('archived', false)
-        .in('role', ['member', 'leader'])
-        .not('email', 'is', null);
+        .in('role', ['member', 'leader']);
 
       if (!allMembers) continue;
 
@@ -110,7 +110,31 @@ export async function GET(request: NextRequest) {
         .gte('created_at', sevenDaysAgo.toISOString());
 
       const alreadyEmailed = new Set((recentLogs ?? []).map((l) => l.person_id));
-      const queue = absentees.filter((p) => p.email && !alreadyEmailed.has(p.id));
+
+      // SMS suppression — same 7-day window, separate log table
+      const { data: recentSmsLogs } = await supabase
+        .from('sms_logs')
+        .select('person_id')
+        .eq('org_id', org.id)
+        .eq('sms_type', 'missed')
+        .gte('created_at', sevenDaysAgo.toISOString());
+      const alreadyTexted = new Set((recentSmsLogs ?? []).map((l) => l.person_id));
+
+      // People with email go through the email queue; people without email go through SMS
+      const emailAbsentees = absentees.filter((p) => p.email && !alreadyEmailed.has(p.id));
+      const smsAbsentees   = absentees.filter(
+        (p) => !p.email && !p.sms_opted_out && !alreadyTexted.has(p.id) &&
+               org.sms_missed_enabled && org.sms_credits > 0
+      );
+
+      // Fire SMS for no-email absentees immediately (low volume, no batching needed)
+      for (const person of smsAbsentees) {
+        if (org.sms_credits <= 0) break;
+        const firstName = person.full_name.split(' ')[0];
+        await sendSMS(person.phone, missedMessage(firstName, org.name), org.id, 'missed', person.id);
+      }
+
+      const queue = emailAbsentees;
 
       const replyTo = orgReplyTo(org);
 

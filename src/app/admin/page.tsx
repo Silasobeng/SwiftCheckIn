@@ -271,6 +271,10 @@ export default function AdminPage() {
   const [branding, setBranding] = useState({
   org_name: '',
   tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'', timezone:'' });
+  const [smsSettings, setSmsSettings] = useState({ sms_welcome_enabled: false, sms_birthday_enabled: false, sms_missed_enabled: false, sms_credits: 0 });
+  const [savingSms, setSavingSms] = useState(false);
+  const [smsTopupAmount, setSmsTopupAmount] = useState('');
+  const [toppingUp, setToppingUp] = useState(false);
   const [categories, setCategories] = useState<GroupCategory[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [personGroups, setPersonGroups] = useState<PersonGroup[]>([]);
@@ -355,9 +359,17 @@ export default function AdminPage() {
     if (!background) {
       setKioskCode(stD.settings?.kiosk_access_code || '');
       const org = stD.settings?.organization;
-      if (org) setBranding({
-        org_name: org.name || '',
-        tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'', timezone:org.timezone||'' });
+      if (org) {
+        setBranding({
+          org_name: org.name || '',
+          tagline:org.tagline||'', host_names:org.host_names||'', address:org.address||'', phone:org.phone||'', email:org.email||'', logo_url:org.logo_url||'', cover_image_url:org.cover_image_url||'', brand_color:org.brand_color||'#102a43', kiosk_welcome_heading:org.kiosk_welcome_heading||'', kiosk_welcome_subtext:org.kiosk_welcome_subtext||'', timezone:org.timezone||'' });
+        setSmsSettings({
+          sms_welcome_enabled:  org.sms_welcome_enabled  ?? false,
+          sms_birthday_enabled: org.sms_birthday_enabled ?? false,
+          sms_missed_enabled:   org.sms_missed_enabled   ?? false,
+          sms_credits:          org.sms_credits          ?? 0,
+        });
+      }
       if (!stD.settings) setError('Some dashboard data could not be refreshed — check your connection.');
     }
   }, [session]);
@@ -514,6 +526,28 @@ export default function AdminPage() {
       const res=await fetch('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(branding)});
       const data=await res.json(); if(!res.ok){setError(data.error||'Could not save.');return;} setMessage('Settings saved.'); loadData();
     } finally { setSavingBranding(false); }
+  };
+
+  const saveSmsSettings = async () => {
+    setSavingSms(true); setMessage(null); setError(null);
+    try {
+      const res = await fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(smsSettings) });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Could not save SMS settings.'); return; }
+      setMessage('SMS settings saved.');
+    } finally { setSavingSms(false); }
+  };
+
+  const initSmsTopup = async () => {
+    const amount = parseFloat(smsTopupAmount);
+    if (!amount || amount < 5) { setError('Minimum top-up is 5 GHC.'); return; }
+    setToppingUp(true); setMessage(null); setError(null);
+    try {
+      const res  = await fetch('/api/sms/topup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amountGhc: amount }) });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Could not start top-up.'); return; }
+      window.location.href = data.authorizationUrl;
+    } finally { setToppingUp(false); }
   };
 
   const saveGroup = async () => {
@@ -2533,6 +2567,97 @@ export default function AdminPage() {
                   <div className="rounded-2xl py-4 text-xs font-semibold uppercase tracking-wider text-navy-900" style={{background:'linear-gradient(145deg,#e8aa18,#d4900a)'}}>First Time</div>
                 </div>
                 {branding.tagline && <div className="text-white/40 mt-6 text-xs italic">{branding.tagline}</div>}
+              </div>
+            </div>
+
+            {/* SMS */}
+            <div className="card space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="panel-label" style={{display:'block',marginBottom:4}}>SMS Notifications</div>
+                  <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.7}}>
+                    Sent to members who have no email address. Each SMS costs 0.40 GHC from your credit balance.
+                  </p>
+                </div>
+                <div style={{textAlign:'right',flexShrink:0}}>
+                  <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:2}}>Balance</div>
+                  <div style={{fontSize:22,fontWeight:600,color:'#16243A',lineHeight:1}}>{smsSettings.sms_credits}</div>
+                  <div style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>credits</div>
+                </div>
+              </div>
+
+              {/* Toggles */}
+              <div className="space-y-3">
+                {([
+                  { key: 'sms_welcome_enabled',  label: 'Welcome SMS',      desc: 'First-time visitors without an email address.' },
+                  { key: 'sms_birthday_enabled', label: 'Birthday SMS',     desc: 'Members whose email is missing on their birthday.' },
+                  { key: 'sms_missed_enabled',   label: 'Missed-service SMS', desc: 'Members without email who missed two services in a row.' },
+                ] as const).map(({ key, label, desc }) => (
+                  <div key={key} className="flex items-center justify-between gap-4 py-2" style={{borderTop:'1px solid #F0EDE8'}}>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:500,color:'#16243A'}}>{label}</div>
+                      <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{desc}</div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={smsSettings[key]}
+                      onClick={() => setSmsSettings(s => ({ ...s, [key]: !s[key] }))}
+                      style={{
+                        width:44, height:24, borderRadius:12, border:'none', cursor:'pointer', flexShrink:0,
+                        background: smsSettings[key] ? 'var(--series-1, #2F5C99)' : '#D4CFC9',
+                        position:'relative', transition:'background 0.15s',
+                      }}
+                    >
+                      <span style={{
+                        position:'absolute', top:3, left: smsSettings[key] ? 23 : 3,
+                        width:18, height:18, borderRadius:'50%', background:'#fff',
+                        transition:'left 0.15s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
+                      }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={saveSmsSettings} disabled={savingSms} className="btn btn-gold text-sm">
+                {savingSms ? 'Saving…' : 'Save SMS Settings'}
+              </button>
+
+              {/* Top-up */}
+              <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
+                <div style={{fontSize:13,fontWeight:500,color:'#16243A',marginBottom:4}}>Top up SMS credits</div>
+                <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:12,lineHeight:1.6}}>
+                  Pay by MoMo or card via Paystack. Credits are added automatically once payment clears.
+                  Minimum 5 GHC (12 credits).
+                </p>
+                <div className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13,color:'#7A6E60',fontWeight:500,pointerEvents:'none'}}>GHC</span>
+                    <input
+                      className="input"
+                      style={{paddingLeft:44}}
+                      type="number"
+                      min="5"
+                      max="5000"
+                      step="1"
+                      placeholder="e.g. 50"
+                      value={smsTopupAmount}
+                      onChange={e => setSmsTopupAmount(e.target.value)}
+                    />
+                  </div>
+                  {smsTopupAmount && parseFloat(smsTopupAmount) >= 5 && (
+                    <span style={{fontSize:12,color:'#7A6E60',whiteSpace:'nowrap'}}>
+                      = {Math.floor(parseFloat(smsTopupAmount) * 100 / 40)} credits
+                    </span>
+                  )}
+                  <button
+                    onClick={initSmsTopup}
+                    disabled={toppingUp || !smsTopupAmount || parseFloat(smsTopupAmount) < 5}
+                    className="btn btn-gold text-sm shrink-0"
+                  >
+                    {toppingUp ? 'Redirecting…' : 'Pay'}
+                  </button>
+                </div>
               </div>
             </div>
 

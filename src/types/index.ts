@@ -27,6 +27,10 @@ export interface Organization {
   subscription_end_date: string | null;
   timezone: string;
   paystack_customer_code: string | null;
+  sms_credits: number;
+  sms_welcome_enabled: boolean;
+  sms_birthday_enabled: boolean;
+  sms_missed_enabled: boolean;
 }
 
 // A church-defined bucket of grouping — "Cell Group", "Department", or
@@ -89,6 +93,7 @@ export interface Person {
   total_checkins: number;
   last_checkin_at: string | null;
   archived: boolean;
+  sms_opted_out: boolean;
 }
 
 export interface Service {
@@ -137,6 +142,17 @@ export interface EmailTemplate {
   template_type: EmailTemplateType;
   subject: string;
   body: string;
+}
+
+export interface SmsLog {
+  id: string;
+  created_at: string;
+  org_id: string;
+  person_id: string | null;
+  sms_type: string;
+  recipient_phone: string;
+  message: string | null;
+  status: 'sent' | 'failed';
 }
 
 export interface EmailLog {
