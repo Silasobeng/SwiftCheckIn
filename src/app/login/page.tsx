@@ -58,11 +58,8 @@ export default function LoginPage() {
 
       {/* LEFT */}
       <div style={{ background:'#16243A', padding:'56px 52px', flexDirection:'column', justifyContent:'space-between', minHeight:'100vh' }} className="hidden md:flex">
-        <Link href="/" style={{ display:'flex', alignItems:'center', gap:10, textDecoration:'none' }}>
-          <div style={{ width:36,height:36,background:'#C97B1A',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center' }}>
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9.5L7 13.5L15 5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </div>
-          <span style={{ fontFamily:"'Playfair Display',serif", fontSize:18, color:'#fff' }}>WeMotiply</span>
+        <Link href="/" style={{ display:'flex', alignItems:'center', textDecoration:'none' }}>
+          <img src="/wemotiply-logo.jpg" alt="WeMotiply" style={{ height:52, width:'auto', borderRadius:8 }} />
         </Link>
 
         {/* keyed so each rotation actually crossfades rather than snapping */}
