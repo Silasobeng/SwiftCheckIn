@@ -208,9 +208,15 @@ export default function LandingPage({ images }: { images: LandingImages }) {
       {/* ── NAV ── */}
       <header className={`fixed top-0 inset-x-0 z-50 transition-colors duration-300 ${navSolid ? 'bg-white/95 backdrop-blur-md border-b border-cream-dark' : 'bg-transparent'}`}>
         <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex flex-col leading-none">
-            <Wordmark dark={navSolid} />
-            <span className={`mt-1 text-[11px] italic ${navSolid ? 'text-navy-500' : 'text-white/70'}`}>Together, we multiply.</span>
+          <Link href="/" className="flex items-center leading-none">
+            {navSolid ? (
+              <img src="/wemotiply-logo.jpg" alt="WeMotiply" className="h-14 w-auto" />
+            ) : (
+              <div className="flex flex-col leading-none">
+                <Wordmark dark={false} />
+                <span className="mt-1 text-[11px] italic text-white/70">Together, we multiply.</span>
+              </div>
+            )}
           </Link>
 
           <nav className="hidden items-center gap-8 md:flex">
