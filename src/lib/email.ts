@@ -1,4 +1,4 @@
-import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
+import { Resend } from 'resend';
 import { getServerSupabase } from './supabase';
 import type { Organization, Service, Person } from '@/types';
 import { buildBrandedEmail } from './emailTemplate';
@@ -8,14 +8,8 @@ interface EmailAttachment { content: string; name: string; }
 interface SendEmailResult { success: boolean; error?: string; }
 export interface ReplyTo { email: string; name?: string; }
 
-function getSESClient(): SESClient {
-  return new SESClient({
-    region: process.env.AWS_REGION || 'eu-west-1',
-    credentials: {
-      accessKeyId:     process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
+function getResend(): Resend {
+  return new Resend(process.env.RESEND_API_KEY);
 }
 
 /**
@@ -43,70 +37,39 @@ export async function sendBrevoEmail(
   to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string,
   attachments?: EmailAttachment[], replyTo?: ReplyTo
 ): Promise<SendEmailResult> {
-  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-    console.warn('AWS credentials not configured - email not sent');
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY not configured - email not sent');
     return { success: false, error: 'Email not configured' };
   }
 
-  const senderEmail = process.env.SES_SENDER_EMAIL || 'noreply@wemotiply.com';
+  const senderEmail = process.env.RESEND_FROM_EMAIL || 'noreply@wemotiply.com';
   const senderName  = orgName || 'WeMotiply';
-  const fromAddress = formatAddress(senderEmail, senderName);
+  const from = formatAddress(senderEmail, senderName);
 
-  if (attachments && attachments.length > 0) {
-    // Attachments require raw MIME email
-    const boundary = `boundary_${Date.now()}`;
-    const toHeader = to.map(r => formatAddress(r.email, r.name)).join(', ');
-    const replyToHeader = replyTo?.email ? `Reply-To: ${formatAddress(replyTo.email, replyTo.name)}\r\n` : '';
-
-    let raw = [
-      `From: ${fromAddress}`,
-      `To: ${toHeader}`,
-      `Subject: ${subject}`,
-      replyToHeader.trim(),
-      'MIME-Version: 1.0',
-      `Content-Type: multipart/mixed; boundary="${boundary}"`,
-      '',
-      `--${boundary}`,
-      'Content-Type: text/html; charset=UTF-8',
-      'Content-Transfer-Encoding: quoted-printable',
-      '',
-      htmlContent,
-    ].filter(Boolean).join('\r\n');
-
-    for (const att of attachments) {
-      raw += `\r\n--${boundary}\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename="${att.name}"\r\n\r\n${att.content}\r\n`;
-    }
-    raw += `\r\n--${boundary}--`;
-
-    try {
-      const client = getSESClient();
-      await client.send(new SendRawEmailCommand({
-        RawMessage: { Data: Buffer.from(raw) },
-      }));
-      return { success: true };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to send email';
-      console.error('SES raw send error:', msg);
-      return { success: false, error: msg };
-    }
-  }
-
-  // No attachments — use the simpler SendEmail API
   try {
-    const client = getSESClient();
-    await client.send(new SendEmailCommand({
-      Source: fromAddress,
-      Destination: { ToAddresses: to.map(r => formatAddress(r.email, r.name)) },
-      Message: {
-        Subject: { Data: subject, Charset: 'UTF-8' },
-        Body:    { Html: { Data: htmlContent, Charset: 'UTF-8' } },
-      },
-      ...(replyTo?.email ? { ReplyToAddresses: [formatAddress(replyTo.email, replyTo.name)] } : {}),
-    }));
+    const resend = getResend();
+    const { error } = await resend.emails.send({
+      from,
+      to: to.map(r => formatAddress(r.email, r.name)),
+      subject,
+      html: htmlContent,
+      ...(replyTo?.email ? { replyTo: formatAddress(replyTo.email, replyTo.name) } : {}),
+      ...(attachments?.length ? {
+        attachments: attachments.map(a => ({
+          filename: a.name,
+          content: Buffer.from(a.content, 'base64'),
+        })),
+      } : {}),
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      return { success: false, error: error.message };
+    }
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Failed to send email';
-    console.error('SES send error:', msg);
+    console.error('Resend send error:', msg);
     return { success: false, error: msg };
   }
 }
