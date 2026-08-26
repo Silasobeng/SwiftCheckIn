@@ -33,6 +33,46 @@ function formatAddress(email: string, name?: string): string {
   return name ? `${name.replace(/[,<>]/g, '')} <${email}>` : email;
 }
 
+// Brevo fallback — called when Resend hits its daily quota.
+// Uses Brevo's HTTP API directly (no SDK) so there's nothing extra to install.
+async function sendViaBrevo(
+  to: EmailRecipient[], subject: string, htmlContent: string,
+  from: { email: string; name: string }, replyTo?: ReplyTo,
+  attachments?: EmailAttachment[]
+): Promise<SendEmailResult> {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) return { success: false, error: 'Brevo not configured' };
+
+  const body: Record<string, unknown> = {
+    sender: { email: from.email, name: from.name },
+    to: to.map(r => ({ email: r.email, name: r.name || r.email })),
+    subject,
+    htmlContent,
+    ...(replyTo?.email ? { replyTo: { email: replyTo.email, name: replyTo.name } } : {}),
+    ...(attachments?.length ? {
+      attachment: attachments.map(a => ({ name: a.name, content: a.content })),
+    } : {}),
+  };
+
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': apiKey, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('Brevo fallback error:', text);
+    return { success: false, error: `Brevo: ${res.status}` };
+  }
+  return { success: true };
+}
+
+function isQuotaError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return lower.includes('quota') || lower.includes('rate') || lower.includes('limit') || lower.includes('429');
+}
+
 export async function sendBrevoEmail(
   to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string,
   attachments?: EmailAttachment[], replyTo?: ReplyTo
@@ -44,12 +84,12 @@ export async function sendBrevoEmail(
 
   const senderEmail = process.env.RESEND_FROM_EMAIL || 'noreply@wemotiply.com';
   const senderName  = orgName || 'WeMotiply';
-  const from = formatAddress(senderEmail, senderName);
+  const from = { email: senderEmail, name: senderName };
 
   try {
     const resend = getResend();
     const { error } = await resend.emails.send({
-      from,
+      from: formatAddress(senderEmail, senderName),
       to: to.map(r => formatAddress(r.email, r.name)),
       subject,
       html: htmlContent,
@@ -63,12 +103,21 @@ export async function sendBrevoEmail(
     });
 
     if (error) {
+      // Quota hit — try Brevo backup credits before giving up
+      if (isQuotaError(error.message)) {
+        console.warn('Resend quota reached, falling back to Brevo');
+        return sendViaBrevo(to, subject, htmlContent, from, replyTo, attachments);
+      }
       console.error('Resend error:', error);
       return { success: false, error: error.message };
     }
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Failed to send email';
+    if (isQuotaError(msg)) {
+      console.warn('Resend quota reached, falling back to Brevo');
+      return sendViaBrevo(to, subject, htmlContent, from, replyTo, attachments);
+    }
     console.error('Resend send error:', msg);
     return { success: false, error: msg };
   }
