@@ -2623,7 +2623,6 @@ export default function AdminPage() {
                 <label className="block text-sm font-medium text-navy-700 mb-1">SMS Sender Name</label>
                 <p style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:8,lineHeight:1.6}}>
                   The name recipients see as the sender. Max 11 characters, no spaces. Leave blank to use the platform default.
-                  You must register this name with Arkesel before it will work.
                 </p>
                 <input
                   className="input"
