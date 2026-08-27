@@ -31,6 +31,7 @@ export interface Organization {
   sms_welcome_enabled: boolean;
   sms_birthday_enabled: boolean;
   sms_missed_enabled: boolean;
+  sms_sender_id: string | null;
 }
 
 // A church-defined bucket of grouping — "Cell Group", "Department", or
@@ -153,6 +154,20 @@ export interface SmsLog {
   recipient_phone: string;
   message: string | null;
   status: 'sent' | 'failed';
+}
+
+export interface SmsBroadcast {
+  id: string;
+  created_at: string;
+  org_id: string;
+  message: string;
+  sender_id: string;
+  recipient_filter: string;
+  recipient_count: number;
+  credits_used: number;
+  delivered_count: number;
+  failed_count: number;
+  status: 'delivered' | 'partial' | 'failed' | 'sent';
 }
 
 export interface EmailLog {

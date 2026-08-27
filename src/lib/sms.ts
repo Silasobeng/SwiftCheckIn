@@ -2,15 +2,56 @@ import { getServerSupabase } from './supabase';
 
 // 0.40 GHC per SMS charged to churches. Arkesel costs ~0.28 GHC/SMS (~$0.02).
 const PRICE_PER_SMS_PESEWAS = 40;
+const ARKESEL_API_URL = 'https://sms.arkesel.com/api/v2/sms/send';
+const BATCH_SIZE = 100; // Arkesel max recipients per request
 
 // Arkesel expects +233XXXXXXXXX for Ghana numbers.
 // DB stores whatever the kiosk operator typed: 0XXXXXXXXX, 233XXXXXXXXX, +233XXXXXXXXX, or 9 bare digits.
-function formatGhanaPhone(phone: string): string {
+export function formatGhanaPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.startsWith('233') && digits.length === 12) return `+${digits}`;
   if (digits.startsWith('0') && digits.length === 10)   return `+233${digits.slice(1)}`;
   if (digits.length === 9)                               return `+233${digits}`;
   return `+${digits}`;
+}
+
+// ─── Batched send (ported from QuickXend) ───────────────
+// Splits large recipient lists into chunks of 100, sends sequentially.
+async function sendBatch(
+  apiKey: string, sender: string, message: string, recipients: string[]
+): Promise<{ success: boolean; delivered: number; failed: number }> {
+  try {
+    const res = await fetch(ARKESEL_API_URL, {
+      method: 'POST',
+      headers: { 'api-key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sender: sender.slice(0, 11), message, recipients }),
+    });
+    if (!res.ok) {
+      console.error(`[Arkesel] HTTP ${res.status}`);
+      return { success: false, delivered: 0, failed: recipients.length };
+    }
+    return { success: true, delivered: recipients.length, failed: 0 };
+  } catch (err) {
+    console.error('[Arkesel] batch error:', err);
+    return { success: false, delivered: 0, failed: recipients.length };
+  }
+}
+
+export async function sendSMSBatched(
+  apiKey: string, sender: string, message: string, recipients: string[]
+): Promise<{ delivered: number; failed: number }> {
+  let delivered = 0;
+  let failed = 0;
+  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+    const batch = recipients.slice(i, i + BATCH_SIZE);
+    const result = await sendBatch(apiKey, sender, message, batch);
+    delivered += result.delivered;
+    failed    += result.failed;
+    if (i + BATCH_SIZE < recipients.length) {
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+  return { delivered, failed };
 }
 
 export function creditsFromPesewas(pesewas: number): number {
@@ -36,9 +77,7 @@ export async function sendSMS(
   smsType: string,
   personId?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const apiKey  = process.env.ARKESEL_API_KEY;
-  const sender  = process.env.ARKESEL_SENDER_ID || 'WeMotiply';
-
+  const apiKey = process.env.ARKESEL_API_KEY;
   if (!apiKey) {
     console.warn('ARKESEL_API_KEY not configured — SMS not sent');
     return { success: false, error: 'SMS not configured' };
@@ -49,13 +88,15 @@ export async function sendSMS(
   // Read and decrement credits — gte guard prevents going below zero
   const { data: org } = await supabase
     .from('organizations')
-    .select('sms_credits')
+    .select('sms_credits, sms_sender_id')
     .eq('id', orgId)
     .single();
 
   if (!org || org.sms_credits < 1) {
     return { success: false, error: 'Insufficient SMS credits' };
   }
+
+  const sender = (org.sms_sender_id as string | null) || process.env.ARKESEL_SENDER_ID || 'WeMotiply';
 
   await supabase
     .from('organizations')
@@ -68,7 +109,7 @@ export async function sendSMS(
   let arkeselResponse: unknown = null;
 
   try {
-    const res = await fetch('https://sms.arkesel.com/api/v2/sms/send', {
+    const res = await fetch(ARKESEL_API_URL, {
       method: 'POST',
       headers: { 'api-key': apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({ sender, message, recipients: [recipient] }),

@@ -21,7 +21,7 @@ export async function GET() {
 
     const { data: organization, error: orgError } = await supabase
       .from('organizations')
-      .select('name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, timezone, sms_credits, sms_welcome_enabled, sms_birthday_enabled, sms_missed_enabled')
+      .select('name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, timezone, sms_credits, sms_welcome_enabled, sms_birthday_enabled, sms_missed_enabled, sms_sender_id')
       .eq('id', auth.session.orgId)
       .single();
 
@@ -44,7 +44,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const supabase = getServerSupabase();
     const body = await request.json();
-    const { kiosk_open, active_service_id, org_name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, kiosk_access_code, timezone, sms_welcome_enabled, sms_birthday_enabled, sms_missed_enabled } = body;
+    const { kiosk_open, active_service_id, org_name, tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, kiosk_access_code, timezone, sms_welcome_enabled, sms_birthday_enabled, sms_missed_enabled, sms_sender_id } = body;
 
     // The timezone drives every "today" and "this month" in the app, plus the
     // day birthday emails fire on. A typo here would silently shift all of them,
@@ -156,7 +156,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const orgUpdateData: Record<string, unknown> = {}
-    const orgFields: Record<string, unknown> = { tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, timezone, sms_welcome_enabled, sms_birthday_enabled, sms_missed_enabled };
+    const orgFields: Record<string, unknown> = { tagline, host_names, address, phone, email, logo_url, cover_image_url, brand_color, kiosk_welcome_heading, kiosk_welcome_subtext, timezone, sms_welcome_enabled, sms_birthday_enabled, sms_missed_enabled, sms_sender_id };
     // Handle org name separately (it's 'name' in DB)
     if (org_name !== undefined && org_name.trim()) orgUpdateData['name'] = org_name.trim();
     Object.entries(orgFields).forEach(([key, value]) => {

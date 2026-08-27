@@ -271,10 +271,15 @@ export default function AdminPage() {
   const [branding, setBranding] = useState({
   org_name: '',
   tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'', timezone:'' });
-  const [smsSettings, setSmsSettings] = useState({ sms_welcome_enabled: false, sms_birthday_enabled: false, sms_missed_enabled: false, sms_credits: 0 });
+  const [smsSettings, setSmsSettings] = useState({ sms_welcome_enabled: false, sms_birthday_enabled: false, sms_missed_enabled: false, sms_credits: 0, sms_sender_id: '' });
   const [savingSms, setSavingSms] = useState(false);
   const [smsTopupAmount, setSmsTopupAmount] = useState('');
   const [toppingUp, setToppingUp] = useState(false);
+  const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [broadcastFilter, setBroadcastFilter] = useState('all');
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState<{ delivered: number; failed: number; credits_used: number } | null>(null);
+  const [broadcasts, setBroadcasts] = useState<import('@/types').SmsBroadcast[]>([]);
   const [categories, setCategories] = useState<GroupCategory[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [personGroups, setPersonGroups] = useState<PersonGroup[]>([]);
@@ -368,6 +373,7 @@ export default function AdminPage() {
           sms_birthday_enabled: org.sms_birthday_enabled ?? false,
           sms_missed_enabled:   org.sms_missed_enabled   ?? false,
           sms_credits:          org.sms_credits          ?? 0,
+          sms_sender_id:        org.sms_sender_id        ?? '',
         });
       }
       if (!stD.settings) setError('Some dashboard data could not be refreshed — check your connection.');
@@ -536,6 +542,32 @@ export default function AdminPage() {
       if (!res.ok) { setError(data.error || 'Could not save SMS settings.'); return; }
       setMessage('SMS settings saved.');
     } finally { setSavingSms(false); }
+  };
+
+  const loadBroadcasts = async () => {
+    try {
+      const res = await fetch('/api/sms/broadcast');
+      const data = await res.json();
+      if (res.ok) setBroadcasts(data.broadcasts || []);
+    } catch { /* non-critical */ }
+  };
+
+  const sendBroadcast = async () => {
+    if (!broadcastMsg.trim()) { setError('Message is required.'); return; }
+    setBroadcastSending(true); setBroadcastResult(null); setError(null);
+    try {
+      const res = await fetch('/api/sms/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: broadcastMsg, recipient_filter: broadcastFilter, sender_id: smsSettings.sms_sender_id || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Broadcast failed.'); return; }
+      setBroadcastResult(data);
+      setBroadcastMsg('');
+      setSmsSettings(s => ({ ...s, sms_credits: s.sms_credits - (data.credits_used || 0) }));
+      await loadBroadcasts();
+    } finally { setBroadcastSending(false); }
   };
 
   const initSmsTopup = async () => {
@@ -1117,7 +1149,7 @@ export default function AdminPage() {
             };
             const active = tab===t;
             return (
-              <button key={t} onClick={()=>setTab(t)} aria-current={active?'page':undefined}
+              <button key={t} onClick={()=>{ setTab(t); if(t==='settings') loadBroadcasts(); }} aria-current={active?'page':undefined}
                 style={{
                   display:'flex',alignItems:'center',gap:7,
                   padding:'9px 16px',borderRadius:10,
@@ -2586,6 +2618,23 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {/* Sender ID */}
+              <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
+                <label className="block text-sm font-medium text-navy-700 mb-1">SMS Sender Name</label>
+                <p style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:8,lineHeight:1.6}}>
+                  The name recipients see as the sender. Max 11 characters, no spaces. Leave blank to use the platform default.
+                  You must register this name with Arkesel before it will work.
+                </p>
+                <input
+                  className="input"
+                  style={{maxWidth:200,fontFamily:'monospace',letterSpacing:'0.05em'}}
+                  placeholder="e.g. GraceChurch"
+                  maxLength={11}
+                  value={smsSettings.sms_sender_id}
+                  onChange={e => setSmsSettings(s => ({ ...s, sms_sender_id: e.target.value.replace(/\s/g,'').slice(0,11) }))}
+                />
+              </div>
+
               {/* Toggles */}
               <div className="space-y-3">
                 {([
@@ -2659,6 +2708,95 @@ export default function AdminPage() {
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* SMS Broadcast */}
+            <div className="card space-y-4">
+              <div>
+                <div className="panel-label" style={{display:'block',marginBottom:4}}>SMS Broadcast</div>
+                <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.7}}>
+                  Send a message to your congregation. Credits are deducted per recipient; failed deliveries are refunded.
+                </p>
+              </div>
+
+              {broadcastResult && (
+                <div style={{background:'#EDF6F1',borderRadius:10,padding:'10px 14px',fontSize:13,color:'#2E7D4E'}}>
+                  Sent to {broadcastResult.delivered} people &mdash; {broadcastResult.credits_used} credits used.
+                  {broadcastResult.failed > 0 && ` ${broadcastResult.failed} failed (refunded).`}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-navy-600 mb-1.5">Recipients</label>
+                <select
+                  className="select"
+                  value={broadcastFilter}
+                  onChange={e => setBroadcastFilter(e.target.value)}
+                >
+                  <option value="all">Everyone (all active members &amp; visitors)</option>
+                  <option value="members">Members only</option>
+                  <option value="visitors">Visitors only</option>
+                  {categories.flatMap(cat =>
+                    groups.filter(g => g.category_id === cat.id).map(g => (
+                      <option key={g.id} value={`group:${g.id}`}>{cat.name}: {g.name}</option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-navy-600 mb-1.5">Message</label>
+                <textarea
+                  className="textarea"
+                  rows={4}
+                  maxLength={459}
+                  placeholder="Type your message here…"
+                  value={broadcastMsg}
+                  onChange={e => setBroadcastMsg(e.target.value)}
+                />
+                <div style={{fontSize:11,color:'#A89D8E',marginTop:4,display:'flex',justifyContent:'space-between'}}>
+                  <span>{broadcastMsg.length}/459 characters</span>
+                  <span>{broadcastMsg.length === 0 ? '' : broadcastMsg.length <= 160 ? '1 SMS part' : `${Math.ceil(broadcastMsg.length/153)} SMS parts`}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <div style={{fontSize:13,color:'#7A6E60'}}>
+                  {broadcastMsg.trim() && smsSettings.sms_credits > 0 && (
+                    <span>Each recipient costs {broadcastMsg.length <= 160 ? 1 : Math.ceil(broadcastMsg.length/153)} credit{broadcastMsg.length > 160 ? 's' : ''}</span>
+                  )}
+                </div>
+                <button
+                  onClick={sendBroadcast}
+                  disabled={broadcastSending || !broadcastMsg.trim() || smsSettings.sms_credits < 1}
+                  className="btn btn-gold text-sm shrink-0"
+                >
+                  {broadcastSending ? 'Sending…' : 'Send Broadcast'}
+                </button>
+              </div>
+
+              {/* Broadcast history */}
+              {broadcasts.length > 0 && (
+                <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
+                  <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',marginBottom:10,textTransform:'uppercase',letterSpacing:'0.08em'}}>Recent Broadcasts</div>
+                  <div className="space-y-2">
+                    {broadcasts.map(b => (
+                      <div key={b.id} style={{background:'#FAF9F6',borderRadius:8,padding:'10px 12px',fontSize:13}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                          <div style={{color:'#16243A',flex:1,lineHeight:1.4}}>{b.message.slice(0, 80)}{b.message.length > 80 ? '…' : ''}</div>
+                          <div style={{fontSize:11,color:'#A89D8E',whiteSpace:'nowrap',flexShrink:0}}>
+                            {new Date(b.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div style={{fontSize:11,color:'#A89D8E',marginTop:4}}>
+                          {b.delivered_count} delivered &middot; {b.credits_used} credits &middot; {b.sender_id}
+                          {b.failed_count > 0 && ` · ${b.failed_count} failed`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Second save action — the header button scrolls out of reach on
