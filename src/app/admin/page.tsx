@@ -280,6 +280,7 @@ export default function AdminPage() {
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState<{ delivered: number; failed: number; credits_used: number } | null>(null);
   const [broadcasts, setBroadcasts] = useState<import('@/types').SmsBroadcast[]>([]);
+  const [smsUsage, setSmsUsage] = useState<Record<string, number>>({});
   const [categories, setCategories] = useState<GroupCategory[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [personGroups, setPersonGroups] = useState<PersonGroup[]>([]);
@@ -549,6 +550,11 @@ export default function AdminPage() {
       const res = await fetch('/api/sms/broadcast');
       const data = await res.json();
       if (res.ok) setBroadcasts(data.broadcasts || []);
+    } catch { /* non-critical */ }
+    try {
+      const res = await fetch('/api/sms/usage');
+      const data = await res.json();
+      if (res.ok) setSmsUsage(data.usage || {});
     } catch { /* non-critical */ }
   };
 
@@ -2637,14 +2643,17 @@ export default function AdminPage() {
               {/* Toggles */}
               <div className="space-y-3">
                 {([
-                  { key: 'sms_welcome_enabled',  label: 'Welcome SMS',      desc: 'First-time visitors without an email address.' },
-                  { key: 'sms_birthday_enabled', label: 'Birthday SMS',     desc: 'Members whose email is missing on their birthday.' },
-                  { key: 'sms_missed_enabled',   label: 'Missed-service SMS', desc: 'Members without email who missed two services in a row.' },
-                ] as const).map(({ key, label, desc }) => (
+                  { key: 'sms_welcome_enabled',  label: 'Welcome SMS',      desc: 'First-time visitors without an email address.', usageKey: 'welcome' },
+                  { key: 'sms_birthday_enabled', label: 'Birthday SMS',     desc: 'Members whose email is missing on their birthday.', usageKey: 'birthday' },
+                  { key: 'sms_missed_enabled',   label: 'Missed-service SMS', desc: 'Members without email who missed two services in a row.', usageKey: 'missed' },
+                ] as const).map(({ key, label, desc, usageKey }) => (
                   <div key={key} className="flex items-center justify-between gap-4 py-2" style={{borderTop:'1px solid #F0EDE8'}}>
                     <div>
                       <div style={{fontSize:14,fontWeight:500,color:'#16243A'}}>{label}</div>
                       <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{desc}</div>
+                      {smsUsage[usageKey] > 0 && (
+                        <div style={{fontSize:11,color:'#C97B1A',fontWeight:500,marginTop:2}}>{smsUsage[usageKey]} credits used in last 30 days</div>
+                      )}
                     </div>
                     <button
                       type="button"
