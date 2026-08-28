@@ -347,3 +347,28 @@ body {
 .admin-shell .table-cell { font-variant-numeric:tabular-nums; }
 .admin-shell .alert { box-shadow:inset 3px 0 0 currentColor; }
 @media (max-width:640px) { .admin-shell .admin-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .admin-shell .admin-stat { min-height:108px; } .admin-shell .admin-page { max-width:none; } }
+
+/* WhatsApp support button. Collapses to a circle on phones so it never sits
+   on top of content the user is trying to read or tap. */
+.wa-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(37,211,102,.45); }
+.wa-fab:active { transform: translateY(0); }
+@media (max-width: 640px) {
+  .wa-fab { padding: 13px !important; bottom: 16px !important; right: 16px !important; }
+  .wa-fab .wa-fab-label { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wa-fab { transition: none; }
+  .wa-fab:hover { transform: none; }
+}
+
+/* Login backdrop: a very slow drift so the photograph feels alive without
+   ever calling attention to itself. Motion is dropped entirely for users who
+   have asked for reduced motion. */
+@keyframes login-drift {
+  0%   { transform: scale(1.06) translate3d(0, 0, 0); }
+  100% { transform: scale(1.14) translate3d(-1.2%, -1.2%, 0); }
+}
+.login-backdrop { animation: login-drift 26s ease-in-out infinite alternate; will-change: transform, opacity; }
+@media (prefers-reduced-motion: reduce) {
+  .login-backdrop { animation: none; transform: scale(1.04); transition: none; }
+}

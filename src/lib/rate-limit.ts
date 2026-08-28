@@ -95,8 +95,17 @@ export const RATE_LIMITS = {
   /** Signup: 3 attempts per minute per IP */
   signup: { limit: 3, windowSec: 60 },
   
-  /** Kiosk check-in: 30 per minute per org (prevents abuse) */
-  checkin: { limit: 30, windowSec: 60 },
+  /** Kiosk check-in: 200 per minute per org.
+   *
+   *  This is an abuse ceiling, NOT a throttle on real traffic. It is keyed per
+   *  ORG, so every tablet a church runs shares one budget, and the whole
+   *  congregation arrives inside the same 10-15 minutes on a Sunday — a
+   *  400-member church with three tablets can genuinely burst past 30/min
+   *  during the rush. Tripping it shows a visitor "Too many check-ins" at the
+   *  door, which is the single worst moment in the product to fail, so the
+   *  ceiling sits far above any plausible real Sunday and only catches a
+   *  script hammering the endpoint. */
+  checkin: { limit: 200, windowSec: 60 },
   
   /** API general: 100 requests per minute per org */
   api: { limit: 100, windowSec: 60 },

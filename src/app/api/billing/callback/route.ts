@@ -12,10 +12,10 @@ export const dynamic = 'force-dynamic';
 // same idempotent activateSubscription(), so whichever arrives first wins
 // and the other is a safe no-op.
 export async function GET(request: NextRequest) {
-  // No custom domain registered yet for the WeMotiply rebrand — this points
-  // at the live Vercel URL until one is. Swap NEXT_PUBLIC_APP_URL (or this
-  // fallback) the day a real domain goes live; nothing else needs to change.
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://swift-check-in-seven.vercel.app';
+  // Fallback only matters if NEXT_PUBLIC_APP_URL is unset — it points at the
+  // live domain so a missing env var sends a paying customer back to the real
+  // app rather than an old preview URL.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wemotiply.com';
   const reference = request.nextUrl.searchParams.get('reference') || request.nextUrl.searchParams.get('trxref');
 
   if (!reference) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
-import { checkRateLimit, getClientIP, RATE_LIMITS } from '@/lib/rate-limit';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { sendBrevoEmail } from '@/lib/email';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -65,25 +66,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Send reset email via Brevo
-      const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://swift-check-in-seven.vercel.app'}/reset-password?token=${resetToken}&email=${encodeURIComponent(normalizedEmail)}`;
+      // Sent through the same provider path as every other email in the app
+      // (Resend primary, Brevo fallback on quota). This route used to call
+      // Brevo's API directly with its own sender address, which meant it
+      // silently skipped Resend entirely and sent from whatever
+      // BREVO_SENDER_EMAIL happened to be — an address Resend will refuse
+      // because it isn't on the verified domain. Password reset is the one
+      // email that must never fail: it's the only way back into a locked-out
+      // account.
+      const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://wemotiply.com'}/reset-password?token=${resetToken}&email=${encodeURIComponent(normalizedEmail)}`;
 
       try {
-        const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-          method: 'POST',
-          headers: {
-            'accept': 'application/json',
-            'api-key': process.env.BREVO_API_KEY || '',
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            sender: {
-              name: 'WeMotiply',
-              email: process.env.BREVO_SENDER_EMAIL || 'noreply@wemotiply.com',
-            },
-            to: [{ email: normalizedEmail, name: org.name }],
-            subject: 'Reset Your Password - WeMotiply',
-            htmlContent: `
+        const html = `
               <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
                   <h1 style="color: #102a43; font-size: 28px; margin: 0;">WeMotiply</h1>
@@ -119,12 +113,17 @@ export async function POST(request: NextRequest) {
                   © ${new Date().getFullYear()} WeMotiply
                 </p>
               </div>
-            `,
-          }),
-        });
+            `;
 
-        if (!brevoResponse.ok) {
-          console.error('Brevo email failed:', await brevoResponse.text());
+        const result = await sendBrevoEmail(
+          [{ email: normalizedEmail, name: org.name }],
+          'Reset Your Password - WeMotiply',
+          html,
+          'WeMotiply'
+        );
+
+        if (!result.success) {
+          console.error('Password reset email failed:', result.error);
         }
       } catch (emailError) {
         console.error('Failed to send reset email:', emailError);

@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Could not find this account.' }, { status: 404 });
     }
 
-    // No custom domain registered yet for the WeMotiply rebrand — this points
-    // at the live Vercel URL until one is.
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://swift-check-in-seven.vercel.app';
+    // Fallback only matters if NEXT_PUBLIC_APP_URL is unset — it points at the
+    // live domain so Paystack returns the payer to the real app.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wemotiply.com';
     const callbackUrl = `${appUrl}/api/billing/callback`;
 
     const { authorization_url } = await initializeTransaction(

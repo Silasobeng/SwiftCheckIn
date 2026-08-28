@@ -7,6 +7,7 @@ import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, Givi
 import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
 import { tzFormatter, timeFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel, yearKeyOf, yearRangeLabel } from '@/lib/monthWindow';
 import { StackedTrend, RankedBars, OrdinalBars, SplitBar, SingleTrend } from '@/components/Charts';
+import WhatsAppSupport from '@/components/WhatsAppSupport';
 
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
 
@@ -322,6 +323,18 @@ export default function AdminPage() {
     if (billing === 'success') { setMessage('Payment received — subscription active.'); router.replace('/admin'); }
     else if (billing === 'failed') { setError('Payment did not go through. No charge was made — try again.'); router.replace('/admin'); }
   }, [router]);
+
+  // Whole days until the trial ends, in the church's own timezone — comparing
+  // date keys rather than subtracting timestamps, so "ends tomorrow" doesn't
+  // flip to "ends today" purely because it's late in the evening.
+  const trialDaysLeft = useMemo(() => {
+    if (!session?.subscriptionEndDate) return null;
+    const end = new Date(`${session.subscriptionEndDate}T00:00:00Z`).getTime();
+    const todayKey = dayKeyOf(tzFormatter(orgTimezone), new Date());
+    const start = new Date(`${todayKey}T00:00:00Z`).getTime();
+    if (Number.isNaN(end) || Number.isNaN(start)) return null;
+    return Math.round((end - start) / (24*60*60*1000));
+  }, [session?.subscriptionEndDate, orgTimezone]);
 
   const startCheckout = async (plan: 'monthly'|'annual') => {
     setBillingBusy(plan); setBillingError('');
@@ -1162,7 +1175,12 @@ export default function AdminPage() {
           <p style={{fontSize:12,color:'#A89D8E',textAlign:'center',lineHeight:1.6}}>
             Paid by card or Mobile Money via Paystack. You&apos;ll be redirected to a secure checkout page.
           </p>
-          <div style={{textAlign:'center',marginTop:20}}>
+          {/* Payment questions are the most likely reason someone stalls on
+              this screen, and it's the one screen with nothing else on it. */}
+          <div style={{textAlign:'center',marginTop:22}}>
+            <WhatsAppSupport variant="inline" context="my WeMotiply subscription" />
+          </div>
+          <div style={{textAlign:'center',marginTop:16}}>
             <button onClick={handleLogout} className="btn btn-ghost text-sm">Sign out</button>
           </div>
         </div>
@@ -1241,6 +1259,39 @@ export default function AdminPage() {
           </div>
         </div>
       </header>
+
+      {/* Trial countdown.
+          Without this a church works happily for 14 days and then arrives one
+          morning to a hard paywall with no warning — the worst possible first
+          impression, and usually at the exact moment they need the kiosk. It
+          stays quiet until the last week so it never nags, then sharpens on
+          the final two days. Only shown for trials: a paid subscription
+          renews through Paystack and doesn't need a countdown. */}
+      {session.subscriptionStatus === 'trial' && trialDaysLeft !== null && trialDaysLeft <= 7 && (
+        <div style={{
+          background: trialDaysLeft <= 2 ? '#FDECEA' : '#FDF3E0',
+          borderBottom: `1px solid ${trialDaysLeft <= 2 ? '#F0C4BE' : '#EDD9B0'}`,
+          padding: '10px 16px',
+        }}>
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+            <span style={{fontSize:13,color:trialDaysLeft<=2?'#8C2F26':'#7A4A0E',fontWeight:400}}>
+              {trialDaysLeft <= 0
+                ? 'Your free trial ends today.'
+                : trialDaysLeft === 1
+                ? 'Your free trial ends tomorrow.'
+                : `Your free trial ends in ${trialDaysLeft} days.`}
+              {' '}Subscribe now to keep check-in running without interruption.
+            </span>
+            <button
+              onClick={()=>startCheckout('monthly')}
+              disabled={billingBusy!==null}
+              className="btn btn-gold text-xs py-1.5 px-4 shrink-0"
+            >
+              {billingBusy==='monthly' ? 'Redirecting…' : 'Subscribe'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <nav className="admin-tabs bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-[68px] z-30">
@@ -2554,8 +2605,16 @@ export default function AdminPage() {
                 {/* Sender ID */}
                 <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
                   <label className="block text-sm font-medium text-navy-700 mb-1">SMS Sender Name</label>
+                  {/* This field silently breaks SMS if a church invents a name:
+                      mobile networks only deliver sender IDs registered in
+                      advance, so an unregistered one is rejected at the
+                      carrier and the church sees sends that just never
+                      arrive. Saying so here is the difference between a
+                      support ticket and a working setup. */}
                   <p style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:8,lineHeight:1.6}}>
-                    The name recipients see as the sender. Max 11 characters, no spaces. Leave blank to use the platform default.
+                    The name recipients see instead of a phone number. Max 11 characters, no spaces.
+                    <strong style={{color:'#7A6E60',fontWeight:500}}> Leave this blank unless you have asked us to register your church&apos;s name</strong> — networks reject
+                    sender names that aren&apos;t registered in advance, and your messages would quietly stop arriving.
                   </p>
                   <input
                     className="input"
@@ -2961,6 +3020,9 @@ export default function AdminPage() {
           </div>
         )}
       </main>
+
+      {/* Support for the person actually running the church's account. */}
+      <WhatsAppSupport context="the WeMotiply dashboard" />
     </div>
   );
 }

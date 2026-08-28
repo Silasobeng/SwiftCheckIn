@@ -2,17 +2,35 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import WhatsAppSupport from '@/components/WhatsAppSupport';
 
 type Screen = 'login' | 'forgot' | 'forgot-sent';
 
-// The two "Senior Pastor, Tema" / "Admin Secretary, Kumasi" quotes here were
-// invented — same issue as the landing page's old testimonials section, just
-// missed on the first honesty pass because this file wasn't touched then. No
-// quotes are attributed to fabricated people or churches now.
-const QUOTES = [
-  { text:'"Every person who walks through your door deserves to feel known."', attr:'The heart behind WeMotiply' },
-  { text:'"Together, we multiply."', attr:'WeMotiply' },
-  { text:'"Built with real churches, not for a demo."', attr:'WeMotiply' },
+// Scripture on growth and multiplication, rather than the product talking
+// about itself. The person signing in here is a pastor or church secretary on
+// a Sunday morning — the previous marketing lines ("Built with real churches,
+// not for a demo") were addressed to a buyer, not to them, and read as filler
+// once you'd seen them twice.
+//
+// Quoted from the King James Version, which is public domain. Modern
+// translations (NIV, ESV, NLT) are under copyright and cannot be shipped in
+// an app, however short the excerpt.
+const VERSES = [
+  { text:'And the Lord added to the church daily such as should be saved.', ref:'Acts 2:47' },
+  { text:'I have planted, Apollos watered; but God gave the increase.',      ref:'1 Corinthians 3:6' },
+  { text:'And the word of God increased; and the number of the disciples multiplied greatly.', ref:'Acts 6:7' },
+  { text:'And so were the churches established in the faith, and increased in number daily.',  ref:'Acts 16:5' },
+  { text:'The righteous shall flourish like the palm tree.',                 ref:'Psalm 92:12' },
+  { text:'Be fruitful, and multiply, and replenish the earth.',              ref:'Genesis 1:28' },
+];
+
+// Congregation photography behind the verse. Files are optional by design: a
+// missing image simply doesn't paint, leaving the navy panel exactly as it is
+// today, so this can ship before the photos are finalised and nothing breaks.
+const BACKDROPS = [
+  '/congregation-1.jpg',
+  '/congregation-2.jpg',
+  '/congregation-3.jpg',
 ];
 
 export default function LoginPage() {
@@ -22,10 +40,12 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [form, setForm] = useState({ email:'', password:'' });
   const [resetEmail, setResetEmail] = useState('');
-  const [quoteIdx, setQuoteIdx] = useState(0);
+  const [verseIdx, setVerseIdx] = useState(0);
 
+  // 7s rather than 5s: a verse takes longer to actually read than a
+  // three-word slogan did, and the crossfade needs room to breathe.
   useEffect(() => {
-    const id = setInterval(() => setQuoteIdx(i=>(i+1)%QUOTES.length), 5000);
+    const id = setInterval(() => setVerseIdx(i=>(i+1)%VERSES.length), 7000);
     return () => clearInterval(id);
   }, []);
 
@@ -51,28 +71,57 @@ export default function LoginPage() {
     finally { setLoading(false); }
   };
 
-  const q = QUOTES[quoteIdx];
+  const verse = VERSES[verseIdx];
+  // Photos rotate slower than the verses so the two never change in lockstep,
+  // which would read as one abrupt "slide" transition rather than a calm
+  // backdrop with words over it.
+  const backdropIdx = Math.floor(verseIdx / 2) % BACKDROPS.length;
 
   return (
     <div style={{ minHeight:'100vh', display:'grid', gridTemplateColumns:'1fr 1fr', fontFamily:"'DM Sans',sans-serif" }} className="!grid-cols-1 md:!grid-cols-2">
 
       {/* LEFT */}
-      <div style={{ background:'#16243A', padding:'56px 52px', flexDirection:'column', justifyContent:'space-between', minHeight:'100vh' }} className="hidden md:flex">
-        <Link href="/" style={{ display:'flex', alignItems:'center', textDecoration:'none' }}>
+      <div style={{ background:'#16243A', padding:'56px 52px', flexDirection:'column', justifyContent:'space-between', minHeight:'100vh', position:'relative', overflow:'hidden' }} className="hidden md:flex">
+
+        {/* Backdrop layers. Every image is mounted and only opacity changes,
+            so the crossfade is a real dissolve rather than one image being
+            swapped out from under the other. */}
+        {BACKDROPS.map((src, i) => (
+          <div
+            key={src}
+            aria-hidden
+            className="login-backdrop"
+            style={{
+              position:'absolute', inset:0,
+              backgroundImage:`url(${src})`, backgroundSize:'cover', backgroundPosition:'center',
+              opacity: i === backdropIdx ? 1 : 0,
+              transition:'opacity 1.6s ease-in-out',
+            }}
+          />
+        ))}
+        {/* Scrim. The verse sits on top of photography that could be bright
+            anywhere, so legibility can't depend on the picture behaving —
+            this guarantees contrast regardless of which image is showing. */}
+        <div aria-hidden style={{
+          position:'absolute', inset:0,
+          background:'linear-gradient(180deg, rgba(22,36,58,0.92) 0%, rgba(22,36,58,0.74) 45%, rgba(22,36,58,0.94) 100%)',
+        }} />
+
+        <Link href="/" style={{ display:'flex', alignItems:'center', textDecoration:'none', position:'relative', zIndex:1 }}>
           <img src="/wemotiply-logo.jpg" alt="WeMotiply" style={{ height:52, width:'auto', borderRadius:8 }} />
         </Link>
 
         {/* keyed so each rotation actually crossfades rather than snapping */}
-        <div key={quoteIdx} className="animate-fade-in">
-          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:28, color:'#fff', lineHeight:1.45, fontStyle:'italic', marginBottom:16 }}>
-            {q.text}
+        <div key={verseIdx} className="animate-fade-in" style={{ position:'relative', zIndex:1 }}>
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:28, color:'#fff', lineHeight:1.5, fontStyle:'italic', marginBottom:18, textShadow:'0 1px 12px rgba(0,0,0,0.35)' }}>
+            &ldquo;{verse.text}&rdquo;
           </div>
-          <div style={{ fontSize:14, color:'rgba(255,255,255,0.35)', fontWeight:300 }}>{q.attr}</div>
+          <div style={{ fontSize:13, color:'#F0A832', fontWeight:500, letterSpacing:'0.08em', textTransform:'uppercase' }}>{verse.ref}</div>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:1, background:'rgba(255,255,255,0.08)', borderRadius:12, overflow:'hidden' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:1, background:'rgba(255,255,255,0.14)', borderRadius:12, overflow:'hidden', position:'relative', zIndex:1, backdropFilter:'blur(2px)' }}>
           {[{v:'5 min',l:'Setup time'},{v:'100%',l:'Works offline'},{v:'Auto',l:'Birthday emails'}].map((s,i)=>(
-            <div key={i} style={{ background:'rgba(255,255,255,0.04)', padding:20, textAlign:'center' }}>
+            <div key={i} style={{ background:'rgba(22,36,58,0.55)', padding:20, textAlign:'center' }}>
               <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, color:'#F0A832', marginBottom:4 }}>{s.v}</div>
               <div style={{ fontSize:12, color:'rgba(255,255,255,0.35)', fontWeight:300 }}>{s.l}</div>
             </div>
@@ -139,6 +188,10 @@ export default function LoginPage() {
               </button>
             </form>
           </>}
+
+          {/* Someone who can't get in can't reach anything else in the app,
+              so this is the one screen where support has to be reachable. */}
+          <WhatsAppSupport context="signing in to my WeMotiply account" />
 
           {screen === 'forgot-sent' && <>
             <div style={{ textAlign:'center', paddingTop:40 }}>

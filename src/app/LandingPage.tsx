@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { LandingImages, LandingImageKey, PexelsImage } from '@/lib/pexels';
+import WhatsAppSupport from '@/components/WhatsAppSupport';
 
 // FAQ questions come from the approved wireframe. The answers are written to
 // match what the product actually does today — notably the member-list
@@ -590,6 +591,11 @@ export default function LandingPage({ images }: { images: LandingImages }) {
           © {new Date().getFullYear()} WeMotiply. Built for churches in Ghana.
         </div>
       </footer>
+
+      {/* A pastor deciding whether to sign up usually has one specific question
+          first. Making that answerable in a tap is worth more here than on any
+          other page. */}
+      <WhatsAppSupport context="signing up for WeMotiply" />
     </div>
   );
 }
