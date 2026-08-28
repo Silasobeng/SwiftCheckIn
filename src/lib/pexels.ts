@@ -39,7 +39,10 @@ export type LandingImageKey =
   | 'followUp'
   | 'giving'
   | 'insights'
-  | 'offline';
+  | 'offline'
+  | 'featuresBg'
+  | 'emailImg'
+  | 'smsImg';
 
 const QUERIES: Record<LandingImageKey, string> = {
   congregation: 'african church congregation worship',
@@ -51,6 +54,9 @@ const QUERIES: Record<LandingImageKey, string> = {
   giving: 'hands giving donation',
   insights: 'data analytics dashboard',
   offline: 'smartphone hand outdoor',
+  featuresBg: 'church sanctuary interior soft bokeh light',
+  emailImg: 'email message inbox laptop',
+  smsImg: 'smartphone text message chat bubble',
 };
 
 export type LandingImages = Record<LandingImageKey, PexelsImage | null>;

@@ -78,13 +78,14 @@ const CAPABILITIES: { icon: FeatureIconVariant; label: string; desc: string }[] 
   { icon: 'offline',   label: 'Works Without Internet',   desc: 'No wifi on Sunday? No problem. Every check-in is saved on the device and syncs the moment you\'re back online.' },
 ];
 
-export default function LandingPage({ images: _ }: { images: LandingImages }) {
+export default function LandingPage({ images }: { images: LandingImages }) {
   const [isLoggedIn, setIsLoggedIn]   = useState(false);
   const [mobileOpen, setMobileOpen]   = useState(false);
   const [scrolled, setScrolled]       = useState(false);
   const [allowMotion, setAllowMotion] = useState(true);
   const [showHeroVideo, setShowHeroVideo] = useState(false);
   const [selectedCap, setSelectedCap] = useState(0);
+  const [annual, setAnnual] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/session').then(r=>r.json()).then(d=>setIsLoggedIn(d.authenticated)).catch(()=>{});
@@ -214,37 +215,109 @@ export default function LandingPage({ images: _ }: { images: LandingImages }) {
       <DenominationMarquee />
 
       {/* CAPABILITIES */}
-      <section className="bg-white px-6 py-16">
+      <section
+        className="relative px-6 py-16"
+        style={images.featuresBg ? {
+          backgroundImage: `url(${images.featuresBg.url})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : { background: '#fff' }}
+      >
+        {/* overlay so text stays readable over the photo */}
+        {images.featuresBg && <div className="absolute inset-0 bg-white/88 backdrop-blur-[2px]" />}
+        <div className="relative z-10">
+          <Reveal>
+            <p className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">What WeMotiply offers</p>
+            <div className="mx-auto max-w-3xl">
+              {/* Card grid */}
+              <div className="grid grid-cols-3 gap-3 md:gap-4">
+                {CAPABILITIES.map((c, i) => {
+                  const active = selectedCap === i;
+                  const photo = i === 3 ? images.emailImg : i === 4 ? images.smsImg : null;
+                  return (
+                    <button
+                      key={c.label}
+                      onClick={() => setSelectedCap(i)}
+                      className={`group relative flex flex-col items-center gap-2 overflow-hidden rounded-xl border px-3 py-5 text-center transition-all duration-200 ${
+                        active
+                          ? 'border-gold-400 bg-white shadow-md shadow-gold-100'
+                          : 'border-white/70 bg-white/60 hover:border-gold-200 hover:bg-white/90'
+                      }`}
+                    >
+                      {/* photo accent strip for email + sms */}
+                      {photo && (
+                        <div className="absolute inset-x-0 top-0 h-12 overflow-hidden opacity-20">
+                          <img src={photo.url} alt="" className="w-full h-full object-cover" aria-hidden="true" />
+                        </div>
+                      )}
+                      <span className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${active ? 'bg-gold-500 text-white' : 'bg-gold-50 text-gold-500'}`}>
+                        <FeatureIcon variant={c.icon} className="w-4 h-4" />
+                      </span>
+                      <span className={`relative text-xs font-medium leading-snug ${active ? 'text-navy-900' : 'text-navy-500'}`}>{c.label}</span>
+                      {/* "more" indicator */}
+                      <span className={`relative flex gap-0.5 transition-opacity ${active ? 'opacity-0' : 'opacity-30 group-hover:opacity-60'}`} aria-hidden="true">
+                        {[0,1,2].map(d => <span key={d} className="block h-1 w-1 rounded-full bg-navy-400" />)}
+                      </span>
+                      {active && <span className="relative block h-0.5 w-6 rounded-full bg-gold-400" aria-hidden="true" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Description panel */}
+              <div className="mt-4 rounded-xl border border-gold-200 bg-white/90 px-6 py-5 shadow-sm">
+                <p className="mb-1 text-sm font-semibold text-navy-800">{CAPABILITIES[selectedCap].label}</p>
+                <p className="text-sm font-light leading-relaxed text-navy-500">{CAPABILITIES[selectedCap].desc}</p>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section className="bg-navy-900 px-6 py-14">
         <Reveal>
-          <p className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">What WeMotiply offers</p>
-          <div className="mx-auto max-w-3xl">
-            {/* Card grid */}
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-3 md:gap-4">
-              {CAPABILITIES.map((c, i) => {
-                const active = selectedCap === i;
-                return (
-                  <button
-                    key={c.label}
-                    onClick={() => setSelectedCap(i)}
-                    className={`flex flex-col items-center gap-2 rounded-xl border px-3 py-5 text-center transition-all duration-200 ${
-                      active
-                        ? 'border-gold-400 bg-gold-50 shadow-sm'
-                        : 'border-cream-dark bg-cream hover:border-gold-200 hover:bg-gold-50/40'
-                    }`}
-                  >
-                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${active ? 'bg-gold-500 text-white' : 'bg-white text-gold-500'}`}>
-                      <FeatureIcon variant={c.icon} className="w-4 h-4" />
-                    </span>
-                    <span className={`text-xs font-medium leading-snug ${active ? 'text-navy-900' : 'text-navy-500'}`}>{c.label}</span>
-                  </button>
-                );
-              })}
+          <div className="mx-auto max-w-xl">
+            <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-500">Pricing</p>
+
+            {/* Monthly / Annual toggle */}
+            <div className="mb-8 flex items-center justify-center gap-4">
+              <span className={`text-sm transition-colors ${!annual ? 'text-white font-medium' : 'text-white/40'}`}>Monthly</span>
+              <button
+                onClick={() => setAnnual(a => !a)}
+                aria-label="Toggle billing period"
+                className={`relative h-6 w-11 rounded-full transition-colors ${annual ? 'bg-gold-500' : 'bg-white/20'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${annual ? 'translate-x-5' : ''}`} />
+              </button>
+              <span className={`text-sm transition-colors ${annual ? 'text-white font-medium' : 'text-white/40'}`}>
+                Annual <span className="ml-1 rounded-full bg-gold-500/20 px-2 py-0.5 text-[10px] font-semibold text-gold-400">Save GHS 300</span>
+              </span>
             </div>
 
-            {/* Description panel */}
-            <div className="mt-5 rounded-xl border border-gold-100 bg-gold-50/50 px-6 py-5">
-              <p className="text-sm font-medium text-navy-800 mb-1">{CAPABILITIES[selectedCap].label}</p>
-              <p className="text-sm font-light leading-relaxed text-navy-500">{CAPABILITIES[selectedCap].desc}</p>
+            {/* Price display */}
+            <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+              <div className="mb-1 font-display text-5xl text-white">
+                GHS {annual ? '1,500' : '150'}
+              </div>
+              <div className="text-sm text-white/40">
+                {annual ? 'per year — GHS 125/month' : 'per month'}
+              </div>
+              <ul className="mt-6 space-y-2 text-left">
+                {['Unlimited members','Unlimited attendance','Unlimited giving records','Automated emails & SMS','Full analytics & insights'].map(f => (
+                  <li key={f} className="flex items-center gap-3 text-sm font-light text-white/70">
+                    <Check className="w-4 h-4 shrink-0 text-gold-400" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="text-center">
+              <Link href="/signup" className="inline-block rounded-full bg-gold-500 px-10 py-4 font-semibold text-navy-900 shadow-lg shadow-gold-500/20 transition hover:brightness-105">
+                Start Free — 14 Days, No Card
+              </Link>
+              <p className="mt-3 text-xs text-white/30">Switch plans any time. Cancel any time.</p>
             </div>
           </div>
         </Reveal>
