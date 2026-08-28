@@ -215,6 +215,7 @@ export default function LandingPage({ images: _ }: { images: LandingImages }) {
       {/* CAPABILITIES */}
       <section className="bg-white px-6 py-16">
         <Reveal>
+          <p className="mb-10 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">What WeMotiply does</p>
           <div className="mx-auto grid max-w-3xl grid-cols-2 gap-x-10 gap-y-6 sm:grid-cols-3 md:gap-y-8">
             {CAPABILITIES.map(c => (
               <div key={c.label} className="flex items-center gap-3">
