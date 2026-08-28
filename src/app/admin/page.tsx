@@ -565,7 +565,7 @@ export default function AdminPage() {
       const res = await fetch('/api/sms/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: broadcastMsg, recipient_filter: broadcastFilter, sender_id: smsSettings.sms_sender_id || undefined }),
+        body: JSON.stringify({ message: broadcastMsg, recipient_filter: broadcastFilter }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Broadcast failed.'); return; }
@@ -2729,7 +2729,7 @@ export default function AdminPage() {
 
               {broadcastResult && (
                 <div style={{background:'#EDF6F1',borderRadius:10,padding:'10px 14px',fontSize:13,color:'#2E7D4E'}}>
-                  Sent to {broadcastResult.delivered} people &mdash; {broadcastResult.credits_used} credits used.
+                  Accepted for delivery: {broadcastResult.delivered} people — {broadcastResult.credits_used} credits used.
                   {broadcastResult.failed > 0 && ` ${broadcastResult.failed} failed (refunded).`}
                 </div>
               )}
@@ -2741,7 +2741,7 @@ export default function AdminPage() {
                   value={broadcastFilter}
                   onChange={e => setBroadcastFilter(e.target.value)}
                 >
-                  <option value="all">Everyone (all active members &amp; visitors)</option>
+                  <option value="all">Everyone (all active members & visitors)</option>
                   <option value="members">Members only</option>
                   <option value="visitors">Visitors only</option>
                   {categories.flatMap(cat =>
@@ -2797,7 +2797,7 @@ export default function AdminPage() {
                           </div>
                         </div>
                         <div style={{fontSize:11,color:'#A89D8E',marginTop:4}}>
-                          {b.delivered_count} delivered &middot; {b.credits_used} credits &middot; {b.sender_id}
+                          {b.delivered_count} accepted · {b.credits_used} credits · {b.sender_id}
                           {b.failed_count > 0 && ` · ${b.failed_count} failed`}
                         </div>
                       </div>

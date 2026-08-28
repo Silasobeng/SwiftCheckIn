@@ -26,8 +26,11 @@ async function sendBatch(
       headers: { 'api-key': apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({ sender: sender.slice(0, 11), message, recipients }),
     });
-    if (!res.ok) {
-      console.error(`[Arkesel] HTTP ${res.status}`);
+    const payload: unknown = await res.json().catch(() => null);
+    const accepted = typeof payload === 'object' && payload !== null &&
+      'status' in payload && (payload as { status?: unknown }).status === 'success';
+    if (!res.ok || !accepted) {
+      console.error(`[Arkesel] rejected batch with HTTP ${res.status}`, payload);
       return { success: false, delivered: 0, failed: recipients.length };
     }
     return { success: true, delivered: recipients.length, failed: 0 };
@@ -98,11 +101,13 @@ export async function sendSMS(
 
   const sender = (org.sms_sender_id as string | null) || process.env.ARKESEL_SENDER_ID || 'WeMotiply';
 
-  await supabase
-    .from('organizations')
-    .update({ sms_credits: org.sms_credits - 1, updated_at: new Date().toISOString() })
-    .eq('id', orgId)
-    .gte('sms_credits', 1);
+  const { data: debitSucceeded, error: debitError } = await supabase.rpc('debit_sms_credits', {
+    target_org_id: orgId,
+    credit_amount: 1,
+  });
+  if (debitError || !debitSucceeded) {
+    return { success: false, error: 'Insufficient SMS credits' };
+  }
 
   const recipient = formatGhanaPhone(phone);
   let status: 'sent' | 'failed' = 'failed';
@@ -115,7 +120,10 @@ export async function sendSMS(
       body: JSON.stringify({ sender, message, recipients: [recipient] }),
     });
     arkeselResponse = await res.json();
-    if (res.ok) status = 'sent';
+    if (res.ok && typeof arkeselResponse === 'object' && arkeselResponse !== null &&
+      'status' in arkeselResponse && (arkeselResponse as { status?: unknown }).status === 'success') {
+      status = 'sent';
+    }
   } catch (err) {
     console.error('Arkesel send error:', err);
   }
@@ -130,5 +138,9 @@ export async function sendSMS(
     arkesel_response: arkeselResponse,
   });
 
-  return status === 'sent' ? { success: true } : { success: false, error: 'SMS delivery failed' };
+  if (status !== 'sent') {
+    await supabase.rpc('refund_sms_credits', { target_org_id: orgId, credit_amount: 1 });
+    return { success: false, error: 'SMS delivery failed' };
+  }
+  return { success: true };
 }

@@ -100,32 +100,28 @@ export async function POST(request: NextRequest) {
     }, { status: 402 });
   }
 
-  const sender = (body.sender_id || freshOrg.sms_sender_id || process.env.ARKESEL_SENDER_ID || 'WeMotiply').slice(0, 11);
+  // Sender identity is organisation-owned. Never accept it from the browser.
+  const sender = (freshOrg.sms_sender_id || process.env.ARKESEL_SENDER_ID || 'WeMotiply').slice(0, 11);
 
-  // Deduct upfront; refund failures after
-  await supabase
-    .from('organizations')
-    .update({ sms_credits: freshOrg.sms_credits - creditsNeeded, updated_at: new Date().toISOString() })
-    .eq('id', orgId)
-    .gte('sms_credits', creditsNeeded);
+  // Deduct atomically so simultaneous broadcasts cannot overspend credits.
+  const { data: debitSucceeded, error: debitError } = await supabase.rpc('debit_sms_credits', {
+    target_org_id: orgId,
+    credit_amount: creditsNeeded,
+  });
+  if (debitError || !debitSucceeded) {
+    return NextResponse.json({ error: 'Insufficient SMS credits', required: creditsNeeded, available: freshOrg.sms_credits }, { status: 402 });
+  }
 
   // ─── Send ─────────────────────────────────────────────
   const { delivered, failed } = await sendSMSBatched(apiKey, sender, message, recipients);
 
-  // Refund credits for failed deliveries
+  // Refund atomically if the provider rejects part of the broadcast.
   const failedCredits = failed * smsParts;
   if (failedCredits > 0) {
-    const { data: afterOrg } = await supabase
-      .from('organizations')
-      .select('sms_credits')
-      .eq('id', orgId)
-      .single();
-    if (afterOrg) {
-      await supabase
-        .from('organizations')
-        .update({ sms_credits: afterOrg.sms_credits + failedCredits, updated_at: new Date().toISOString() })
-        .eq('id', orgId);
-    }
+    await supabase.rpc('refund_sms_credits', {
+      target_org_id: orgId,
+      credit_amount: failedCredits,
+    });
   }
 
   const creditsUsed = delivered * smsParts;

@@ -58,6 +58,12 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
+    if (sms_sender_id !== undefined && sms_sender_id !== null) {
+      const senderId = String(sms_sender_id).trim();
+      if (senderId && !/^[A-Za-z0-9]{1,11}$/.test(senderId)) {
+        return NextResponse.json({ error: 'SMS sender name must be 1 to 11 letters or numbers, with no spaces.' }, { status: 400 });
+      }
+    }
     // The church chooses its own unlock code — it has to be something an usher
     // can be told once and remember. Letters and digits only, because it gets
     // typed on a tablet's on-screen keyboard.
@@ -160,7 +166,7 @@ export async function PATCH(request: NextRequest) {
     // Handle org name separately (it's 'name' in DB)
     if (org_name !== undefined && org_name.trim()) orgUpdateData['name'] = org_name.trim();
     Object.entries(orgFields).forEach(([key, value]) => {
-      if (value !== undefined) orgUpdateData[key] = value === '' ? null : value;
+      if (value !== undefined) orgUpdateData[key] = key === 'sms_sender_id' ? (String(value).trim() || null) : value === '' ? null : value;
     });
 
     if (Object.keys(orgUpdateData).length) {
