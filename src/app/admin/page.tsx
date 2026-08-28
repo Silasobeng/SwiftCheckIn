@@ -251,6 +251,15 @@ export default function AdminPage() {
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleRoleFilter, setPeopleRoleFilter] = useState<'all'|'member'|'leader'|'visitor'>('all');
   const [peopleGroupFilter, setPeopleGroupFilter] = useState<string>('all');
+  // Rendering every matching row unconditionally was fine for a few dozen
+  // people and got visibly heavy for a church with a few hundred — every
+  // row is a full <tr> with several cells, buttons, and inline styles, and
+  // the whole table gets reconciled every 8s poll while the kiosk is open.
+  // Paginated purely on the client: the full list still comes from one
+  // fetch (Dashboard/Analytics need the whole congregation for their
+  // stats), only what's painted to the DOM is capped.
+  const [peoplePage, setPeoplePage] = useState(1);
+  const PEOPLE_PAGE_SIZE = 50;
   const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set());
   const [bulkAssignGroupId, setBulkAssignGroupId] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
@@ -835,6 +844,15 @@ export default function AdminPage() {
       (!q || p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)||p.email?.toLowerCase().includes(q))
     );
   }, [activePeople,peopleSearch,peopleRoleFilter,peopleGroupFilter,groupsByPersonId]);
+  // A stale page number after narrowing a filter would either show an empty
+  // page that still has matches on page 1, or (once someone is deep in a
+  // long list) silently render nothing at all.
+  useEffect(() => { setPeoplePage(1); }, [peopleSearch, peopleRoleFilter, peopleGroupFilter]);
+  const peopleTotalPages = Math.max(1, Math.ceil(filteredPeople.length / PEOPLE_PAGE_SIZE));
+  const pagedPeople = useMemo(
+    () => filteredPeople.slice((peoplePage-1)*PEOPLE_PAGE_SIZE, peoplePage*PEOPLE_PAGE_SIZE),
+    [filteredPeople, peoplePage]
+  );
 
 
   const givingPersonMatches = useMemo(() => {
@@ -1940,7 +1958,7 @@ export default function AdminPage() {
                       <th className="table-header text-right">Action</th>
                     </tr></thead>
                     <tbody>
-                      {filteredPeople.map(p=>{
+                      {pagedPeople.map(p=>{
                         const missing:string[]=[];
                         if(!p.email) missing.push('email');
                         if(!p.date_of_birth) missing.push('birthday');
@@ -1976,6 +1994,18 @@ export default function AdminPage() {
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+              {filteredPeople.length > PEOPLE_PAGE_SIZE && (
+                <div className="flex items-center justify-between gap-3 flex-wrap" style={{padding:'12px 16px',borderTop:'1px solid #F0EDE8'}}>
+                  <span style={{fontSize:12,color:'#A89D8E'}}>
+                    Showing {(peoplePage-1)*PEOPLE_PAGE_SIZE+1}–{Math.min(peoplePage*PEOPLE_PAGE_SIZE, filteredPeople.length)} of {filteredPeople.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={()=>setPeoplePage(p=>Math.max(1,p-1))} disabled={peoplePage<=1} className="btn btn-secondary text-xs py-1.5 px-3">Previous</button>
+                    <span style={{fontSize:12,color:'#7A6E60'}}>Page {peoplePage} of {peopleTotalPages}</span>
+                    <button onClick={()=>setPeoplePage(p=>Math.min(peopleTotalPages,p+1))} disabled={peoplePage>=peopleTotalPages} className="btn btn-secondary text-xs py-1.5 px-3">Next</button>
+                  </div>
                 </div>
               )}
             </div>
