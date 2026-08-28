@@ -247,6 +247,139 @@ export function StackedTrend({ data, height = 176 }: { data: TrendPoint[]; heigh
 }
 
 // -------------------------------------------------------------
+// Single-series columns over time — e.g. total congregation size by month.
+// Not StackedTrend with one segment zeroed out: that would carry a
+// "Returning / First-time" legend that means nothing here, and the house
+// rule is a legend appears for two or more series, never for one.
+// -------------------------------------------------------------
+
+export interface SinglePoint { label: string; value: number }
+
+export function SingleTrend({ data, height = 176, valueLabel }: { data: SinglePoint[]; height?: number; valueLabel?: (v:number)=>string }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [table, setTable] = useState(false);
+  const fmtValue = valueLabel ?? num;
+
+  if (data.length === 0) return <EmptyNote>No data yet.</EmptyNote>;
+
+  const max = niceMax(Math.max(...data.map((d) => d.value), 1));
+  const ticks = [1, 0.75, 0.5, 0.25, 0].map((f) => Math.round(max * f));
+  const lastIdx = data.length - 1;
+
+  if (table) {
+    return (
+      <>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+          <TableToggle open onToggle={() => setTable(false)} />
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr>
+                {['Month', 'Value'].map((h, i) => (
+                  <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', padding: '7px 8px', color: MUTED, fontWeight: 500, borderBottom: '1px solid var(--chart-axis)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((d) => (
+                <tr key={d.label}>
+                  <td style={{ padding: '7px 8px', color: MUTED, fontWeight: 300 }}>{d.label}</td>
+                  <td style={{ padding: '7px 8px', textAlign: 'right', color: INK, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fmtValue(d.value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+        <TableToggle open={false} onToggle={() => setTable(true)} />
+      </div>
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ width: 30, height, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flexShrink: 0 }}>
+          {ticks.map((t, i) => (
+            <span key={i} style={{ fontSize: 10, color: LIGHT, textAlign: 'right', lineHeight: 1, fontVariantNumeric: 'tabular-nums', transform: 'translateY(-3px)' }}>{num(t)}</span>
+          ))}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ position: 'relative', height }}>
+            {ticks.map((_, i) => (
+              <div key={i} aria-hidden style={{
+                position: 'absolute', left: 0, right: 0, top: `${(i / (ticks.length - 1)) * 100}%`,
+                height: 1, background: i === ticks.length - 1 ? 'var(--chart-axis)' : 'var(--chart-grid)',
+              }} />
+            ))}
+
+            <div
+              role="img"
+              aria-label={`Trend by month. ${data.map((d) => `${d.label}: ${fmtValue(d.value)}`).join(', ')}.`}
+              style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', gap: 6 }}
+            >
+              {data.map((d, i) => {
+                const colPct = (d.value / max) * 100;
+                const isHover = hover === i;
+                return (
+                  <div
+                    key={d.label}
+                    onMouseEnter={() => setHover(i)}
+                    onMouseLeave={() => setHover(null)}
+                    onFocus={() => setHover(i)}
+                    onBlur={() => setHover(null)}
+                    tabIndex={0}
+                    style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', position: 'relative', outline: 'none', cursor: 'default' }}
+                  >
+                    {isHover && (
+                      <div style={{
+                        position: 'absolute', bottom: `calc(${colPct}% + 8px)`, left: '50%', transform: 'translateX(-50%)',
+                        background: INK, color: '#fff', borderRadius: 8, padding: '7px 10px', fontSize: 11,
+                        whiteSpace: 'nowrap', zIndex: 5, lineHeight: 1.5, pointerEvents: 'none',
+                        boxShadow: '0 6px 20px rgba(22,36,58,0.22)',
+                      }}>
+                        <div style={{ fontWeight: 600 }}>{d.label}</div>
+                        <div style={{ opacity: 0.85 }}>{fmtValue(d.value)}</div>
+                      </div>
+                    )}
+
+                    {i === lastIdx && !isHover && d.value > 0 && (
+                      <div style={{
+                        position: 'absolute', bottom: `calc(${Math.max(colPct, 2)}% + 4px)`, left: '50%',
+                        transform: 'translateX(-50%)', fontSize: 11, color: INK, fontWeight: 600,
+                        whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', pointerEvents: 'none',
+                      }}>{fmtValue(d.value)}</div>
+                    )}
+
+                    <div style={{
+                      width: '100%', maxWidth: 24, height: `${Math.max(colPct, d.value > 0 ? 2 : 0)}%`,
+                      background: 'var(--series-1)', borderRadius: '4px 4px 0 0',
+                      transition: 'height .35s ease', opacity: isHover ? 0.85 : 1,
+                    }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, marginTop: 7 }}>
+            {data.map((d) => (
+              <div key={d.label} style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: LIGHT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// -------------------------------------------------------------
 // Ranked horizontal bars — one series, so every bar takes slot 1.
 // Colouring these by value would re-encode what bar length already says.
 // -------------------------------------------------------------

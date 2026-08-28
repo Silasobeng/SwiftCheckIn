@@ -6,7 +6,7 @@ import Link from 'next/link';
 import type { Service, Person, Checkin, AppSettings, EmailTemplate, Giving, GivingType, PaymentMethod, Organization, Group, GroupCategory, PersonGroup } from '@/types';
 import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
 import { tzFormatter, timeFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel, yearKeyOf, yearRangeLabel } from '@/lib/monthWindow';
-import { StackedTrend, RankedBars, OrdinalBars, SplitBar } from '@/components/Charts';
+import { StackedTrend, RankedBars, OrdinalBars, SplitBar, SingleTrend } from '@/components/Charts';
 
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
 
@@ -826,6 +826,28 @@ export default function AdminPage() {
       return a;
     },{})
   ).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6), [checkins, tzFmt]);
+  // Attendance activity (above) answers "are people showing up" — this
+  // answers the different question "is the church actually bigger than it
+  // was." Cumulative count of people whose first visit falls on or before
+  // each month, so the line only goes up when someone genuinely new joins.
+  // Approximation, not an audited headcount: it reads off who is active
+  // TODAY, so a person archived since a past month vanishes from that month
+  // too rather than showing as a later departure. Good enough to see the
+  // shape of growth; not a substitute for the retention rate beside it.
+  const congregationGrowth = useMemo(() => {
+    const months: string[] = [];
+    let cursor = currentMonthKey;
+    for (let i = 0; i < 6; i++) { months.unshift(cursor); cursor = prevMonthKey(cursor); }
+    const joinMonths = activePeople
+      .map(p => p.first_attendance_date || p.created_at)
+      .filter(Boolean)
+      .map(d => monthKeyOf(tzFmt, d as string))
+      .sort();
+    return months.map(m => ({
+      label: formatMonth(m),
+      value: joinMonths.filter(jm => jm <= m).length,
+    }));
+  }, [activePeople, tzFmt, currentMonthKey]);
   const missingBirthdayCount = useMemo(() => activePeople.filter(p=>!p.date_of_birth).length, [activePeople]);
   const missingEmailCount = useMemo(() => activePeople.filter(p=>!p.email).length, [activePeople]);
   const firstTimersThisMonth = useMemo(() => currentMonthCheckins.filter(c=>c.is_first_time).length, [currentMonthCheckins]);
@@ -2237,6 +2259,14 @@ export default function AdminPage() {
               <div className="panel-label" style={{display:'block',marginBottom:4}}>Monthly attendance — last 6 months</div>
               <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,margin:'0 0 18px'}}>Each column is one month&apos;s check-ins, split by who was new.</p>
               <StackedTrend data={monthlyTrend.map(([month,v])=>({label:formatMonth(month),returning:v.returning,firstTime:v.firstTime}))} />
+            </div>
+
+            {/* The question attendance alone can't answer: is the church
+                actually bigger than it was six months ago, not just busier. */}
+            <div className="panel" style={{padding:'28px',marginBottom:20}}>
+              <div className="panel-label" style={{display:'block',marginBottom:4}}>Congregation growth — last 6 months</div>
+              <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,margin:'0 0 18px'}}>Total active members &amp; visitors, counted from each person&apos;s first visit.</p>
+              <SingleTrend data={congregationGrowth} />
             </div>
 
             {/* Giving by type — one series, so every bar takes the same hue */}
