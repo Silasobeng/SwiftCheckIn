@@ -7,6 +7,22 @@ const nextConfig = {
       { protocol: 'https', hostname: 'images.pexels.com' },
     ],
   },
+  // Anyone who still has the old preview URL bookmarked or shared lands on
+  // the real domain instead, path and query string intact — a bookmarked
+  // /login or a pasted /reset-password?token=... link keeps working rather
+  // than dead-ending on a URL that will eventually get decommissioned.
+  //
+  // Matched on host, not wildcarded to *.vercel.app: that would also catch
+  // this project's PR/branch preview deployments, which need to stay
+  // reachable on their own throwaway URLs for review before merging.
+  redirects: async () => [
+    {
+      source: '/:path*',
+      has: [{ type: 'host', value: 'swift-check-in-seven.vercel.app' }],
+      destination: 'https://wemotiply.com/:path*',
+      permanent: true,
+    },
+  ],
   headers: async () => [
     {
       source: '/(.*)',
