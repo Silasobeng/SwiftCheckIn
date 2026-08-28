@@ -215,16 +215,19 @@ export default function LandingPage({ images }: { images: LandingImages }) {
       <DenominationMarquee />
 
       {/* CAPABILITIES */}
-      <section
-        className="relative px-6 py-16"
-        style={images.featuresBg ? {
-          backgroundImage: `url(${images.featuresBg.url})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        } : { background: '#fff' }}
-      >
-        {/* overlay so text stays readable over the photo */}
-        {images.featuresBg && <div className="absolute inset-0 bg-white/88 backdrop-blur-[2px]" />}
+      <section className="relative px-6 py-16 overflow-hidden">
+        {/* video background — same clip as the hero, different tint */}
+        {showHeroVideo && allowMotion && (
+          <video
+            autoPlay muted loop playsInline aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ filter: 'brightness(0.6) saturate(0.7)' }}
+          >
+            <source src="/hero-bg.mp4" type="video/mp4" />
+          </video>
+        )}
+        {/* heavy cream overlay to keep cards legible */}
+        <div className="absolute inset-0 bg-cream/85" />
         <div className="relative z-10">
           <Reveal>
             <p className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">What WeMotiply offers</p>
