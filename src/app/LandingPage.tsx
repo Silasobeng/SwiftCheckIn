@@ -214,20 +214,9 @@ export default function LandingPage({ images }: { images: LandingImages }) {
 
       <DenominationMarquee />
 
-      {/* CAPABILITIES — same footage + dark treatment as the hero */}
-      <section className="relative px-6 py-20 md:py-24 overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage:'url(/hero-poster.jpg)', filter:'brightness(0.55)' }} />
-          {showHeroVideo && allowMotion && (
-            <video autoPlay muted loop playsInline poster="/hero-poster.jpg" aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-cover" style={{ filter:'brightness(0.55)' }}>
-              <source src="/hero-bg.mp4" type="video/mp4" />
-            </video>
-          )}
-          {/* flat, heavy, uniform tint — a fading gradient let bright stage
-              lighting in the footage bleed through toward the bottom */}
-          <div className="absolute inset-0 bg-navy-950/80" />
-        </div>
+      {/* CAPABILITIES — flat navy, same palette as the hero without the
+          brightness risk of footage bleeding through behind the cards */}
+      <section className="relative bg-navy-900 px-6 py-20 md:py-24">
 
         <div className="relative z-10">
           <Reveal>
