@@ -217,14 +217,16 @@ export default function LandingPage({ images }: { images: LandingImages }) {
       {/* CAPABILITIES — same footage + dark treatment as the hero */}
       <section className="relative px-6 py-20 md:py-24 overflow-hidden">
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage:'url(/hero-poster.jpg)' }} />
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage:'url(/hero-poster.jpg)', filter:'brightness(0.55)' }} />
           {showHeroVideo && allowMotion && (
             <video autoPlay muted loop playsInline poster="/hero-poster.jpg" aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-cover">
+              className="absolute inset-0 h-full w-full object-cover" style={{ filter:'brightness(0.55)' }}>
               <source src="/hero-bg.mp4" type="video/mp4" />
             </video>
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-navy-950/85 via-navy-950/88 to-navy-950/92" />
+          {/* flat, heavy, uniform tint — a fading gradient let bright stage
+              lighting in the footage bleed through toward the bottom */}
+          <div className="absolute inset-0 bg-navy-950/80" />
         </div>
 
         <div className="relative z-10">
@@ -243,7 +245,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
                       className={`group relative flex flex-col items-center gap-2 overflow-hidden rounded-xl border px-3 py-5 text-center backdrop-blur-sm transition-all duration-200 ${
                         active
                           ? 'border-gold-400 bg-white/95 shadow-lg shadow-black/20'
-                          : 'border-white/15 bg-white/[0.07] hover:border-gold-400/40 hover:bg-white/[0.12]'
+                          : 'border-white/20 bg-white/10 hover:border-gold-400/50 hover:bg-white/[0.16]'
                       }`}
                     >
                       {/* photo accent strip for email + sms */}
@@ -252,12 +254,12 @@ export default function LandingPage({ images }: { images: LandingImages }) {
                           <img src={photo.url} alt="" className="w-full h-full object-cover" aria-hidden="true" />
                         </div>
                       )}
-                      <span className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${active ? 'bg-gold-500 text-white' : 'bg-white/10 text-gold-400'}`}>
+                      <span className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${active ? 'bg-gold-500 text-white' : 'bg-white/15 text-gold-300'}`}>
                         <FeatureIcon variant={c.icon} className="w-4 h-4" />
                       </span>
-                      <span className={`relative text-xs font-medium leading-snug ${active ? 'text-navy-900' : 'text-white/80'}`}>{c.label}</span>
+                      <span className={`relative text-xs font-medium leading-snug ${active ? 'text-navy-900' : 'text-white'}`}>{c.label}</span>
                       {/* "more" indicator */}
-                      <span className={`relative flex gap-0.5 transition-opacity ${active ? 'opacity-0' : 'opacity-40 group-hover:opacity-70'}`} aria-hidden="true">
+                      <span className={`relative flex gap-0.5 transition-opacity ${active ? 'opacity-0' : 'opacity-60 group-hover:opacity-90'}`} aria-hidden="true">
                         {[0,1,2].map(d => <span key={d} className="block h-1 w-1 rounded-full bg-white" />)}
                       </span>
                       {active && <span className="relative block h-0.5 w-6 rounded-full bg-gold-400" aria-hidden="true" />}
