@@ -192,7 +192,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
           </h1>
 
           <p className="mx-auto mb-10 max-w-xl text-base font-light leading-relaxed text-white/75 sm:text-lg">
-            WeMotiply helps you welcome visitors, know your members, record tithes and offerings, follow up with care, and understand your church&apos;s growth — while giving you the insights to grow a healthier church.
+            WeMotiply is church management software that helps you welcome visitors, know your members, record tithes and offerings, follow up with care, and understand your church&apos;s growth — while giving you the insights to grow a healthier church.
           </p>
 
           <div className="mb-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
@@ -313,13 +313,16 @@ export default function LandingPage({ images }: { images: LandingImages }) {
                 {annual ? 'per year — about GHS 74/month' : 'per month'}
               </div>
               <ul className="mt-6 space-y-2 text-left">
-                {['Unlimited members','Unlimited attendance','Unlimited giving records','Automated emails & SMS','Full analytics & insights'].map(f => (
+                {['Unlimited members','Unlimited attendance','Unlimited giving records','Automated follow-up emails','Full analytics & insights'].map(f => (
                   <li key={f} className="flex items-center gap-3 text-sm font-light text-white/70">
                     <Check className="w-4 h-4 shrink-0 text-gold-400" />
                     {f}
                   </li>
                 ))}
               </ul>
+              <p className="mt-5 border-t border-white/10 pt-4 text-xs font-light leading-relaxed text-white/35">
+                SMS follow-ups are pay-as-you-go, topped up separately — for members who don&apos;t have an email address.
+              </p>
             </div>
 
             <div className="text-center">
