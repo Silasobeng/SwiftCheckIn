@@ -215,15 +215,31 @@ export default function LandingPage({ images }: { images: LandingImages }) {
       <DenominationMarquee />
 
       {/* CAPABILITIES — flat navy, same palette as the hero without the
-          brightness risk of footage bleeding through behind the cards */}
+          brightness risk of footage bleeding through behind the cards.
+          The crowd photo sits as a contained side accent, not a full-bleed
+          background, so it never threatens the cards' legibility. */}
       <section className="relative bg-navy-900 px-6 py-20 md:py-24">
 
-        <div className="relative z-10">
+        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
+          <Reveal className="hidden lg:block">
+            <div className="relative h-[520px] overflow-hidden rounded-2xl">
+              <img
+                src="/congregation-bw.jpg"
+                alt="A large congregation gathered at a night service"
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-navy-900 via-navy-900/10 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-7">
+                <p className="font-display text-lg italic text-white/90">Every face in the crowd is a name worth knowing.</p>
+              </div>
+            </div>
+          </Reveal>
+
           <Reveal>
-            <p className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-400">What WeMotiply offers</p>
-            <div className="mx-auto max-w-3xl">
+            <p className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-400 lg:text-left">What WeMotiply offers</p>
+            <div className="mx-auto max-w-3xl lg:mx-0 lg:max-w-none">
               {/* Card grid */}
-              <div className="grid grid-cols-3 gap-3 md:gap-4">
+              <div className="grid grid-cols-3 gap-3 lg:grid-cols-3 lg:gap-3">
                 {CAPABILITIES.map((c, i) => {
                   const active = selectedCap === i;
                   const photo = i === 3 ? images.emailImg : i === 4 ? images.smsImg : null;
