@@ -66,24 +66,25 @@ function FeatureIcon({ variant, className = 'w-4 h-4' }: { variant: FeatureIconV
   return <svg className={className} viewBox="0 0 24 24" aria-hidden="true">{g[variant]}</svg>;
 }
 
-const CAPABILITIES: { icon: FeatureIconVariant; label: string }[] = [
-  { icon: 'tablet',    label: 'Check-In Kiosk' },
-  { icon: 'addPerson', label: 'Visitor Welcome' },
-  { icon: 'calendar',  label: 'Attendance Tracking' },
-  { icon: 'mail',      label: 'Automated Follow-Up' },
-  { icon: 'giving',    label: 'Giving Records' },
-  { icon: 'chart',     label: 'Growth Insights' },
-  { icon: 'offline',   label: 'Works Offline' },
+const CAPABILITIES: { icon: FeatureIconVariant; label: string; desc: string }[] = [
+  { icon: 'tablet',    label: 'Check-In Kiosk',          desc: 'Members tap in within seconds on any tablet. No app, no paper, no queue — just a smooth Sunday entrance.' },
+  { icon: 'addPerson', label: 'Visitor Welcome',          desc: 'First-timers fill a simple 30-second form. Their details land straight in your records, ready for follow-up.' },
+  { icon: 'calendar',  label: 'Attendance Tracking',      desc: 'Know who came, who\'s been missing, and who to call — every Sunday, organised and at a glance.' },
+  { icon: 'mail',      label: 'Automated Emails',         desc: 'Welcome messages, birthday greetings, and gentle "we miss you" emails — written by you, sent automatically.' },
+  { icon: 'offline',   label: 'Automated SMS',            desc: 'For members without email, WeMotiply sends the same care as a text message — so no one is left out.' },
+  { icon: 'giving',    label: 'Giving Records',           desc: 'Record tithes, offerings, seeds, and pledges by type. Send a digital receipt the moment a gift is received.' },
+  { icon: 'chart',     label: 'Growth Insights',          desc: 'See who\'s attending consistently, who\'s starting to drift, and how giving is trending — all in your dashboard.' },
+  { icon: 'addPerson', label: 'Cell Groups & Departments', desc: 'Organise members into fellowships, cells, or departments. Track attendance and absentees by group.' },
+  { icon: 'offline',   label: 'Works Without Internet',   desc: 'No wifi on Sunday? No problem. Every check-in is saved on the device and syncs the moment you\'re back online.' },
 ];
 
-// images prop kept for compatibility with the server component that fetches
-// Pexels photos — removing it would require updating page.tsx too.
 export default function LandingPage({ images: _ }: { images: LandingImages }) {
   const [isLoggedIn, setIsLoggedIn]   = useState(false);
   const [mobileOpen, setMobileOpen]   = useState(false);
   const [scrolled, setScrolled]       = useState(false);
   const [allowMotion, setAllowMotion] = useState(true);
   const [showHeroVideo, setShowHeroVideo] = useState(false);
+  const [openCap, setOpenCap] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/auth/session').then(r=>r.json()).then(d=>setIsLoggedIn(d.authenticated)).catch(()=>{});
@@ -215,14 +216,23 @@ export default function LandingPage({ images: _ }: { images: LandingImages }) {
       {/* CAPABILITIES */}
       <section className="bg-white px-6 py-16">
         <Reveal>
-          <p className="mb-10 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">What WeMotiply does</p>
-          <div className="mx-auto grid max-w-3xl grid-cols-2 gap-x-10 gap-y-6 sm:grid-cols-3 md:gap-y-8">
-            {CAPABILITIES.map(c => (
-              <div key={c.label} className="flex items-center gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gold-50 text-gold-500">
-                  <FeatureIcon variant={c.icon} />
-                </span>
-                <span className="text-sm font-light text-navy-600">{c.label}</span>
+          <p className="mb-10 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">What WeMotiply offers</p>
+          <div className="mx-auto max-w-2xl divide-y divide-cream-dark border-y border-cream-dark">
+            {CAPABILITIES.map((c, i) => (
+              <div key={c.label}>
+                <button
+                  onClick={() => setOpenCap(openCap === i ? null : i)}
+                  className="flex w-full items-center gap-4 py-4 text-left transition-colors hover:text-gold-600"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gold-50 text-gold-500">
+                    <FeatureIcon variant={c.icon} />
+                  </span>
+                  <span className="flex-1 text-sm font-medium text-navy-800">{c.label}</span>
+                  <span className={`text-navy-400 transition-transform duration-200 text-xs ${openCap === i ? 'rotate-180' : ''}`} aria-hidden="true">▼</span>
+                </button>
+                {openCap === i && (
+                  <p className="animate-fade-in pb-4 pl-12 text-sm font-light leading-relaxed text-navy-500">{c.desc}</p>
+                )}
               </div>
             ))}
           </div>
@@ -244,7 +254,7 @@ export default function LandingPage({ images: _ }: { images: LandingImages }) {
           </Link>
         </div>
         <div className="mx-auto mt-10 max-w-6xl border-t border-white/10 pt-6 text-sm text-white/30">
-          © {new Date().getFullYear()} WeMotiply. Built for churches in Ghana.
+          © {new Date().getFullYear()} WeMotiply. Every soul matters. Every Sunday counts.
         </div>
       </footer>
 
