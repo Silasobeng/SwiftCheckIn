@@ -612,6 +612,21 @@ export default function AdminPage() {
 
   const sendBroadcast = async () => {
     if (!broadcastMsg.trim()) { setError('Message is required.'); return; }
+
+    const groupId = broadcastFilter.startsWith('group:') ? broadcastFilter.slice(6) : '';
+    const estimatedRecipients = activePeople.filter(person => {
+      if (!person.phone || person.sms_opted_out) return false;
+      if (broadcastFilter === 'members') return person.role === 'member';
+      if (broadcastFilter === 'visitors') return person.role === 'visitor';
+      if (groupId) return personGroups.some(m => m.person_id === person.id && m.group_id === groupId);
+      return true;
+    }).length;
+    const parts = broadcastMsg.length <= 160 ? 1 : Math.ceil(broadcastMsg.length / 153);
+    const estimatedCredits = estimatedRecipients * parts;
+
+    if (!estimatedRecipients) { setError('No SMS recipients match this audience.'); return; }
+    if (!window.confirm('Send this message to ' + estimatedRecipients + ' people? It will use ' + estimatedCredits + ' SMS credit' + (estimatedCredits === 1 ? '' : 's') + '.')) return;
+
     setBroadcastSending(true); setBroadcastResult(null); setError(null);
     try {
       const res = await fetch('/api/sms/broadcast', {
@@ -1987,7 +2002,7 @@ export default function AdminPage() {
               {groups.length>0 && (
                 <select className="select text-xs" style={{width:'auto',minWidth:150,padding:'6px 28px 6px 12px',height:'auto'}}
                   value={peopleGroupFilter} onChange={e=>setPeopleGroupFilter(e.target.value)}>
-                  <option value="all">All fields</option>
+                  <option value="all">All categories</option>
                   {categories.filter(cat=>groups.some(g=>g.category_id===cat.id)).map(cat=>(<option key={cat.id} value={cat.id}>{cat.name}</option>))}
                 </select>
               )}
@@ -2041,7 +2056,7 @@ export default function AdminPage() {
                       <th className="table-header">Name</th>
                       <th className="table-header hidden sm:table-cell">Phone</th>
                       <th className="table-header">Role</th>
-                      <th className="table-header hidden lg:table-cell">Fields</th>
+                      <th className="table-header hidden lg:table-cell">Groups</th>
                       <th className="table-header hidden lg:table-cell">First Visit</th>
                       <th className="table-header hidden lg:table-cell">Last Seen</th>
                       <th className="table-header hidden md:table-cell">Visits</th>

@@ -169,7 +169,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
       </header>
 
       {/* HERO */}
-      <section className="relative flex min-h-[82vh] items-center justify-center overflow-hidden">
+      <section className="relative flex min-h-[74vh] items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage:'url(/hero-poster.jpg)' }} />
           {showHeroVideo && allowMotion && (
@@ -212,13 +212,13 @@ export default function LandingPage({ images }: { images: LandingImages }) {
         </div>
       </section>
 
-      <DenominationMarquee />
+      <div className="relative -mt-1 z-20"><DenominationMarquee /></div>
 
       {/* CAPABILITIES — flat navy, same palette as the hero without the
           brightness risk of footage bleeding through behind the cards.
           The crowd photo sits as a contained side accent, not a full-bleed
           background, so it never threatens the cards' legibility. */}
-      <section className="relative bg-navy-900 px-6 py-20 md:py-24">
+      <section id="features" className="relative bg-navy-900 px-6 py-20 md:py-24">
 
         <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
           <Reveal className="hidden lg:block">
@@ -284,7 +284,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
       </section>
 
       {/* PRICING */}
-      <section className="bg-navy-900 px-6 py-14">
+      <section id="pricing" className="bg-navy-900 px-6 py-14">
         <Reveal>
           <div className="mx-auto max-w-xl">
             <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-500">Pricing</p>

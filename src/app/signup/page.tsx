@@ -2,6 +2,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+function OnboardingIcon({ kind }: { kind: 'checkin'|'email'|'insights' }) {
+  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  if (kind === 'checkin') return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M5 12.5l4.2 4L19 7" /></svg>;
+  if (kind === 'email') return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M3 8l7.9 5.3a2 2 0 002.2 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
+  return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M4 19V9m6 10V5m6 14v-7m4 7V3" /></svg>;
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -45,12 +51,12 @@ export default function SignupPage() {
             Your church.<br/><em style={{ fontStyle:'italic', color:'#F0A832' }}>Organised, cared for,<br/>and growing.</em>
           </h2>
           {[
-            {icon:'✅',bg:'rgba(46,125,78,0.2)',title:'Check-in kiosk ready in minutes',desc:'Works on any tablet. No training needed for your ushers.'},
-            {icon:'📧',bg:'rgba(201,123,26,0.2)',title:'Emails that send themselves',desc:'Welcome, birthday, and "we miss you" — all automatic.'},
-            {icon:'📊',bg:'rgba(255,255,255,0.08)',title:'See your congregation clearly',desc:"Know who's growing, who's new, who needs a call."},
+            {icon:'checkin' as const,bg:'rgba(46,125,78,0.2)',title:'Check-in kiosk ready in minutes',desc:'Works on any tablet. No training needed for your ushers.'},
+            {icon:'email' as const,bg:'rgba(201,123,26,0.2)',title:'Emails that send themselves',desc:'Welcome, birthday, and "we miss you" — all automatic.'},
+            {icon:'insights' as const,bg:'rgba(255,255,255,0.08)',title:'See your congregation clearly',desc:"Know who's growing, who's new, who needs a call."},
           ].map((f,i)=>(
             <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:14, marginBottom:22 }}>
-              <div style={{ width:36,height:36,borderRadius:10,background:f.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,marginTop:2 }}>{f.icon}</div>
+              <div style={{ width:36,height:36,borderRadius:10,background:f.bg,display:'flex',alignItems:'center',justifyContent:'center',color:'#F0A832',flexShrink:0,marginTop:2 }}><OnboardingIcon kind={f.icon} /></div>
               <div>
                 <div style={{ fontSize:15, color:'#fff', marginBottom:3, fontWeight:500 }}>{f.title}</div>
                 <div style={{ fontSize:13, color:'rgba(255,255,255,0.4)', fontWeight:300, lineHeight:1.6 }}>{f.desc}</div>
@@ -118,7 +124,7 @@ export default function SignupPage() {
           </form>
 
           <div style={{ fontSize:12, color:'#A89D8E', textAlign:'center', marginTop:14, lineHeight:1.6 }}>
-            By signing up you agree to our <a href="#" style={{ color:'#C97B1A' }}>Terms of Service</a> and <a href="#" style={{ color:'#C97B1A' }}>Privacy Policy</a>
+            By signing up you agree to our <Link href="/terms" style={{ color:'#C97B1A' }}>Terms of Service</Link> and <Link href="/privacy" style={{ color:'#C97B1A' }}>Privacy Policy</Link>
           </div>
           <div style={{ fontSize:14, color:'#7A6E60', textAlign:'center', marginTop:16 }}>
             Already have an account? <Link href="/login" style={{ color:'#C97B1A', textDecoration:'none', fontWeight:500 }}>Sign in →</Link>
