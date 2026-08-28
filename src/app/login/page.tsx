@@ -120,7 +120,7 @@ export default function LoginPage() {
         </div>
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:1, background:'rgba(255,255,255,0.14)', borderRadius:12, overflow:'hidden', position:'relative', zIndex:1, backdropFilter:'blur(2px)' }}>
-          {[{v:'5 min',l:'Setup time'},{v:'100%',l:'Works offline'},{v:'Auto',l:'Birthday emails'}].map((s,i)=>(
+          {[{v:'5 min',l:'Setup time'},{v:'100%',l:'Works offline'},{v:'Smart',l:'Attendance'}].map((s,i)=>(
             <div key={i} style={{ background:'rgba(22,36,58,0.55)', padding:20, textAlign:'center' }}>
               <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, color:'#F0A832', marginBottom:4 }}>{s.v}</div>
               <div style={{ fontSize:12, color:'rgba(255,255,255,0.35)', fontWeight:300 }}>{s.l}</div>
