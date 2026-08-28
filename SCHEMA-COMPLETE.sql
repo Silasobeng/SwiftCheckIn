@@ -348,17 +348,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DO $$
-DECLARE t TEXT;
-BEGIN
-  FOREACH t IN ARRAY ARRAY['organizations','people','services','checkins','email_templates','giving','groups']
-  LOOP
-    EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_updated_at ON %I', t, t);
-    EXECUTE format(
-      'CREATE TRIGGER trg_%s_updated_at BEFORE UPDATE ON %I
-       FOR EACH ROW EXECUTE FUNCTION touch_updated_at()', t, t);
-  END LOOP;
-END $$;
+DROP TRIGGER IF EXISTS trg_organizations_updated_at ON organizations;
+CREATE TRIGGER trg_organizations_updated_at BEFORE UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_people_updated_at ON people;
+CREATE TRIGGER trg_people_updated_at BEFORE UPDATE ON people FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_services_updated_at ON services;
+CREATE TRIGGER trg_services_updated_at BEFORE UPDATE ON services FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_checkins_updated_at ON checkins;
+CREATE TRIGGER trg_checkins_updated_at BEFORE UPDATE ON checkins FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_email_templates_updated_at ON email_templates;
+CREATE TRIGGER trg_email_templates_updated_at BEFORE UPDATE ON email_templates FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_giving_updated_at ON giving;
+CREATE TRIGGER trg_giving_updated_at BEFORE UPDATE ON giving FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+DROP TRIGGER IF EXISTS trg_groups_updated_at ON groups;
+CREATE TRIGGER trg_groups_updated_at BEFORE UPDATE ON groups FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 DROP TRIGGER IF EXISTS trg_refresh_person_stats_insert ON checkins;
 DROP TRIGGER IF EXISTS trg_refresh_person_stats_update ON checkins;
@@ -380,30 +389,155 @@ CREATE TRIGGER trg_refresh_person_stats_delete AFTER DELETE ON checkins FOR EACH
 -- make the intent auditable — and mean a future "temporary" policy can't be
 -- added without someone noticing what it sits next to.
 
-DO $$
-DECLARE
-  t TEXT;
-  tables TEXT[] := ARRAY[
-    'organizations','people','services','app_settings','checkins',
-    'email_templates','email_logs','giving',
-    'group_categories','groups','people_groups',
-    'payments','sms_logs','sms_topups','sms_broadcasts'
-  ];
-BEGIN
-  FOREACH t IN ARRAY tables LOOP
-    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "organizations_no_anon_select" ON organizations;
+CREATE POLICY "organizations_no_anon_select" ON organizations FOR SELECT USING (false);
+DROP POLICY IF EXISTS "organizations_no_anon_insert" ON organizations;
+CREATE POLICY "organizations_no_anon_insert" ON organizations FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "organizations_no_anon_update" ON organizations;
+CREATE POLICY "organizations_no_anon_update" ON organizations FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "organizations_no_anon_delete" ON organizations;
+CREATE POLICY "organizations_no_anon_delete" ON organizations FOR DELETE USING (false);
 
-    EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_no_anon_select', t);
-    EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_no_anon_insert', t);
-    EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_no_anon_update', t);
-    EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_no_anon_delete', t);
+ALTER TABLE people ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "people_no_anon_select" ON people;
+CREATE POLICY "people_no_anon_select" ON people FOR SELECT USING (false);
+DROP POLICY IF EXISTS "people_no_anon_insert" ON people;
+CREATE POLICY "people_no_anon_insert" ON people FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "people_no_anon_update" ON people;
+CREATE POLICY "people_no_anon_update" ON people FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "people_no_anon_delete" ON people;
+CREATE POLICY "people_no_anon_delete" ON people FOR DELETE USING (false);
 
-    EXECUTE format('CREATE POLICY %I ON %I FOR SELECT USING (false)',      t || '_no_anon_select', t);
-    EXECUTE format('CREATE POLICY %I ON %I FOR INSERT WITH CHECK (false)', t || '_no_anon_insert', t);
-    EXECUTE format('CREATE POLICY %I ON %I FOR UPDATE USING (false)',      t || '_no_anon_update', t);
-    EXECUTE format('CREATE POLICY %I ON %I FOR DELETE USING (false)',      t || '_no_anon_delete', t);
-  END LOOP;
-END $$;
+ALTER TABLE services ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "services_no_anon_select" ON services;
+CREATE POLICY "services_no_anon_select" ON services FOR SELECT USING (false);
+DROP POLICY IF EXISTS "services_no_anon_insert" ON services;
+CREATE POLICY "services_no_anon_insert" ON services FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "services_no_anon_update" ON services;
+CREATE POLICY "services_no_anon_update" ON services FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "services_no_anon_delete" ON services;
+CREATE POLICY "services_no_anon_delete" ON services FOR DELETE USING (false);
+
+ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "app_settings_no_anon_select" ON app_settings;
+CREATE POLICY "app_settings_no_anon_select" ON app_settings FOR SELECT USING (false);
+DROP POLICY IF EXISTS "app_settings_no_anon_insert" ON app_settings;
+CREATE POLICY "app_settings_no_anon_insert" ON app_settings FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "app_settings_no_anon_update" ON app_settings;
+CREATE POLICY "app_settings_no_anon_update" ON app_settings FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "app_settings_no_anon_delete" ON app_settings;
+CREATE POLICY "app_settings_no_anon_delete" ON app_settings FOR DELETE USING (false);
+
+ALTER TABLE checkins ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "checkins_no_anon_select" ON checkins;
+CREATE POLICY "checkins_no_anon_select" ON checkins FOR SELECT USING (false);
+DROP POLICY IF EXISTS "checkins_no_anon_insert" ON checkins;
+CREATE POLICY "checkins_no_anon_insert" ON checkins FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "checkins_no_anon_update" ON checkins;
+CREATE POLICY "checkins_no_anon_update" ON checkins FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "checkins_no_anon_delete" ON checkins;
+CREATE POLICY "checkins_no_anon_delete" ON checkins FOR DELETE USING (false);
+
+ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "email_templates_no_anon_select" ON email_templates;
+CREATE POLICY "email_templates_no_anon_select" ON email_templates FOR SELECT USING (false);
+DROP POLICY IF EXISTS "email_templates_no_anon_insert" ON email_templates;
+CREATE POLICY "email_templates_no_anon_insert" ON email_templates FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "email_templates_no_anon_update" ON email_templates;
+CREATE POLICY "email_templates_no_anon_update" ON email_templates FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "email_templates_no_anon_delete" ON email_templates;
+CREATE POLICY "email_templates_no_anon_delete" ON email_templates FOR DELETE USING (false);
+
+ALTER TABLE email_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "email_logs_no_anon_select" ON email_logs;
+CREATE POLICY "email_logs_no_anon_select" ON email_logs FOR SELECT USING (false);
+DROP POLICY IF EXISTS "email_logs_no_anon_insert" ON email_logs;
+CREATE POLICY "email_logs_no_anon_insert" ON email_logs FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "email_logs_no_anon_update" ON email_logs;
+CREATE POLICY "email_logs_no_anon_update" ON email_logs FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "email_logs_no_anon_delete" ON email_logs;
+CREATE POLICY "email_logs_no_anon_delete" ON email_logs FOR DELETE USING (false);
+
+ALTER TABLE giving ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "giving_no_anon_select" ON giving;
+CREATE POLICY "giving_no_anon_select" ON giving FOR SELECT USING (false);
+DROP POLICY IF EXISTS "giving_no_anon_insert" ON giving;
+CREATE POLICY "giving_no_anon_insert" ON giving FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "giving_no_anon_update" ON giving;
+CREATE POLICY "giving_no_anon_update" ON giving FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "giving_no_anon_delete" ON giving;
+CREATE POLICY "giving_no_anon_delete" ON giving FOR DELETE USING (false);
+
+ALTER TABLE group_categories ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "group_categories_no_anon_select" ON group_categories;
+CREATE POLICY "group_categories_no_anon_select" ON group_categories FOR SELECT USING (false);
+DROP POLICY IF EXISTS "group_categories_no_anon_insert" ON group_categories;
+CREATE POLICY "group_categories_no_anon_insert" ON group_categories FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "group_categories_no_anon_update" ON group_categories;
+CREATE POLICY "group_categories_no_anon_update" ON group_categories FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "group_categories_no_anon_delete" ON group_categories;
+CREATE POLICY "group_categories_no_anon_delete" ON group_categories FOR DELETE USING (false);
+
+ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "groups_no_anon_select" ON groups;
+CREATE POLICY "groups_no_anon_select" ON groups FOR SELECT USING (false);
+DROP POLICY IF EXISTS "groups_no_anon_insert" ON groups;
+CREATE POLICY "groups_no_anon_insert" ON groups FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "groups_no_anon_update" ON groups;
+CREATE POLICY "groups_no_anon_update" ON groups FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "groups_no_anon_delete" ON groups;
+CREATE POLICY "groups_no_anon_delete" ON groups FOR DELETE USING (false);
+
+ALTER TABLE people_groups ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "people_groups_no_anon_select" ON people_groups;
+CREATE POLICY "people_groups_no_anon_select" ON people_groups FOR SELECT USING (false);
+DROP POLICY IF EXISTS "people_groups_no_anon_insert" ON people_groups;
+CREATE POLICY "people_groups_no_anon_insert" ON people_groups FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "people_groups_no_anon_update" ON people_groups;
+CREATE POLICY "people_groups_no_anon_update" ON people_groups FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "people_groups_no_anon_delete" ON people_groups;
+CREATE POLICY "people_groups_no_anon_delete" ON people_groups FOR DELETE USING (false);
+
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "payments_no_anon_select" ON payments;
+CREATE POLICY "payments_no_anon_select" ON payments FOR SELECT USING (false);
+DROP POLICY IF EXISTS "payments_no_anon_insert" ON payments;
+CREATE POLICY "payments_no_anon_insert" ON payments FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "payments_no_anon_update" ON payments;
+CREATE POLICY "payments_no_anon_update" ON payments FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "payments_no_anon_delete" ON payments;
+CREATE POLICY "payments_no_anon_delete" ON payments FOR DELETE USING (false);
+
+ALTER TABLE sms_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "sms_logs_no_anon_select" ON sms_logs;
+CREATE POLICY "sms_logs_no_anon_select" ON sms_logs FOR SELECT USING (false);
+DROP POLICY IF EXISTS "sms_logs_no_anon_insert" ON sms_logs;
+CREATE POLICY "sms_logs_no_anon_insert" ON sms_logs FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "sms_logs_no_anon_update" ON sms_logs;
+CREATE POLICY "sms_logs_no_anon_update" ON sms_logs FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "sms_logs_no_anon_delete" ON sms_logs;
+CREATE POLICY "sms_logs_no_anon_delete" ON sms_logs FOR DELETE USING (false);
+
+ALTER TABLE sms_topups ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "sms_topups_no_anon_select" ON sms_topups;
+CREATE POLICY "sms_topups_no_anon_select" ON sms_topups FOR SELECT USING (false);
+DROP POLICY IF EXISTS "sms_topups_no_anon_insert" ON sms_topups;
+CREATE POLICY "sms_topups_no_anon_insert" ON sms_topups FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "sms_topups_no_anon_update" ON sms_topups;
+CREATE POLICY "sms_topups_no_anon_update" ON sms_topups FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "sms_topups_no_anon_delete" ON sms_topups;
+CREATE POLICY "sms_topups_no_anon_delete" ON sms_topups FOR DELETE USING (false);
+
+ALTER TABLE sms_broadcasts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "sms_broadcasts_no_anon_select" ON sms_broadcasts;
+CREATE POLICY "sms_broadcasts_no_anon_select" ON sms_broadcasts FOR SELECT USING (false);
+DROP POLICY IF EXISTS "sms_broadcasts_no_anon_insert" ON sms_broadcasts;
+CREATE POLICY "sms_broadcasts_no_anon_insert" ON sms_broadcasts FOR INSERT WITH CHECK (false);
+DROP POLICY IF EXISTS "sms_broadcasts_no_anon_update" ON sms_broadcasts;
+CREATE POLICY "sms_broadcasts_no_anon_update" ON sms_broadcasts FOR UPDATE USING (false);
+DROP POLICY IF EXISTS "sms_broadcasts_no_anon_delete" ON sms_broadcasts;
+CREATE POLICY "sms_broadcasts_no_anon_delete" ON sms_broadcasts FOR DELETE USING (false);
 
 
 -- ==============================================================
