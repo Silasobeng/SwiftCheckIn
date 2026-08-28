@@ -295,17 +295,17 @@ export default function LandingPage({ images }: { images: LandingImages }) {
                 <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${annual ? 'translate-x-5' : ''}`} />
               </button>
               <span className={`text-sm transition-colors ${annual ? 'text-white font-medium' : 'text-white/40'}`}>
-                Annual <span className="ml-1 rounded-full bg-gold-500/20 px-2 py-0.5 text-[10px] font-semibold text-gold-400">Save GHS 300</span>
+                Annual <span className="ml-1 rounded-full bg-gold-500/20 px-2 py-0.5 text-[10px] font-semibold text-gold-400">Save GHS 178</span>
               </span>
             </div>
 
             {/* Price display */}
             <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
               <div className="mb-1 font-display text-5xl text-white">
-                GHS {annual ? '1,500' : '150'}
+                GHS {annual ? '890' : '89'}
               </div>
               <div className="text-sm text-white/40">
-                {annual ? 'per year — GHS 125/month' : 'per month'}
+                {annual ? 'per year — about GHS 74/month' : 'per month'}
               </div>
               <ul className="mt-6 space-y-2 text-left">
                 {['Unlimited members','Unlimited attendance','Unlimited giving records','Automated emails & SMS','Full analytics & insights'].map(f => (
