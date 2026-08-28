@@ -84,7 +84,7 @@ export default function LandingPage({ images: _ }: { images: LandingImages }) {
   const [scrolled, setScrolled]       = useState(false);
   const [allowMotion, setAllowMotion] = useState(true);
   const [showHeroVideo, setShowHeroVideo] = useState(false);
-  const [openCap, setOpenCap] = useState<number | null>(null);
+  const [selectedCap, setSelectedCap] = useState(0);
 
   useEffect(() => {
     fetch('/api/auth/session').then(r=>r.json()).then(d=>setIsLoggedIn(d.authenticated)).catch(()=>{});
@@ -216,25 +216,36 @@ export default function LandingPage({ images: _ }: { images: LandingImages }) {
       {/* CAPABILITIES */}
       <section className="bg-white px-6 py-16">
         <Reveal>
-          <p className="mb-10 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">What WeMotiply offers</p>
-          <div className="mx-auto max-w-2xl divide-y divide-cream-dark border-y border-cream-dark">
-            {CAPABILITIES.map((c, i) => (
-              <div key={c.label}>
-                <button
-                  onClick={() => setOpenCap(openCap === i ? null : i)}
-                  className="flex w-full items-center gap-4 py-4 text-left transition-colors hover:text-gold-600"
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gold-50 text-gold-500">
-                    <FeatureIcon variant={c.icon} />
-                  </span>
-                  <span className="flex-1 text-sm font-medium text-navy-800">{c.label}</span>
-                  <span className={`text-navy-400 transition-transform duration-200 text-xs ${openCap === i ? 'rotate-180' : ''}`} aria-hidden="true">▼</span>
-                </button>
-                {openCap === i && (
-                  <p className="animate-fade-in pb-4 pl-12 text-sm font-light leading-relaxed text-navy-500">{c.desc}</p>
-                )}
-              </div>
-            ))}
+          <p className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">What WeMotiply offers</p>
+          <div className="mx-auto max-w-3xl">
+            {/* Card grid */}
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-3 md:gap-4">
+              {CAPABILITIES.map((c, i) => {
+                const active = selectedCap === i;
+                return (
+                  <button
+                    key={c.label}
+                    onClick={() => setSelectedCap(i)}
+                    className={`flex flex-col items-center gap-2 rounded-xl border px-3 py-5 text-center transition-all duration-200 ${
+                      active
+                        ? 'border-gold-400 bg-gold-50 shadow-sm'
+                        : 'border-cream-dark bg-cream hover:border-gold-200 hover:bg-gold-50/40'
+                    }`}
+                  >
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${active ? 'bg-gold-500 text-white' : 'bg-white text-gold-500'}`}>
+                      <FeatureIcon variant={c.icon} className="w-4 h-4" />
+                    </span>
+                    <span className={`text-xs font-medium leading-snug ${active ? 'text-navy-900' : 'text-navy-500'}`}>{c.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Description panel */}
+            <div className="mt-5 rounded-xl border border-gold-100 bg-gold-50/50 px-6 py-5">
+              <p className="text-sm font-medium text-navy-800 mb-1">{CAPABILITIES[selectedCap].label}</p>
+              <p className="text-sm font-light leading-relaxed text-navy-500">{CAPABILITIES[selectedCap].desc}</p>
+            </div>
           </div>
         </Reveal>
       </section>
