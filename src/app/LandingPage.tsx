@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import type { LandingImages } from '@/lib/pexels';
+import type { LandingImages, PexelsVideo } from '@/lib/pexels';
 import WhatsAppSupport from '@/components/WhatsAppSupport';
 
 const DENOMINATIONS = ['Pentecostal', 'Methodist', 'Presbyterian', 'Anglican', 'Baptist', 'Charismatic', 'Evangelical', 'Non-Denominational'];
@@ -78,7 +78,7 @@ const CAPABILITIES: { icon: FeatureIconVariant; label: string; desc: string }[] 
   { icon: 'offline',   label: 'Works Without Internet',   desc: 'No wifi on Sunday? No problem. Every check-in is saved on the device and syncs the moment you\'re back online.' },
 ];
 
-export default function LandingPage({ images }: { images: LandingImages }) {
+export default function LandingPage({ images, featureVideo }: { images: LandingImages; featureVideo: PexelsVideo | null }) {
   const [isLoggedIn, setIsLoggedIn]   = useState(false);
   const [mobileOpen, setMobileOpen]   = useState(false);
   const [scrolled, setScrolled]       = useState(false);
@@ -216,18 +216,17 @@ export default function LandingPage({ images }: { images: LandingImages }) {
 
       {/* CAPABILITIES */}
       <section className="relative px-6 py-16 overflow-hidden">
-        {/* video background — same clip as the hero, different tint */}
-        {showHeroVideo && allowMotion && (
+        {/* distinct video from the hero — soft ambient light, not the congregation shot */}
+        {featureVideo && showHeroVideo && allowMotion && (
           <video
             autoPlay muted loop playsInline aria-hidden="true"
             className="absolute inset-0 h-full w-full object-cover"
-            style={{ filter: 'brightness(0.6) saturate(0.7)' }}
           >
-            <source src="/hero-bg.mp4" type="video/mp4" />
+            <source src={featureVideo.url} type="video/mp4" />
           </video>
         )}
-        {/* heavy cream overlay to keep cards legible */}
-        <div className="absolute inset-0 bg-cream/85" />
+        {/* cream overlay to keep cards legible over the footage */}
+        <div className="absolute inset-0 bg-cream/80" />
         <div className="relative z-10">
           <Reveal>
             <p className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">What WeMotiply offers</p>
