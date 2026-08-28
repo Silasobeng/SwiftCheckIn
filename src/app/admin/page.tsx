@@ -813,6 +813,24 @@ export default function AdminPage() {
   const currentMonthAttenderIds = useMemo(() => new Set(currentMonthCheckins.map(c=>c.person_id)), [currentMonthCheckins]);
   const retained = useMemo(() => Array.from(lastMonthFirstTimers).filter(id=>currentMonthAttenderIds.has(id)).length, [lastMonthFirstTimers, currentMonthAttenderIds]);
   const retentionRate = lastMonthFirstTimers.size > 0 ? Math.round((retained / lastMonthFirstTimers.size) * 100) : null;
+  // Visitor -> member conversion. There's no role-history table, so this is
+  // read off the CURRENT role rather than an audited "became a member on
+  // date X" — someone promoted and later demoted would misreport. The 60-day
+  // floor exists so a visitor from last week (who hasn't had a chance to be
+  // promoted yet) doesn't drag the rate down; only people who've had real
+  // time to move through assimilation are counted.
+  const CONVERSION_WINDOW_DAYS = 60;
+  const conversionCohort = useMemo(() => {
+    const cutoff = Date.now() - CONVERSION_WINDOW_DAYS*24*60*60*1000;
+    return activePeople.filter(p => {
+      const joinedRaw = p.first_attendance_date || p.created_at;
+      if (!joinedRaw) return false;
+      const joined = new Date(joinedRaw).getTime();
+      return !Number.isNaN(joined) && joined <= cutoff;
+    });
+  }, [activePeople]);
+  const convertedCount = useMemo(() => conversionCohort.filter(p=>p.role!=='visitor').length, [conversionCohort]);
+  const conversionRate = conversionCohort.length > 0 ? Math.round((convertedCount / conversionCohort.length) * 100) : null;
   // Top attenders
   const topAttenders = useMemo(() => [...activePeople].sort((a,b)=>(b.total_checkins||0)-(a.total_checkins||0)).slice(0,5), [activePeople]);
   // Split each month into returning vs first-time so the trend answers the
@@ -2312,10 +2330,11 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* Actionable insights — the two panels worth acting on (who's
-                slipping, who to thank) lead and carry a touch more weight,
-                ahead of the passive demographic breakdowns below. */}
-            <div className="grid gap-5 grid-cols-1 md:grid-cols-2" style={{marginBottom:20}}>
+            {/* Actionable insights — the panels worth acting on (who's
+                slipping, who's converting, who to thank) lead and carry a
+                touch more weight, ahead of the passive demographic
+                breakdowns below. */}
+            <div className="grid gap-5 grid-cols-1 md:grid-cols-3" style={{marginBottom:20}}>
 
               {/* Retention rate */}
               <div className="panel" style={{padding:'24px 28px',borderLeft:'3px solid var(--series-1)'}}>
@@ -2331,6 +2350,23 @@ export default function AdminPage() {
                           own ramp, so the state reads across the whole bar. */}
                       <div style={{height:8,background:'var(--chart-track)',borderRadius:4,overflow:'hidden',marginTop:14}}>
                         <div style={{height:8,width:`${retentionRate}%`,background:retentionRate>=50?'var(--series-3)':'var(--series-2)',borderRadius:4,transition:'all .5s'}}/>
+                      </div>
+                    </>
+                }
+              </div>
+
+              {/* Visitor -> member conversion */}
+              <div className="panel" style={{padding:'24px 28px',borderLeft:'3px solid var(--series-1)'}}>
+                <div className="panel-label" style={{display:'block',marginBottom:16}}>Visitor → member conversion</div>
+                {conversionRate === null
+                  ? <p style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>Not enough data yet — needs visitors from {CONVERSION_WINDOW_DAYS}+ days ago to measure.</p>
+                  : <>
+                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:40,color:conversionRate>=30?'#2E7D4E':'#C97B1A',lineHeight:1,marginBottom:8}}>{conversionRate}%</div>
+                      <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.5}}>
+                        <strong style={{color:'#16243A',fontWeight:600}}>{convertedCount} of {conversionCohort.length}</strong> people who joined more than {CONVERSION_WINDOW_DAYS} days ago are now members or leaders.
+                      </div>
+                      <div style={{height:8,background:'var(--chart-track)',borderRadius:4,overflow:'hidden',marginTop:14}}>
+                        <div style={{height:8,width:`${conversionRate}%`,background:conversionRate>=30?'var(--series-3)':'var(--series-2)',borderRadius:4,transition:'all .5s'}}/>
                       </div>
                     </>
                 }
