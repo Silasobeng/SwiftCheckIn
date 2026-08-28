@@ -1007,7 +1007,7 @@ export default function AdminPage() {
   };
 
 
-  const TAB_LABELS:Record<Tab,string> = {dashboard:'Dashboard',services:"Today's Service",people:'People',giving:'Giving',analytics:'Analytics',emails:'Emails',settings:'Settings'};
+  const TAB_LABELS:Record<Tab,string> = {dashboard:'Dashboard',services:"Today's Service",people:'People',giving:'Giving',analytics:'Analytics',emails:'Messaging',settings:'Settings'};
 
   if (loading) return (
     <div style={{minHeight:'100vh',background:'#F8F4EE',display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -1155,7 +1155,7 @@ export default function AdminPage() {
             };
             const active = tab===t;
             return (
-              <button key={t} onClick={()=>{ setTab(t); if(t==='settings') loadBroadcasts(); }} aria-current={active?'page':undefined}
+              <button key={t} onClick={()=>{ setTab(t); if(t==='emails') loadBroadcasts(); }} aria-current={active?'page':undefined}
                 style={{
                   display:'flex',alignItems:'center',gap:7,
                   padding:'9px 16px',borderRadius:10,
@@ -2333,13 +2333,13 @@ export default function AdminPage() {
 
             {/* Header */}
             <div>
-              <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',fontWeight:400,marginBottom:4}}>Automatic Emails</h2>
-              <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Write these once — they send themselves, personalised with each person&apos;s name.</p>
+              <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',fontWeight:400,marginBottom:4}}>Messaging</h2>
+              <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>Email and SMS, in one place. Automatic templates send themselves — broadcasts go out when you want them to.</p>
             </div>
 
             {/* Three email templates — accordion, one open at a time */}
             <div>
-              <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:2}}>Customize Emails</div>
+              <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:2}}>Email — Automatic Templates</div>
               <div style={{fontSize:13,color:'#7A6E60',fontWeight:300,marginBottom:14}}>Which email would you like to edit?</div>
               <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,overflow:'hidden'}}>
                 <WarmEmailCard title="Welcome Email" kind="welcome" description="Sent after someone's very first visit" churchName={session.orgName} activeService={activeService} showServiceInfo={true} value={draftTemplates.welcome} onChange={next=>setDraftTemplates(p=>({...p,welcome:next}))} onSave={()=>saveTemplate('welcome',draftTemplates.welcome.subject,draftTemplates.welcome.body)} saving={savingTemplate==='welcome'} expanded={expandedTemplate==='welcome'} onToggle={()=>setExpandedTemplate(t=>t==='welcome'?null:'welcome')} isFirst />
@@ -2350,7 +2350,7 @@ export default function AdminPage() {
 
             {/* Broadcast */}
             <div style={{borderTop:'1px solid #E4DFD5',paddingTop:32}}>
-              <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:16}}>One-off message</div>
+              <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:16}}>Email — One-off Broadcast</div>
               <div style={{background:'#fff',border:'1px solid #E4DFD5',borderRadius:16,padding:'28px 32px'}}>
                 <div style={{display:'flex',alignItems:'flex-start',gap:14,marginBottom:24}}>
                   <div style={{width:44,height:44,borderRadius:12,background:'#EEF2F8',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -2389,6 +2389,209 @@ export default function AdminPage() {
                 <button onClick={sendCustomEmail} disabled={sendingCustom||!customEmail.subject||!customEmail.message} className="btn btn-gold w-full">
                   {sendingCustom ? 'Sending…' : 'Send Broadcast'}
                 </button>
+              </div>
+            </div>
+
+            {/* SMS — same page as email since both are "reach the congregation" */}
+            <div style={{borderTop:'1px solid #E4DFD5',paddingTop:32}}>
+              <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#A89D8E',fontWeight:500,marginBottom:16}}>SMS</div>
+
+              <div className="card space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="panel-label" style={{display:'block',marginBottom:4}}>SMS Notifications</div>
+                    <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.7}}>
+                      Sent to members who have no email address. Each SMS costs 0.40 GHC from your credit balance.
+                    </p>
+                  </div>
+                  <div style={{textAlign:'right',flexShrink:0}}>
+                    <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:2}}>Balance</div>
+                    <div style={{fontSize:22,fontWeight:600,color:'#16243A',lineHeight:1}}>{smsSettings.sms_credits}</div>
+                    <div style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>credits</div>
+                  </div>
+                </div>
+
+                {/* Sender ID */}
+                <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
+                  <label className="block text-sm font-medium text-navy-700 mb-1">SMS Sender Name</label>
+                  <p style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:8,lineHeight:1.6}}>
+                    The name recipients see as the sender. Max 11 characters, no spaces. Leave blank to use the platform default.
+                  </p>
+                  <input
+                    className="input"
+                    style={{maxWidth:200,fontFamily:'monospace',letterSpacing:'0.05em'}}
+                    placeholder="e.g. GraceChurch"
+                    maxLength={11}
+                    value={smsSettings.sms_sender_id}
+                    onChange={e => setSmsSettings(s => ({ ...s, sms_sender_id: e.target.value.replace(/\s/g,'').slice(0,11) }))}
+                  />
+                </div>
+
+                {/* Toggles */}
+                <div className="space-y-3">
+                  {([
+                    { key: 'sms_welcome_enabled',  label: 'Welcome SMS',      desc: 'First-time visitors without an email address.', usageKey: 'welcome' },
+                    { key: 'sms_birthday_enabled', label: 'Birthday SMS',     desc: 'Members whose email is missing on their birthday.', usageKey: 'birthday' },
+                    { key: 'sms_missed_enabled',   label: 'Missed-service SMS', desc: 'Members without email who missed two services in a row.', usageKey: 'missed' },
+                  ] as const).map(({ key, label, desc, usageKey }) => (
+                    <div key={key} className="flex items-center justify-between gap-4 py-2" style={{borderTop:'1px solid #F0EDE8'}}>
+                      <div>
+                        <div style={{fontSize:14,fontWeight:500,color:'#16243A'}}>{label}</div>
+                        <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{desc}</div>
+                        {smsUsage[usageKey] > 0 && (
+                          <div style={{fontSize:11,color:'#C97B1A',fontWeight:500,marginTop:2}}>{smsUsage[usageKey]} credits used in last 30 days</div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={smsSettings[key]}
+                        onClick={() => setSmsSettings(s => ({ ...s, [key]: !s[key] }))}
+                        style={{
+                          width:44, height:24, borderRadius:12, border:'none', cursor:'pointer', flexShrink:0,
+                          background: smsSettings[key] ? 'var(--series-1, #2F5C99)' : '#D4CFC9',
+                          position:'relative', transition:'background 0.15s',
+                        }}
+                      >
+                        <span style={{
+                          position:'absolute', top:3, left: smsSettings[key] ? 23 : 3,
+                          width:18, height:18, borderRadius:'50%', background:'#fff',
+                          transition:'left 0.15s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
+                        }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={saveSmsSettings} disabled={savingSms} className="btn btn-gold text-sm">
+                  {savingSms ? 'Saving…' : 'Save SMS Settings'}
+                </button>
+
+                {/* Top-up */}
+                <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
+                  <div style={{fontSize:13,fontWeight:500,color:'#16243A',marginBottom:4}}>Top up SMS credits</div>
+                  <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:12,lineHeight:1.6}}>
+                    Pay by MoMo or card via Paystack. Credits are added automatically once payment clears.
+                    Minimum 5 GHC (12 credits).
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <div className="relative flex-1">
+                      <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13,color:'#7A6E60',fontWeight:500,pointerEvents:'none'}}>GHC</span>
+                      <input
+                        className="input"
+                        style={{paddingLeft:44}}
+                        type="number"
+                        min="5"
+                        max="5000"
+                        step="1"
+                        placeholder="e.g. 50"
+                        value={smsTopupAmount}
+                        onChange={e => setSmsTopupAmount(e.target.value)}
+                      />
+                    </div>
+                    {smsTopupAmount && parseFloat(smsTopupAmount) >= 5 && (
+                      <span style={{fontSize:12,color:'#7A6E60',whiteSpace:'nowrap'}}>
+                        = {Math.floor(parseFloat(smsTopupAmount) * 100 / 40)} credits
+                      </span>
+                    )}
+                    <button
+                      onClick={initSmsTopup}
+                      disabled={toppingUp || !smsTopupAmount || parseFloat(smsTopupAmount) < 5}
+                      className="btn btn-gold text-sm shrink-0"
+                    >
+                      {toppingUp ? 'Redirecting…' : 'Pay'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* SMS Broadcast */}
+              <div className="card space-y-4" style={{marginTop:20}}>
+                <div>
+                  <div className="panel-label" style={{display:'block',marginBottom:4}}>SMS Broadcast</div>
+                  <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.7}}>
+                    Send a message to your congregation. Credits are deducted per recipient; failed deliveries are refunded.
+                  </p>
+                </div>
+
+                {broadcastResult && (
+                  <div style={{background:'#EDF6F1',borderRadius:10,padding:'10px 14px',fontSize:13,color:'#2E7D4E'}}>
+                    Accepted for delivery: {broadcastResult.delivered} people — {broadcastResult.credits_used} credits used.
+                    {broadcastResult.failed > 0 && ` ${broadcastResult.failed} failed (refunded).`}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-medium text-navy-600 mb-1.5">Recipients</label>
+                  <select
+                    className="select"
+                    value={broadcastFilter}
+                    onChange={e => setBroadcastFilter(e.target.value)}
+                  >
+                    <option value="all">Everyone (all active members & visitors)</option>
+                    <option value="members">Members only</option>
+                    <option value="visitors">Visitors only</option>
+                    {categories.flatMap(cat =>
+                      groups.filter(g => g.category_id === cat.id).map(g => (
+                        <option key={g.id} value={`group:${g.id}`}>{cat.name}: {g.name}</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-navy-600 mb-1.5">Message</label>
+                  <textarea
+                    className="textarea"
+                    rows={4}
+                    maxLength={459}
+                    placeholder="Type your message here…"
+                    value={broadcastMsg}
+                    onChange={e => setBroadcastMsg(e.target.value)}
+                  />
+                  <div style={{fontSize:11,color:'#A89D8E',marginTop:4,display:'flex',justifyContent:'space-between'}}>
+                    <span>{broadcastMsg.length}/459 characters</span>
+                    <span>{broadcastMsg.length === 0 ? '' : broadcastMsg.length <= 160 ? '1 SMS part' : `${Math.ceil(broadcastMsg.length/153)} SMS parts`}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div style={{fontSize:13,color:'#7A6E60'}}>
+                    {broadcastMsg.trim() && smsSettings.sms_credits > 0 && (
+                      <span>Each recipient costs {broadcastMsg.length <= 160 ? 1 : Math.ceil(broadcastMsg.length/153)} credit{broadcastMsg.length > 160 ? 's' : ''}</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={sendBroadcast}
+                    disabled={broadcastSending || !broadcastMsg.trim() || smsSettings.sms_credits < 1}
+                    className="btn btn-gold text-sm shrink-0"
+                  >
+                    {broadcastSending ? 'Sending…' : 'Send Broadcast'}
+                  </button>
+                </div>
+
+                {/* Broadcast history */}
+                {broadcasts.length > 0 && (
+                  <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
+                    <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',marginBottom:10,textTransform:'uppercase',letterSpacing:'0.08em'}}>Recent Broadcasts</div>
+                    <div className="space-y-2">
+                      {broadcasts.map(b => (
+                        <div key={b.id} style={{background:'#FAF9F6',borderRadius:8,padding:'10px 12px',fontSize:13}}>
+                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+                            <div style={{color:'#16243A',flex:1,lineHeight:1.4}}>{b.message.slice(0, 80)}{b.message.length > 80 ? '…' : ''}</div>
+                            <div style={{fontSize:11,color:'#A89D8E',whiteSpace:'nowrap',flexShrink:0}}>
+                              {new Date(b.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div style={{fontSize:11,color:'#A89D8E',marginTop:4}}>
+                            {b.delivered_count} accepted · {b.credits_used} credits · {b.sender_id}
+                            {b.failed_count > 0 && ` · ${b.failed_count} failed`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2606,205 +2809,6 @@ export default function AdminPage() {
                 </div>
                 {branding.tagline && <div className="text-white/40 mt-6 text-xs italic">{branding.tagline}</div>}
               </div>
-            </div>
-
-            {/* SMS */}
-            <div className="card space-y-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="panel-label" style={{display:'block',marginBottom:4}}>SMS Notifications</div>
-                  <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.7}}>
-                    Sent to members who have no email address. Each SMS costs 0.40 GHC from your credit balance.
-                  </p>
-                </div>
-                <div style={{textAlign:'right',flexShrink:0}}>
-                  <div style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:2}}>Balance</div>
-                  <div style={{fontSize:22,fontWeight:600,color:'#16243A',lineHeight:1}}>{smsSettings.sms_credits}</div>
-                  <div style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>credits</div>
-                </div>
-              </div>
-
-              {/* Sender ID */}
-              <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
-                <label className="block text-sm font-medium text-navy-700 mb-1">SMS Sender Name</label>
-                <p style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:8,lineHeight:1.6}}>
-                  The name recipients see as the sender. Max 11 characters, no spaces. Leave blank to use the platform default.
-                </p>
-                <input
-                  className="input"
-                  style={{maxWidth:200,fontFamily:'monospace',letterSpacing:'0.05em'}}
-                  placeholder="e.g. GraceChurch"
-                  maxLength={11}
-                  value={smsSettings.sms_sender_id}
-                  onChange={e => setSmsSettings(s => ({ ...s, sms_sender_id: e.target.value.replace(/\s/g,'').slice(0,11) }))}
-                />
-              </div>
-
-              {/* Toggles */}
-              <div className="space-y-3">
-                {([
-                  { key: 'sms_welcome_enabled',  label: 'Welcome SMS',      desc: 'First-time visitors without an email address.', usageKey: 'welcome' },
-                  { key: 'sms_birthday_enabled', label: 'Birthday SMS',     desc: 'Members whose email is missing on their birthday.', usageKey: 'birthday' },
-                  { key: 'sms_missed_enabled',   label: 'Missed-service SMS', desc: 'Members without email who missed two services in a row.', usageKey: 'missed' },
-                ] as const).map(({ key, label, desc, usageKey }) => (
-                  <div key={key} className="flex items-center justify-between gap-4 py-2" style={{borderTop:'1px solid #F0EDE8'}}>
-                    <div>
-                      <div style={{fontSize:14,fontWeight:500,color:'#16243A'}}>{label}</div>
-                      <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{desc}</div>
-                      {smsUsage[usageKey] > 0 && (
-                        <div style={{fontSize:11,color:'#C97B1A',fontWeight:500,marginTop:2}}>{smsUsage[usageKey]} credits used in last 30 days</div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={smsSettings[key]}
-                      onClick={() => setSmsSettings(s => ({ ...s, [key]: !s[key] }))}
-                      style={{
-                        width:44, height:24, borderRadius:12, border:'none', cursor:'pointer', flexShrink:0,
-                        background: smsSettings[key] ? 'var(--series-1, #2F5C99)' : '#D4CFC9',
-                        position:'relative', transition:'background 0.15s',
-                      }}
-                    >
-                      <span style={{
-                        position:'absolute', top:3, left: smsSettings[key] ? 23 : 3,
-                        width:18, height:18, borderRadius:'50%', background:'#fff',
-                        transition:'left 0.15s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
-                      }} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <button onClick={saveSmsSettings} disabled={savingSms} className="btn btn-gold text-sm">
-                {savingSms ? 'Saving…' : 'Save SMS Settings'}
-              </button>
-
-              {/* Top-up */}
-              <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
-                <div style={{fontSize:13,fontWeight:500,color:'#16243A',marginBottom:4}}>Top up SMS credits</div>
-                <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:12,lineHeight:1.6}}>
-                  Pay by MoMo or card via Paystack. Credits are added automatically once payment clears.
-                  Minimum 5 GHC (12 credits).
-                </p>
-                <div className="flex gap-2 items-center">
-                  <div className="relative flex-1">
-                    <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13,color:'#7A6E60',fontWeight:500,pointerEvents:'none'}}>GHC</span>
-                    <input
-                      className="input"
-                      style={{paddingLeft:44}}
-                      type="number"
-                      min="5"
-                      max="5000"
-                      step="1"
-                      placeholder="e.g. 50"
-                      value={smsTopupAmount}
-                      onChange={e => setSmsTopupAmount(e.target.value)}
-                    />
-                  </div>
-                  {smsTopupAmount && parseFloat(smsTopupAmount) >= 5 && (
-                    <span style={{fontSize:12,color:'#7A6E60',whiteSpace:'nowrap'}}>
-                      = {Math.floor(parseFloat(smsTopupAmount) * 100 / 40)} credits
-                    </span>
-                  )}
-                  <button
-                    onClick={initSmsTopup}
-                    disabled={toppingUp || !smsTopupAmount || parseFloat(smsTopupAmount) < 5}
-                    className="btn btn-gold text-sm shrink-0"
-                  >
-                    {toppingUp ? 'Redirecting…' : 'Pay'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* SMS Broadcast */}
-            <div className="card space-y-4">
-              <div>
-                <div className="panel-label" style={{display:'block',marginBottom:4}}>SMS Broadcast</div>
-                <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.7}}>
-                  Send a message to your congregation. Credits are deducted per recipient; failed deliveries are refunded.
-                </p>
-              </div>
-
-              {broadcastResult && (
-                <div style={{background:'#EDF6F1',borderRadius:10,padding:'10px 14px',fontSize:13,color:'#2E7D4E'}}>
-                  Accepted for delivery: {broadcastResult.delivered} people — {broadcastResult.credits_used} credits used.
-                  {broadcastResult.failed > 0 && ` ${broadcastResult.failed} failed (refunded).`}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-medium text-navy-600 mb-1.5">Recipients</label>
-                <select
-                  className="select"
-                  value={broadcastFilter}
-                  onChange={e => setBroadcastFilter(e.target.value)}
-                >
-                  <option value="all">Everyone (all active members & visitors)</option>
-                  <option value="members">Members only</option>
-                  <option value="visitors">Visitors only</option>
-                  {categories.flatMap(cat =>
-                    groups.filter(g => g.category_id === cat.id).map(g => (
-                      <option key={g.id} value={`group:${g.id}`}>{cat.name}: {g.name}</option>
-                    ))
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-navy-600 mb-1.5">Message</label>
-                <textarea
-                  className="textarea"
-                  rows={4}
-                  maxLength={459}
-                  placeholder="Type your message here…"
-                  value={broadcastMsg}
-                  onChange={e => setBroadcastMsg(e.target.value)}
-                />
-                <div style={{fontSize:11,color:'#A89D8E',marginTop:4,display:'flex',justifyContent:'space-between'}}>
-                  <span>{broadcastMsg.length}/459 characters</span>
-                  <span>{broadcastMsg.length === 0 ? '' : broadcastMsg.length <= 160 ? '1 SMS part' : `${Math.ceil(broadcastMsg.length/153)} SMS parts`}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <div style={{fontSize:13,color:'#7A6E60'}}>
-                  {broadcastMsg.trim() && smsSettings.sms_credits > 0 && (
-                    <span>Each recipient costs {broadcastMsg.length <= 160 ? 1 : Math.ceil(broadcastMsg.length/153)} credit{broadcastMsg.length > 160 ? 's' : ''}</span>
-                  )}
-                </div>
-                <button
-                  onClick={sendBroadcast}
-                  disabled={broadcastSending || !broadcastMsg.trim() || smsSettings.sms_credits < 1}
-                  className="btn btn-gold text-sm shrink-0"
-                >
-                  {broadcastSending ? 'Sending…' : 'Send Broadcast'}
-                </button>
-              </div>
-
-              {/* Broadcast history */}
-              {broadcasts.length > 0 && (
-                <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
-                  <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',marginBottom:10,textTransform:'uppercase',letterSpacing:'0.08em'}}>Recent Broadcasts</div>
-                  <div className="space-y-2">
-                    {broadcasts.map(b => (
-                      <div key={b.id} style={{background:'#FAF9F6',borderRadius:8,padding:'10px 12px',fontSize:13}}>
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
-                          <div style={{color:'#16243A',flex:1,lineHeight:1.4}}>{b.message.slice(0, 80)}{b.message.length > 80 ? '…' : ''}</div>
-                          <div style={{fontSize:11,color:'#A89D8E',whiteSpace:'nowrap',flexShrink:0}}>
-                            {new Date(b.created_at).toLocaleDateString()}
-                          </div>
-                        </div>
-                        <div style={{fontSize:11,color:'#A89D8E',marginTop:4}}>
-                          {b.delivered_count} accepted · {b.credits_used} credits · {b.sender_id}
-                          {b.failed_count > 0 && ` · ${b.failed_count} failed`}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Second save action — the header button scrolls out of reach on
