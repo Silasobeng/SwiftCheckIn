@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import type { LandingImages, PexelsVideo } from '@/lib/pexels';
+import type { LandingImages } from '@/lib/pexels';
 import WhatsAppSupport from '@/components/WhatsAppSupport';
 
 const DENOMINATIONS = ['Pentecostal', 'Methodist', 'Presbyterian', 'Anglican', 'Baptist', 'Charismatic', 'Evangelical', 'Non-Denominational'];
@@ -78,7 +78,7 @@ const CAPABILITIES: { icon: FeatureIconVariant; label: string; desc: string }[] 
   { icon: 'offline',   label: 'Works Without Internet',   desc: 'No wifi on Sunday? No problem. Every check-in is saved on the device and syncs the moment you\'re back online.' },
 ];
 
-export default function LandingPage({ images, featureVideo }: { images: LandingImages; featureVideo: PexelsVideo | null }) {
+export default function LandingPage({ images }: { images: LandingImages }) {
   const [isLoggedIn, setIsLoggedIn]   = useState(false);
   const [mobileOpen, setMobileOpen]   = useState(false);
   const [scrolled, setScrolled]       = useState(false);
@@ -214,22 +214,22 @@ export default function LandingPage({ images, featureVideo }: { images: LandingI
 
       <DenominationMarquee />
 
-      {/* CAPABILITIES */}
-      <section className="relative px-6 py-16 overflow-hidden">
-        {/* distinct video from the hero — soft ambient light, not the congregation shot */}
-        {featureVideo && showHeroVideo && allowMotion && (
-          <video
-            autoPlay muted loop playsInline aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-cover"
-          >
-            <source src={featureVideo.url} type="video/mp4" />
-          </video>
-        )}
-        {/* cream overlay to keep cards legible over the footage */}
-        <div className="absolute inset-0 bg-cream/80" />
+      {/* CAPABILITIES — same footage + dark treatment as the hero */}
+      <section className="relative px-6 py-20 md:py-24 overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage:'url(/hero-poster.jpg)' }} />
+          {showHeroVideo && allowMotion && (
+            <video autoPlay muted loop playsInline poster="/hero-poster.jpg" aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover">
+              <source src="/hero-bg.mp4" type="video/mp4" />
+            </video>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-navy-950/85 via-navy-950/88 to-navy-950/92" />
+        </div>
+
         <div className="relative z-10">
           <Reveal>
-            <p className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-600">What WeMotiply offers</p>
+            <p className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-400">What WeMotiply offers</p>
             <div className="mx-auto max-w-3xl">
               {/* Card grid */}
               <div className="grid grid-cols-3 gap-3 md:gap-4">
@@ -240,25 +240,25 @@ export default function LandingPage({ images, featureVideo }: { images: LandingI
                     <button
                       key={c.label}
                       onClick={() => setSelectedCap(i)}
-                      className={`group relative flex flex-col items-center gap-2 overflow-hidden rounded-xl border px-3 py-5 text-center transition-all duration-200 ${
+                      className={`group relative flex flex-col items-center gap-2 overflow-hidden rounded-xl border px-3 py-5 text-center backdrop-blur-sm transition-all duration-200 ${
                         active
-                          ? 'border-gold-400 bg-white shadow-md shadow-gold-100'
-                          : 'border-white/70 bg-white/60 hover:border-gold-200 hover:bg-white/90'
+                          ? 'border-gold-400 bg-white/95 shadow-lg shadow-black/20'
+                          : 'border-white/15 bg-white/[0.07] hover:border-gold-400/40 hover:bg-white/[0.12]'
                       }`}
                     >
                       {/* photo accent strip for email + sms */}
-                      {photo && (
-                        <div className="absolute inset-x-0 top-0 h-12 overflow-hidden opacity-20">
+                      {photo && !active && (
+                        <div className="absolute inset-x-0 top-0 h-12 overflow-hidden opacity-25">
                           <img src={photo.url} alt="" className="w-full h-full object-cover" aria-hidden="true" />
                         </div>
                       )}
-                      <span className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${active ? 'bg-gold-500 text-white' : 'bg-gold-50 text-gold-500'}`}>
+                      <span className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${active ? 'bg-gold-500 text-white' : 'bg-white/10 text-gold-400'}`}>
                         <FeatureIcon variant={c.icon} className="w-4 h-4" />
                       </span>
-                      <span className={`relative text-xs font-medium leading-snug ${active ? 'text-navy-900' : 'text-navy-500'}`}>{c.label}</span>
+                      <span className={`relative text-xs font-medium leading-snug ${active ? 'text-navy-900' : 'text-white/80'}`}>{c.label}</span>
                       {/* "more" indicator */}
-                      <span className={`relative flex gap-0.5 transition-opacity ${active ? 'opacity-0' : 'opacity-30 group-hover:opacity-60'}`} aria-hidden="true">
-                        {[0,1,2].map(d => <span key={d} className="block h-1 w-1 rounded-full bg-navy-400" />)}
+                      <span className={`relative flex gap-0.5 transition-opacity ${active ? 'opacity-0' : 'opacity-40 group-hover:opacity-70'}`} aria-hidden="true">
+                        {[0,1,2].map(d => <span key={d} className="block h-1 w-1 rounded-full bg-white" />)}
                       </span>
                       {active && <span className="relative block h-0.5 w-6 rounded-full bg-gold-400" aria-hidden="true" />}
                     </button>
@@ -267,9 +267,9 @@ export default function LandingPage({ images, featureVideo }: { images: LandingI
               </div>
 
               {/* Description panel */}
-              <div className="mt-4 rounded-xl border border-gold-200 bg-white/90 px-6 py-5 shadow-sm">
-                <p className="mb-1 text-sm font-semibold text-navy-800">{CAPABILITIES[selectedCap].label}</p>
-                <p className="text-sm font-light leading-relaxed text-navy-500">{CAPABILITIES[selectedCap].desc}</p>
+              <div className="mt-4 rounded-xl border border-white/15 bg-white/[0.07] px-6 py-5 backdrop-blur-sm">
+                <p className="mb-1 text-sm font-semibold text-white">{CAPABILITIES[selectedCap].label}</p>
+                <p className="text-sm font-light leading-relaxed text-white/60">{CAPABILITIES[selectedCap].desc}</p>
               </div>
             </div>
           </Reveal>

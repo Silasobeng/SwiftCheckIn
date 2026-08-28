@@ -40,7 +40,6 @@ export type LandingImageKey =
   | 'giving'
   | 'insights'
   | 'offline'
-  | 'featuresBg'
   | 'emailImg'
   | 'smsImg';
 
@@ -54,7 +53,6 @@ const QUERIES: Record<LandingImageKey, string> = {
   giving: 'hands giving donation',
   insights: 'data analytics dashboard',
   offline: 'smartphone hand outdoor',
-  featuresBg: 'church sanctuary interior soft bokeh light',
   emailImg: 'email message inbox laptop',
   smsImg: 'smartphone text message chat bubble',
 };
@@ -71,29 +69,4 @@ export async function getLandingImages(): Promise<LandingImages> {
     )
   );
   return Object.fromEntries(entries) as LandingImages;
-}
-
-// ── Video ──────────────────────────────────────────────────────────────────
-export type PexelsVideo = { url: string };
-
-export async function getFeatureVideo(): Promise<PexelsVideo | null> {
-  const key = process.env.PEXELS_API_KEY;
-  if (!key) return null;
-  try {
-    const res = await fetch(
-      `https://api.pexels.com/videos/search?query=${encodeURIComponent('candle flame bokeh soft light')}&per_page=5&orientation=landscape`,
-      { headers: { Authorization: key }, next: { revalidate: 60 * 60 * 24 * 7 } }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const video = data?.videos?.[0];
-    if (!video?.video_files) return null;
-    const files = video.video_files as { quality: string; width: number; link: string }[];
-    const pick = files.find(f => f.quality === 'hd' && f.width <= 1280)
-              || files.find(f => f.quality === 'sd')
-              || files[0];
-    return pick ? { url: pick.link } : null;
-  } catch {
-    return null;
-  }
 }

@@ -1,7 +1,7 @@
 import LandingPage from './LandingPage';
-import { getLandingImages, getFeatureVideo } from '@/lib/pexels';
+import { getLandingImages } from '@/lib/pexels';
 
 export default async function Page() {
-  const [images, featureVideo] = await Promise.all([getLandingImages(), getFeatureVideo()]);
-  return <LandingPage images={images} featureVideo={featureVideo} />;
+  const images = await getLandingImages();
+  return <LandingPage images={images} />;
 }
