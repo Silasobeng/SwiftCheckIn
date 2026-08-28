@@ -381,26 +381,56 @@ export default function AdminPage() {
     }
   }, [session]);
 
+  // The fast 8s poll only needs to catch what kiosk activity actually
+  // changes — new check-ins, new walk-up registrations, and whether someone
+  // closed the kiosk from another device. Templates, giving, groups, and
+  // categories only change from inside Settings/People/Giving, never from
+  // the kiosk, so refetching them every 8 seconds was nine round-trips to
+  // Supabase for work that needed three.
+  const loadLiveData = useCallback(async () => {
+    if (!session) return;
+    const safeFetch = async <T,>(url: string, fallback: T): Promise<T> => {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) return fallback;
+        return await res.json();
+      } catch {
+        return fallback;
+      }
+    };
+    const [cD, stD, pD] = await Promise.all([
+      safeFetch('/api/checkin', { checkins: [] }),
+      safeFetch<{settings: (AppSettings & {organization?: Organization}) | null}>('/api/settings', { settings: null }),
+      safeFetch('/api/people', { people: [] }),
+    ]);
+    setCheckins(cD.checkins || []);
+    setPeople(pD.people || []);
+    if (stD.settings) setSettings(stD.settings);
+    setLastUpdatedAt(new Date());
+  }, [session]);
+
   useEffect(() => { if (session) loadData(); }, [session,loadData]);
   // Faster while check-in is actually open — that's the moment someone is
   // watching this screen and wants to see a number move — and paused
   // whenever the tab isn't visible, so a browser left open overnight doesn't
-  // spend the next 12 hours quietly polling six endpoints. Coming back to the
-  // tab triggers an immediate refresh rather than waiting out the interval.
+  // spend the next 12 hours quietly polling. Coming back to the tab triggers
+  // an immediate refresh rather than waiting out the interval.
   useEffect(() => {
     if (!session) return;
-    const intervalMs = settings?.kiosk_open ? 8000 : 30000;
+    const kioskOpen = settings?.kiosk_open === true;
+    const intervalMs = kioskOpen ? 8000 : 30000;
+    const poll = kioskOpen ? loadLiveData : () => loadData({background:true});
     let id: number|null = null;
-    const start = () => { if (id===null) id = window.setInterval(()=>loadData({background:true}), intervalMs); };
+    const start = () => { if (id===null) id = window.setInterval(poll, intervalMs); };
     const stop = () => { if (id!==null) { window.clearInterval(id); id = null; } };
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') { loadData({background:true}); start(); }
+      if (document.visibilityState === 'visible') { poll(); start(); }
       else stop();
     };
     if (document.visibilityState === 'visible') start();
     document.addEventListener('visibilitychange', onVisibility);
     return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); };
-  }, [session, settings?.kiosk_open, loadData]);
+  }, [session, settings?.kiosk_open, loadData, loadLiveData]);
   // A light second-hand for "Updated Xs ago" — visual only, never fetches.
   useEffect(() => {
     if (!session) return;
@@ -721,7 +751,14 @@ export default function AdminPage() {
   const [expandedTemplate, setExpandedTemplate] = useState<'welcome'|'birthday'|'missed'|null>(null);
   useEffect(() => { setDraftTemplates(templateMap); }, [templateMap]);
 
-  const activePeople = people.filter(p=>!p.archived);
+  // Everything below this point was plain `const`, recomputed from scratch on
+  // every render — including the once-a-second re-render from the "updated Xs
+  // ago" clock tick, which has nothing to do with people/checkins/giving. That
+  // meant every filter/reduce/sort pass over the full congregation ran 60
+  // times a minute regardless of which tab was even open. Now memoized on the
+  // data that actually changes it, so the clock tick costs a diff, not a
+  // full re-scan of the church.
+  const activePeople = useMemo(() => people.filter(p=>!p.archived), [people]);
   // personId -> the Group rows they belong to (across every category). Built
   // once here from the flat membership list rather than re-joined everywhere
   // it's needed.
@@ -734,60 +771,62 @@ export default function AdminPage() {
     }
     return map;
   }, [personGroups, groups]);
-  const visitors = activePeople.filter(p=>p.role==='visitor');
-  const members = activePeople.filter(p=>p.role!=='visitor');
-  const activeService = services.find(s=>s.is_active)||null;
+  const visitors = useMemo(() => activePeople.filter(p=>p.role==='visitor'), [activePeople]);
+  const members = useMemo(() => activePeople.filter(p=>p.role!=='visitor'), [activePeople]);
+  const activeService = useMemo(() => services.find(s=>s.is_active)||null, [services]);
 
   // All "today / this month / last month" figures are reckoned in the church's
   // own timezone (see monthWindow), not the device clock, so they roll over
   // correctly and bucket UTC-stored timestamps into the right local month.
   const tzFmt = useMemo(()=>tzFormatter(orgTimezone), [orgTimezone]);
+  // Cheap O(1) date formatting — left unmemoized on purpose so the day/month
+  // boundary itself stays correct without needing its own tick.
   const today = dayKeyOf(tzFmt, new Date());
-  const todayCheckins = checkins.filter(c=>c.checked_in_at && dayKeyOf(tzFmt, c.checked_in_at)===today);
   const currentMonthKey = monthKeyOf(tzFmt, new Date());
   const lastMonthKey = prevMonthKey(currentMonthKey);
   const monthOf = (iso?: string|null) => iso ? monthKeyOf(tzFmt, iso) : '';
-  const currentMonthCheckins = checkins.filter(c=>monthOf(c.checked_in_at)===currentMonthKey);
-  const lastMonthCheckins = checkins.filter(c=>monthOf(c.checked_in_at)===lastMonthKey);
-  const currentMonthUnique = new Set(currentMonthCheckins.map(c=>c.person_id)).size;
-  const ageGroups = activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.date_of_birth) return a; const g=getAgeGroup(calculateAge(p.date_of_birth)); a[g]=(a[g]||0)+1; return a; },{});
-  const genderCounts = activePeople.reduce<Record<string,number>>((a,p)=>{ const k=p.gender||'not set'; a[k]=(a[k]||0)+1; return a; },{});
-  const topLocations = Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.location?.trim()) return a; a[p.location.trim()]=(a[p.location.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const topOccupations = Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.occupation?.trim()) return a; a[p.occupation.trim()]=(a[p.occupation.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const howFoundUs = Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.how_found_us?.trim()) return a; a[p.how_found_us.trim()]=(a[p.how_found_us.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const todayCheckins = useMemo(() => checkins.filter(c=>c.checked_in_at && dayKeyOf(tzFmt, c.checked_in_at)===today), [checkins, tzFmt, today]);
+  const currentMonthCheckins = useMemo(() => checkins.filter(c=>monthOf(c.checked_in_at)===currentMonthKey), [checkins, tzFmt, currentMonthKey]);
+  const lastMonthCheckins = useMemo(() => checkins.filter(c=>monthOf(c.checked_in_at)===lastMonthKey), [checkins, tzFmt, lastMonthKey]);
+  const currentMonthUnique = useMemo(() => new Set(currentMonthCheckins.map(c=>c.person_id)).size, [currentMonthCheckins]);
+  const ageGroups = useMemo(() => activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.date_of_birth) return a; const g=getAgeGroup(calculateAge(p.date_of_birth)); a[g]=(a[g]||0)+1; return a; },{}), [activePeople]);
+  const genderCounts = useMemo(() => activePeople.reduce<Record<string,number>>((a,p)=>{ const k=p.gender||'not set'; a[k]=(a[k]||0)+1; return a; },{}), [activePeople]);
+  const topLocations = useMemo(() => Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.location?.trim()) return a; a[p.location.trim()]=(a[p.location.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5), [activePeople]);
+  const topOccupations = useMemo(() => Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.occupation?.trim()) return a; a[p.occupation.trim()]=(a[p.occupation.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5), [activePeople]);
+  const howFoundUs = useMemo(() => Object.entries(activePeople.reduce<Record<string,number>>((a,p)=>{ if(!p.how_found_us?.trim()) return a; a[p.how_found_us.trim()]=(a[p.how_found_us.trim()]||0)+1; return a; },{})).sort((a,b)=>b[1]-a[1]).slice(0,5), [activePeople]);
   // Retention: of last month's first-timers, how many came back at all this month.
   // Must be measured per PERSON, not per check-in — otherwise someone who
   // attended three times this month counted as 300%, producing impossible
   // rates like 316%.
-  const lastMonthFirstTimers = new Set(
+  const lastMonthFirstTimers = useMemo(() => new Set(
     checkins.filter(c=>c.is_first_time && monthOf(c.checked_in_at)===lastMonthKey).map(c=>c.person_id)
-  );
-  const currentMonthAttenderIds = new Set(currentMonthCheckins.map(c=>c.person_id));
-  const retained = Array.from(lastMonthFirstTimers).filter(id=>currentMonthAttenderIds.has(id)).length;
+  ), [checkins, tzFmt, lastMonthKey]);
+  const currentMonthAttenderIds = useMemo(() => new Set(currentMonthCheckins.map(c=>c.person_id)), [currentMonthCheckins]);
+  const retained = useMemo(() => Array.from(lastMonthFirstTimers).filter(id=>currentMonthAttenderIds.has(id)).length, [lastMonthFirstTimers, currentMonthAttenderIds]);
   const retentionRate = lastMonthFirstTimers.size > 0 ? Math.round((retained / lastMonthFirstTimers.size) * 100) : null;
   // Top attenders
-  const topAttenders = [...activePeople].sort((a,b)=>(b.total_checkins||0)-(a.total_checkins||0)).slice(0,5);
+  const topAttenders = useMemo(() => [...activePeople].sort((a,b)=>(b.total_checkins||0)-(a.total_checkins||0)).slice(0,5), [activePeople]);
   // Split each month into returning vs first-time so the trend answers the
   // question a pastor actually asks — "are we growing, or are the same people
   // just coming back?" A single total bar cannot tell those apart.
-  const monthlyTrend = Object.entries(
+  const monthlyTrend = useMemo(() => Object.entries(
     checkins.reduce<Record<string,{returning:number;firstTime:number}>>((a,c)=>{
       const d=monthOf(c.checked_in_at); if(!d) return a;
       if(!a[d]) a[d]={returning:0,firstTime:0};
       if(c.is_first_time) a[d].firstTime++; else a[d].returning++;
       return a;
     },{})
-  ).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
-  const missingBirthdayCount = activePeople.filter(p=>!p.date_of_birth).length;
-  const missingEmailCount = activePeople.filter(p=>!p.email).length;
-  const firstTimersThisMonth = currentMonthCheckins.filter(c=>c.is_first_time).length;
+  ).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6), [checkins, tzFmt]);
+  const missingBirthdayCount = useMemo(() => activePeople.filter(p=>!p.date_of_birth).length, [activePeople]);
+  const missingEmailCount = useMemo(() => activePeople.filter(p=>!p.email).length, [activePeople]);
+  const firstTimersThisMonth = useMemo(() => currentMonthCheckins.filter(c=>c.is_first_time).length, [currentMonthCheckins]);
   const returningThisMonth = currentMonthCheckins.length-firstTimersThisMonth;
-  const peopleRoleCounts = {
+  const peopleRoleCounts = useMemo(() => ({
     all: activePeople.length,
     member: activePeople.filter(p=>p.role==='member').length,
     leader: activePeople.filter(p=>p.role==='leader').length,
     visitor: activePeople.filter(p=>p.role==='visitor').length,
-  };
+  }), [activePeople]);
   const filteredPeople = useMemo(() => {
     const q=peopleSearch.trim().toLowerCase();
     return activePeople.filter(p=>
@@ -808,10 +847,10 @@ export default function AdminPage() {
   const currentMonthRangeLabel = monthRangeLabel(currentMonthKey);
   const lastMonthRangeLabel = monthRangeLabel(lastMonthKey);
 
-  const givingThisMonth = giving.filter(g=>monthOf(g.created_at)===currentMonthKey);
-  const givingTotalThisMonth = givingThisMonth.reduce((sum,g)=>sum+Number(g.amount||0),0);
-  const givingTotalAllTime = giving.reduce((sum,g)=>sum+Number(g.amount||0),0);
-  const givingPendingCount = giving.filter(g=>g.status==='recorded').length;
+  const givingThisMonth = useMemo(() => giving.filter(g=>monthOf(g.created_at)===currentMonthKey), [giving, tzFmt, currentMonthKey]);
+  const givingTotalThisMonth = useMemo(() => givingThisMonth.reduce((sum,g)=>sum+Number(g.amount||0),0), [givingThisMonth]);
+  const givingTotalAllTime = useMemo(() => giving.reduce((sum,g)=>sum+Number(g.amount||0),0), [giving]);
+  const givingPendingCount = useMemo(() => giving.filter(g=>g.status==='recorded').length, [giving]);
   const givingCurrency = givingThisMonth[0]?.currency || giving[0]?.currency || 'GHS';
 
   // The on-screen equivalent of the emailed workbook. The report has always
@@ -907,12 +946,12 @@ export default function AdminPage() {
     };
   }, [infoService, services, checkins, activePeople, giving, orgTimezone, givingCurrency]);
   // Breakdown by type for the current month — "Tithe: 3 · GHS 450", etc.
-  const givingByType = (['tithe','offering','seed','pledge','other'] as GivingType[])
+  const givingByType = useMemo(() => (['tithe','offering','seed','pledge','other'] as GivingType[])
     .map(type => {
       const rows = givingThisMonth.filter(g=>g.giving_type===type);
       return { type, label: GIVING_TYPE_LABELS[type], count: rows.length, amount: rows.reduce((s,g)=>s+Number(g.amount||0),0) };
     })
-    .filter(t => t.count > 0);
+    .filter(t => t.count > 0), [givingThisMonth]);
 
   // Year-over-year, same timezone-aware reckoning as everything else here —
   // built once so it's ready the first time a church actually has two years
@@ -920,30 +959,35 @@ export default function AdminPage() {
   // later. Costs nothing when there's no data yet: the panel just says so.
   const currentYearKey = yearKeyOf(tzFmt, new Date());
   const lastYearKey = String(Number(currentYearKey) - 1);
-  const yearOf = (iso?: string|null) => iso ? yearKeyOf(tzFmt, iso) : '';
-  const currentYearCheckins = checkins.filter(c=>yearOf(c.checked_in_at)===currentYearKey);
-  const lastYearCheckins = checkins.filter(c=>yearOf(c.checked_in_at)===lastYearKey);
-  const currentYearFirstTimers = currentYearCheckins.filter(c=>c.is_first_time).length;
-  const lastYearFirstTimers = lastYearCheckins.filter(c=>c.is_first_time).length;
-  const currentYearGiving = giving.filter(g=>yearOf(g.created_at)===currentYearKey);
-  const lastYearGiving = giving.filter(g=>yearOf(g.created_at)===lastYearKey);
-  const currentYearGivingTotal = currentYearGiving.reduce((s,g)=>s+Number(g.amount||0),0);
-  const lastYearGivingTotal = lastYearGiving.reduce((s,g)=>s+Number(g.amount||0),0);
-  const currentYearRangeLabel = yearRangeLabel(currentYearKey);
-  const lastYearRangeLabel = yearRangeLabel(lastYearKey);
   // null rather than a number when there's nothing last year to divide
   // by — "up 400% from zero" is a meaningless figure, not an insight.
   const pctDelta = (curr:number, prev:number): number|null => prev===0 ? null : Math.round(((curr-prev)/prev)*100);
-  const yearComparisons = [
-    { label:'Check-ins', curr:currentYearCheckins.length, prev:lastYearCheckins.length,
-      currDisplay:currentYearCheckins.length.toLocaleString('en-US'), prevDisplay:lastYearCheckins.length.toLocaleString('en-US') },
-    { label:'First-time visitors', curr:currentYearFirstTimers, prev:lastYearFirstTimers,
-      currDisplay:currentYearFirstTimers.toLocaleString('en-US'), prevDisplay:lastYearFirstTimers.toLocaleString('en-US') },
-    { label:'Giving received', curr:currentYearGivingTotal, prev:lastYearGivingTotal,
-      currDisplay:`${givingCurrency} ${currentYearGivingTotal.toLocaleString('en-US',{maximumFractionDigits:0})}`,
-      prevDisplay:`${givingCurrency} ${lastYearGivingTotal.toLocaleString('en-US',{maximumFractionDigits:0})}` },
-  ].map(c => ({ ...c, delta: pctDelta(c.curr, c.prev) }));
-  const hasAnyYearData = currentYearCheckins.length>0 || lastYearCheckins.length>0 || currentYearGiving.length>0 || lastYearGiving.length>0;
+  const { yearComparisons, hasAnyYearData } = useMemo(() => {
+    const yearOf = (iso?: string|null) => iso ? yearKeyOf(tzFmt, iso) : '';
+    const currentYearCheckins = checkins.filter(c=>yearOf(c.checked_in_at)===currentYearKey);
+    const lastYearCheckins = checkins.filter(c=>yearOf(c.checked_in_at)===lastYearKey);
+    const currentYearFirstTimers = currentYearCheckins.filter(c=>c.is_first_time).length;
+    const lastYearFirstTimers = lastYearCheckins.filter(c=>c.is_first_time).length;
+    const currentYearGiving = giving.filter(g=>yearOf(g.created_at)===currentYearKey);
+    const lastYearGiving = giving.filter(g=>yearOf(g.created_at)===lastYearKey);
+    const currentYearGivingTotal = currentYearGiving.reduce((s,g)=>s+Number(g.amount||0),0);
+    const lastYearGivingTotal = lastYearGiving.reduce((s,g)=>s+Number(g.amount||0),0);
+    const comparisons = [
+      { label:'Check-ins', curr:currentYearCheckins.length, prev:lastYearCheckins.length,
+        currDisplay:currentYearCheckins.length.toLocaleString('en-US'), prevDisplay:lastYearCheckins.length.toLocaleString('en-US') },
+      { label:'First-time visitors', curr:currentYearFirstTimers, prev:lastYearFirstTimers,
+        currDisplay:currentYearFirstTimers.toLocaleString('en-US'), prevDisplay:lastYearFirstTimers.toLocaleString('en-US') },
+      { label:'Giving received', curr:currentYearGivingTotal, prev:lastYearGivingTotal,
+        currDisplay:`${givingCurrency} ${currentYearGivingTotal.toLocaleString('en-US',{maximumFractionDigits:0})}`,
+        prevDisplay:`${givingCurrency} ${lastYearGivingTotal.toLocaleString('en-US',{maximumFractionDigits:0})}` },
+    ].map(c => ({ ...c, delta: pctDelta(c.curr, c.prev) }));
+    return {
+      yearComparisons: comparisons,
+      hasAnyYearData: currentYearCheckins.length>0 || lastYearCheckins.length>0 || currentYearGiving.length>0 || lastYearGiving.length>0,
+    };
+  }, [checkins, giving, tzFmt, currentYearKey, lastYearKey, givingCurrency]);
+  const currentYearRangeLabel = yearRangeLabel(currentYearKey);
+  const lastYearRangeLabel = yearRangeLabel(lastYearKey);
 
   const resetGivingForm = () => setGivingForm({ person_id:'', giver_name:'', giver_email:'', amount:'', giving_type:'offering', giving_type_other:'', payment_method:'cash', notes:'' });
 
