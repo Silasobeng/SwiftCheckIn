@@ -313,7 +313,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
                 {annual ? 'per year — about GHS 74/month' : 'per month'}
               </div>
               <ul className="mt-6 space-y-2 text-left">
-                {['Unlimited members','Unlimited attendance','Unlimited giving records','Automated follow-up emails','Full analytics & insights'].map(f => (
+                {['One flat price — no per-member fees','Every visitor and member tracked automatically','Attendance and giving recorded every Sunday','Welcome, birthday & we-miss-you emails, sent for you','See who\'s growing, who\'s drifting, and why'].map(f => (
                   <li key={f} className="flex items-center gap-3 text-sm font-light text-white/70">
                     <Check className="w-4 h-4 shrink-0 text-gold-400" />
                     {f}
