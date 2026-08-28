@@ -540,6 +540,42 @@ DROP POLICY IF EXISTS "sms_broadcasts_no_anon_delete" ON sms_broadcasts;
 CREATE POLICY "sms_broadcasts_no_anon_delete" ON sms_broadcasts FOR DELETE USING (false);
 
 
+-- --------------------------------------------------------------
+-- Legacy policy cleanup.
+--
+-- The first version of this schema abbreviated four table names when
+-- naming policies (orgs_, settings_, templates_, logs_). The DROP
+-- statements above only match the current full-table-name convention, so
+-- without this those old policies survive and those four tables end up
+-- with eight policies instead of four.
+--
+-- Harmless either way — every one of them is USING (false), and Postgres
+-- OR's permissive policies together, so false OR false still denies. This
+-- is purely so the policy list stays readable and an auditor doesn't have
+-- to work out which of two similarly-named policies is authoritative.
+-- --------------------------------------------------------------
+
+DROP POLICY IF EXISTS "orgs_no_anon_select"      ON organizations;
+DROP POLICY IF EXISTS "orgs_no_anon_insert"      ON organizations;
+DROP POLICY IF EXISTS "orgs_no_anon_update"      ON organizations;
+DROP POLICY IF EXISTS "orgs_no_anon_delete"      ON organizations;
+
+DROP POLICY IF EXISTS "settings_no_anon_select"  ON app_settings;
+DROP POLICY IF EXISTS "settings_no_anon_insert"  ON app_settings;
+DROP POLICY IF EXISTS "settings_no_anon_update"  ON app_settings;
+DROP POLICY IF EXISTS "settings_no_anon_delete"  ON app_settings;
+
+DROP POLICY IF EXISTS "templates_no_anon_select" ON email_templates;
+DROP POLICY IF EXISTS "templates_no_anon_insert" ON email_templates;
+DROP POLICY IF EXISTS "templates_no_anon_update" ON email_templates;
+DROP POLICY IF EXISTS "templates_no_anon_delete" ON email_templates;
+
+DROP POLICY IF EXISTS "logs_no_anon_select"      ON email_logs;
+DROP POLICY IF EXISTS "logs_no_anon_insert"      ON email_logs;
+DROP POLICY IF EXISTS "logs_no_anon_update"      ON email_logs;
+DROP POLICY IF EXISTS "logs_no_anon_delete"      ON email_logs;
+
+
 -- ==============================================================
 -- 10. VERIFICATION
 -- ==============================================================
