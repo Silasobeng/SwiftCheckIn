@@ -68,11 +68,6 @@ async function sendViaBrevo(
   return { success: true };
 }
 
-function isQuotaError(msg: string): boolean {
-  const lower = msg.toLowerCase();
-  return lower.includes('quota') || lower.includes('rate') || lower.includes('limit') || lower.includes('429');
-}
-
 export async function sendBrevoEmail(
   to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string,
   attachments?: EmailAttachment[], replyTo?: ReplyTo
@@ -103,23 +98,26 @@ export async function sendBrevoEmail(
     });
 
     if (error) {
-      // Quota hit — try Brevo backup credits before giving up
-      if (isQuotaError(error.message)) {
-        console.warn('Resend quota reached, falling back to Brevo');
-        return sendViaBrevo(to, subject, htmlContent, from, replyTo, attachments);
-      }
-      console.error('Resend error:', error);
-      return { success: false, error: error.message };
+      // Fall back to Brevo on ANY Resend failure, not just quota — this used
+      // to check the error message for quota-shaped keywords ("quota",
+      // "rate", "limit", "429") and give up on everything else. That missed
+      // the actual first failure mode in production: a 403 validation_error
+      // for an unverified sending domain, which shares none of those words
+      // and so silently dropped every welcome/birthday/missed/reset email
+      // with no fallback and nothing visible to the recipient. There's no
+      // real downside to trying Brevo unconditionally — if Resend is broken
+      // for any provider-side reason (domain, auth, quota, an outage),
+      // Brevo sidesteps it; if the failure is a genuinely bad recipient
+      // address, Brevo will reject it too and we return that instead,
+      // no worse off than before.
+      console.warn('Resend send failed, falling back to Brevo:', error.message);
+      return sendViaBrevo(to, subject, htmlContent, from, replyTo, attachments);
     }
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Failed to send email';
-    if (isQuotaError(msg)) {
-      console.warn('Resend quota reached, falling back to Brevo');
-      return sendViaBrevo(to, subject, htmlContent, from, replyTo, attachments);
-    }
-    console.error('Resend send error:', msg);
-    return { success: false, error: msg };
+    console.warn('Resend send threw, falling back to Brevo:', msg);
+    return sendViaBrevo(to, subject, htmlContent, from, replyTo, attachments);
   }
 }
 
