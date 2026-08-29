@@ -1262,8 +1262,14 @@ export default function AdminPage() {
             <button onClick={()=>loadData()} className="btn btn-ghost btn-icon" title="Refresh" aria-label="Refresh data">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
-            <Link href={`/kiosk/${session.orgSlug}`} target="_blank" className="btn btn-secondary text-sm" title="Open kiosk">
+            {/* This is the single most important button in the app — it's how
+                a church actually starts letting people check in — so unlike
+                Refresh and Logout beside it, it never drops to icon-only. A
+                tooltip is no substitute for a mobile admin who can't hover to
+                read "Open kiosk" before tapping something unlabeled. */}
+            <Link href={`/kiosk/${session.orgSlug}`} target="_blank" className="btn btn-secondary text-sm" title="Open the check-in screen for this device">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+              <span className="sm:hidden">Kiosk</span>
               <span className="hidden sm:inline">Open Kiosk</span>
             </Link>
             {/* Logout stays reachable on mobile — icon only to save width */}
@@ -1310,7 +1316,7 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <nav className="admin-tabs bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-[68px] z-30">
-        <div className="max-w-7xl mx-auto flex gap-1 overflow-x-auto hide-scrollbar" style={{paddingTop:10,paddingBottom:10}}>
+        <div className="max-w-7xl mx-auto flex gap-1 overflow-x-auto hide-scrollbar tab-scroll-fade" style={{paddingTop:10,paddingBottom:10}}>
           {(['dashboard','services','people','giving','analytics','emails','settings'] as Tab[]).map(t=>{
             const icons: Record<Tab,JSX.Element> = {
               dashboard: <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>,

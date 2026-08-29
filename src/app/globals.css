@@ -81,6 +81,24 @@ body {
 .hide-scrollbar { scrollbar-width:none; -ms-overflow-style:none; }
 .hide-scrollbar::-webkit-scrollbar { display:none; }
 
+/* The admin tab bar hides its scrollbar for a clean look, which on mobile
+   also hides the only cue that more tabs exist off-screen — the native
+   touch-scroll flash is suppressed along with it. This fades the right
+   edge of the strip so it visibly trails off rather than looking like a
+   hard stop, without adding a chunky raw scrollbar back in. Left unmasked
+   at the very end of scroll would still show a faint fade over the last
+   tab; a cosmetic trade-off against the far worse problem of a section
+   nobody knows exists. -webkit- prefix carries this to iOS Safari, which
+   is exactly where a bare `mask-image` alone silently does nothing. */
+.tab-scroll-fade {
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+}
+@media (min-width: 768px) {
+  /* Desktop tab bars rarely overflow — no fade needed once there's room. */
+  .tab-scroll-fade { -webkit-mask-image: none; mask-image: none; }
+}
+
 /* Consistent keyboard focus across every interactive element, including the
    many inline-styled buttons that carry no class of their own. */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
