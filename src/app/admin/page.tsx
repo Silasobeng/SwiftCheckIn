@@ -2626,16 +2626,15 @@ export default function AdminPage() {
                 {/* Sender ID */}
                 <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
                   <label className="block text-sm font-medium text-navy-700 mb-1">SMS Sender Name</label>
-                  {/* This field silently breaks SMS if a church invents a name:
-                      mobile networks only deliver sender IDs registered in
-                      advance, so an unregistered one is rejected at the
-                      carrier and the church sees sends that just never
-                      arrive. Saying so here is the difference between a
-                      support ticket and a working setup. */}
+                  {/* Self-service field — a church can type any name here.
+                      The one real constraint is outside our control: mobile
+                      networks only deliver sender IDs that have been
+                      registered with them in advance, so this doubles as the
+                      instruction for how that actually happens. */}
                   <p style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:8,lineHeight:1.6}}>
                     The name recipients see instead of a phone number. Max 11 characters, no spaces.
-                    <strong style={{color:'#7A6E60',fontWeight:500}}> Leave this blank unless you have asked us to register your church&apos;s name</strong> — networks reject
-                    sender names that aren&apos;t registered in advance, and your messages would quietly stop arriving.
+                    Enter your church&apos;s name here, then <strong style={{color:'#7A6E60',fontWeight:500}}>message us to get it registered</strong> with
+                    the mobile networks — once approved, your SMS will send under this name instead of the platform default.
                   </p>
                   <input
                     className="input"
