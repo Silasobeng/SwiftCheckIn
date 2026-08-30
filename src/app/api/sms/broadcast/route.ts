@@ -117,7 +117,15 @@ export async function POST(request: NextRequest) {
     target_org_id: orgId,
     credit_amount: creditsNeeded,
   });
-  if (debitError || !debitSucceeded) {
+  if (debitError) {
+    // A real RPC failure (e.g. the function missing from the database) is
+    // not the same thing as insufficient credits, and reporting it as such
+    // hid exactly that bug once already — surface what Postgres actually
+    // said instead of relabeling every failure as a balance problem.
+    console.error('debit_sms_credits RPC error:', debitError.message);
+    return NextResponse.json({ error: `Could not deduct SMS credits: ${debitError.message}` }, { status: 500 });
+  }
+  if (!debitSucceeded) {
     return NextResponse.json({ error: 'Insufficient SMS credits', required: creditsNeeded, available: freshOrg.sms_credits }, { status: 402 });
   }
 
