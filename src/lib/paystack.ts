@@ -40,11 +40,13 @@ function generateReference(): string {
   return `sep-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
 }
 
-export interface InitResult { authorization_url: string; reference: string; }
+export interface InitResult { authorization_url: string; reference: string; access_code: string; }
 
-/** Starts a hosted Paystack checkout for one church's subscription. Paystack's
- *  own page handles card entry and the Mobile Money OTP flow — none of that
- *  is handled by this app, and it never sees a card or MoMo number. */
+/** Starts a Paystack checkout for one church's subscription. Returns both the
+ *  hosted-page URL (kept as a fallback/direct-link option) and an access_code
+ *  — the access_code lets the browser finish payment inline via
+ *  PaystackPop.resumeTransaction() instead of leaving the app, without this
+ *  app ever touching a card or MoMo number either way. */
 export async function initializeTransaction(
   email: string, plan: BillingPlan, orgId: string, callbackUrl: string
 ): Promise<InitResult> {
@@ -66,7 +68,7 @@ export async function initializeTransaction(
 
   const json = await res.json();
   if (!res.ok || !json.status) throw new Error(json.message || 'Could not start checkout.');
-  return { authorization_url: json.data.authorization_url, reference: json.data.reference };
+  return { authorization_url: json.data.authorization_url, reference: json.data.reference, access_code: json.data.access_code };
 }
 
 export interface VerifyResult {
@@ -140,7 +142,7 @@ export async function initializeSmsTopup(
 
   const json = await res.json();
   if (!res.ok || !json.status) throw new Error(json.message || 'Could not start SMS top-up.');
-  return { authorization_url: json.data.authorization_url, reference: json.data.reference };
+  return { authorization_url: json.data.authorization_url, reference: json.data.reference, access_code: json.data.access_code };
 }
 
 export async function creditSmsTopup(

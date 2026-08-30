@@ -27,14 +27,14 @@ export async function POST(request: NextRequest) {
     // the param, so a church had no way to tell a top-up landed either way).
     const callbackUrl = `${origin}/api/sms/topup/callback`;
 
-    const { authorization_url } = await initializeSmsTopup(
+    const { authorization_url, access_code } = await initializeSmsTopup(
       auth.session.adminEmail,
       auth.session.orgId,
       amountGhc,
       callbackUrl
     );
 
-    return NextResponse.json({ authorizationUrl: authorization_url });
+    return NextResponse.json({ authorizationUrl: authorization_url, accessCode: access_code });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Could not start top-up.';
     console.error('SMS topup error:', msg);

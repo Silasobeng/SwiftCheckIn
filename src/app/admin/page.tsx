@@ -391,7 +391,31 @@ export default function AdminPage() {
       const res = await fetch('/api/billing/checkout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ plan }) });
       const data = await res.json();
       if (!res.ok || !data.authorization_url) { setBillingError(data.error || 'Could not start checkout.'); setBillingBusy(null); return; }
-      window.location.href = data.authorization_url;
+
+      // Inline popup over the hosted redirect — same secret-key-only server
+      // flow as before, just finished in an overlay instead of leaving the
+      // app. Falls back to the old full-page redirect if the popup script
+      // itself can't load (ad-blocker, network hiccup) — a stuck payment
+      // is worse than an ugly one.
+      if (!data.access_code) { window.location.href = data.authorization_url; return; }
+      const { default: PaystackPop } = await import('@paystack/inline-js');
+      const popup = new PaystackPop();
+      popup.resumeTransaction(data.access_code, {
+        onSuccess: async (transaction: { reference: string }) => {
+          try {
+            const vres = await fetch('/api/billing/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reference: transaction.reference }) });
+            const vdata = await vres.json();
+            if (vdata.success) { setMessage('Payment received — subscription active.'); loadData(); }
+            else { setBillingError(vdata.error || 'Payment received but could not be confirmed — contact support with reference ' + transaction.reference); }
+          } catch {
+            setBillingError('Payment received but could not be confirmed — contact support with reference ' + transaction.reference);
+          } finally {
+            setBillingBusy(null);
+          }
+        },
+        onCancel: () => setBillingBusy(null),
+        onError: () => { window.location.href = data.authorization_url; },
+      });
     } catch {
       setBillingError('Could not reach the payment service. Check your connection.');
       setBillingBusy(null);
@@ -733,9 +757,39 @@ export default function AdminPage() {
     try {
       const res  = await fetch('/api/sms/topup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amountGhc: amount }) });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Could not start top-up.'); return; }
-      window.location.href = data.authorizationUrl;
-    } finally { setToppingUp(false); }
+      if (!res.ok) { setError(data.error || 'Could not start top-up.'); setToppingUp(false); return; }
+
+      // Same inline-over-redirect swap as subscription checkout — see the
+      // comment there. Falls back to the full redirect if the popup script
+      // itself can't load.
+      if (!data.accessCode) { window.location.href = data.authorizationUrl; return; }
+      const { default: PaystackPop } = await import('@paystack/inline-js');
+      const popup = new PaystackPop();
+      popup.resumeTransaction(data.accessCode, {
+        onSuccess: async (transaction: { reference: string }) => {
+          try {
+            const vres = await fetch('/api/sms/topup/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reference: transaction.reference }) });
+            const vdata = await vres.json();
+            if (vdata.success) {
+              setMessage(vdata.credits ? `Payment received — ${vdata.credits} SMS credits added.` : 'Payment received — your SMS balance has been updated.');
+              setSmsTopupAmount('');
+              loadData();
+            } else {
+              setError(vdata.error || 'Payment received but could not be confirmed — contact support with reference ' + transaction.reference);
+            }
+          } catch {
+            setError('Payment received but could not be confirmed — contact support with reference ' + transaction.reference);
+          } finally {
+            setToppingUp(false);
+          }
+        },
+        onCancel: () => setToppingUp(false),
+        onError: () => { window.location.href = data.authorizationUrl; },
+      });
+    } catch {
+      setError('Could not reach the payment service. Check your connection.');
+      setToppingUp(false);
+    }
   };
 
   const saveGroup = async () => {

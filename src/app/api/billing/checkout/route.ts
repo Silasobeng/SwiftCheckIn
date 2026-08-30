@@ -43,11 +43,11 @@ export async function POST(request: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://wemotiply.com';
     const callbackUrl = `${appUrl}/api/billing/callback`;
 
-    const { authorization_url } = await initializeTransaction(
+    const { authorization_url, access_code } = await initializeTransaction(
       org.admin_email, plan as BillingPlan, auth.session.orgId, callbackUrl
     );
 
-    return NextResponse.json({ authorization_url });
+    return NextResponse.json({ authorization_url, access_code });
   } catch (error) {
     console.error('Billing checkout error:', error);
     const message = error instanceof Error ? error.message : 'Could not start checkout.';
