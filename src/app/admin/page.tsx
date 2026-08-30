@@ -282,6 +282,9 @@ export default function AdminPage() {
   const [infoService, setInfoService] = useState<Service|null>(null);
   const [infoTab, setInfoTab] = useState<'summary'|'attendance'|'followup'|'giving'>('summary');
   const [presentFilter, setPresentFilter] = useState<'all'|'leader'|'member'|'firsttime'|'returning'>('all');
+  // Quick "was so-and-so here today" lookup over the attendance list — a
+  // church with a large service otherwise has to scroll an unfiltered table.
+  const [presentSearch, setPresentSearch] = useState('');
   const [absentGroupCategoryId, setAbsentGroupCategoryId] = useState<string>('');
   const [giving, setGiving] = useState<Giving[]>([]);
   const [givingFormOpen, setGivingFormOpen] = useState(false);
@@ -302,6 +305,11 @@ export default function AdminPage() {
   const [toppingUp, setToppingUp] = useState(false);
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [broadcastFilter, setBroadcastFilter] = useState('all');
+  // Hand-picked recipients for the 'specific' filter — a church texting just
+  // a few volunteers or leaders shouldn't have to make a permanent Group
+  // first just to reach them once.
+  const [specificRecipientIds, setSpecificRecipientIds] = useState<Set<string>>(new Set());
+  const [specificSearch, setSpecificSearch] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState<{ delivered: number; failed: number; credits_used: number } | null>(null);
   const [broadcasts, setBroadcasts] = useState<import('@/types').SmsBroadcast[]>([]);
@@ -647,16 +655,19 @@ export default function AdminPage() {
     if (!broadcastMsg.trim()) { setError('Message is required.'); return; }
 
     const groupId = broadcastFilter.startsWith('group:') ? broadcastFilter.slice(6) : '';
-    const estimatedRecipients = activePeople.filter(person => {
-      if (!person.phone || person.sms_opted_out) return false;
-      if (broadcastFilter === 'members') return person.role === 'member';
-      if (broadcastFilter === 'visitors') return person.role === 'visitor';
-      if (groupId) return personGroups.some(m => m.person_id === person.id && m.group_id === groupId);
-      return true;
-    }).length;
+    const estimatedRecipients = broadcastFilter === 'specific'
+      ? activePeople.filter(p => specificRecipientIds.has(p.id) && p.phone && !p.sms_opted_out).length
+      : activePeople.filter(person => {
+          if (!person.phone || person.sms_opted_out) return false;
+          if (broadcastFilter === 'members') return person.role === 'member';
+          if (broadcastFilter === 'visitors') return person.role === 'visitor';
+          if (groupId) return personGroups.some(m => m.person_id === person.id && m.group_id === groupId);
+          return true;
+        }).length;
     const parts = broadcastMsg.length <= 160 ? 1 : Math.ceil(broadcastMsg.length / 153);
     const estimatedCredits = estimatedRecipients * parts;
 
+    if (broadcastFilter === 'specific' && specificRecipientIds.size === 0) { setError('Select at least one recipient.'); return; }
     if (!estimatedRecipients) { setError('No SMS recipients match this audience.'); return; }
     if (!window.confirm('Send this message to ' + estimatedRecipients + ' people? It will use ' + estimatedCredits + ' SMS credit' + (estimatedCredits === 1 ? '' : 's') + '.')) return;
 
@@ -665,12 +676,17 @@ export default function AdminPage() {
       const res = await fetch('/api/sms/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: broadcastMsg, recipient_filter: broadcastFilter }),
+        body: JSON.stringify({
+          message: broadcastMsg,
+          recipient_filter: broadcastFilter,
+          ...(broadcastFilter === 'specific' ? { person_ids: Array.from(specificRecipientIds) } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Broadcast failed.'); return; }
       setBroadcastResult(data);
       setBroadcastMsg('');
+      setSpecificRecipientIds(new Set());
       setSmsSettings(s => ({ ...s, sms_credits: s.sms_credits - (data.credits_used || 0) }));
       await loadBroadcasts();
     } finally { setBroadcastSending(false); }
@@ -1758,11 +1774,20 @@ export default function AdminPage() {
                             {v:'firsttime' as const, l:'First-time visitors', n:b.firstTimers,          c:'#2E7D4E'},
                             {v:'returning' as const, l:'Returning visitors',  n:b.returningVisitors,    c:'#C97B1A'},
                           ];
-                          const rows = presentFilter==='all' ? b.present : b.present.filter(r=>r.category===presentFilter);
+                          const q = presentSearch.trim().toLowerCase();
+                          const rows = (presentFilter==='all' ? b.present : b.present.filter(r=>r.category===presentFilter))
+                            .filter(r => !q || r.person?.full_name?.toLowerCase().includes(q) || r.person?.phone?.includes(q));
                           const catLabel:Record<string,string> = {leader:'Leader',member:'Member',firsttime:'First-time visitor',returning:'Returning visitor'};
                           const catColor:Record<string,string> = {leader:'#486581',member:'#16243A',firsttime:'#2E7D4E',returning:'#C97B1A'};
                           return (
                             <>
+                              <input
+                                className="input text-sm"
+                                placeholder="Search by name or phone — was someone here today?"
+                                value={presentSearch}
+                                onChange={e=>setPresentSearch(e.target.value)}
+                                style={{marginBottom:12}}
+                              />
                               <div style={{display:'flex',flexWrap:'wrap',gap:7,marginBottom:18}}>
                                 {CATS.filter(c=>c.v==='all'||c.n>0).map(({v,l,n})=>{
                                   const on = presentFilter===v;
@@ -1775,6 +1800,9 @@ export default function AdminPage() {
                                   );
                                 })}
                               </div>
+                              {rows.length===0 ? (
+                                <div style={{fontSize:13,color:'#A89D8E',fontWeight:300,padding:'12px 4px'}}>Nobody matching &ldquo;{presentSearch}&rdquo; checked in today.</div>
+                              ) : (
                               <table style={{width:'100%',borderCollapse:'collapse'}}>
                                 <thead><tr><th style={th}>Time</th><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Category</th></tr></thead>
                                 <tbody>
@@ -1793,6 +1821,7 @@ export default function AdminPage() {
                                   ))}
                                 </tbody>
                               </table>
+                              )}
                             </>
                           );
                         })()
@@ -2827,8 +2856,59 @@ export default function AdminPage() {
                         <option key={g.id} value={`group:${g.id}`}>{cat.name}: {g.name}</option>
                       ))
                     )}
+                    <option value="specific">Specific people…</option>
                   </select>
                 </div>
+
+                {broadcastFilter === 'specific' && (() => {
+                  // Same search-by-name/phone/email pattern as the People
+                  // tab, scoped to a small picker instead of the full table —
+                  // texting a handful of volunteers shouldn't require making
+                  // a permanent Group first.
+                  const q = specificSearch.trim().toLowerCase();
+                  const candidates = activePeople.filter(p => {
+                    if (!q) return true;
+                    return p.full_name?.toLowerCase().includes(q) || p.phone?.includes(q) || p.email?.toLowerCase().includes(q);
+                  }).slice(0, 200);
+                  return (
+                    <div>
+                      <label className="block text-xs font-medium text-navy-600 mb-1.5">
+                        Select recipients {specificRecipientIds.size > 0 && `(${specificRecipientIds.size} selected)`}
+                      </label>
+                      <input
+                        className="input text-sm"
+                        placeholder="Search by name, phone or email…"
+                        value={specificSearch}
+                        onChange={e => setSpecificSearch(e.target.value)}
+                        style={{ marginBottom: 8 }}
+                      />
+                      <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #E4DFD5', borderRadius: 10, padding: '4px 12px' }}>
+                        {candidates.length === 0 ? (
+                          <div style={{ padding: '12px 4px', fontSize: 13, color: '#A89D8E' }}>No matches.</div>
+                        ) : candidates.map(p => {
+                          const disabled = !p.phone || p.sms_opted_out;
+                          const checked = specificRecipientIds.has(p.id);
+                          return (
+                            <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', borderBottom: '1px solid #F0EBE3', opacity: disabled ? 0.45 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={disabled}
+                                onChange={e => setSpecificRecipientIds(prev => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) next.add(p.id); else next.delete(p.id);
+                                  return next;
+                                })}
+                              />
+                              <span style={{ flex: 1, fontSize: 13.5, color: '#1C2A3A' }}>{p.full_name}</span>
+                              <span style={{ fontSize: 12, color: '#A89D8E' }}>{disabled ? (p.sms_opted_out ? 'Opted out' : 'No phone') : p.phone}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div>
                   <label className="block text-xs font-medium text-navy-600 mb-1.5">Message</label>

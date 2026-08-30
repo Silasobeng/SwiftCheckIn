@@ -32,7 +32,8 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json() as {
     message?: string;
-    recipient_filter?: string;  // 'all' | 'members' | 'visitors' | 'group:<uuid>'
+    recipient_filter?: string;  // 'all' | 'members' | 'visitors' | 'group:<uuid>' | 'specific'
+    person_ids?: string[];      // only used when recipient_filter === 'specific'
     sender_id?: string;
   };
 
@@ -65,6 +66,14 @@ export async function POST(request: NextRequest) {
       .eq('group_id', groupId);
     const ids = (memberships || []).map((m: { person_id: string }) => m.person_id);
     if (ids.length === 0) return NextResponse.json({ error: 'No members in that group' }, { status: 400 });
+    query = query.in('id', ids);
+  } else if (recipientFilter === 'specific') {
+    // Hand-picked recipients, not a role or a standing group — the archived/
+    // opted-out/has-phone filters above still apply, so a person removed or
+    // opted out since being picked in the browser is silently excluded here
+    // rather than trusting the client's list at face value.
+    const ids = Array.isArray(body.person_ids) ? body.person_ids.filter((id): id is string => typeof id === 'string') : [];
+    if (ids.length === 0) return NextResponse.json({ error: 'No recipients selected' }, { status: 400 });
     query = query.in('id', ids);
   }
 
