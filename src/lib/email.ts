@@ -68,6 +68,90 @@ async function sendViaBrevo(
   return { success: true };
 }
 
+// Best-effort mime type for an attachment filename — Zepto requires one per
+// file; Brevo and Resend both infer it from the filename instead, so this
+// only exists for this one provider.
+function mimeTypeFor(filename: string): string {
+  const ext = filename.toLowerCase().split('.').pop() || '';
+  const map: Record<string, string> = {
+    pdf: 'application/pdf',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    csv: 'text/csv',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
+// ZeptoMail (Zoho) — the paid fallback tier, tried before Brevo. Inert until
+// ZEPTOMAIL_API_KEY is set, so this ships with no effect on production until
+// the domain is verified with Zoho and the key is added.
+//
+// Chosen over Brevo's own prepaid packs because it's roughly 25x cheaper per
+// email at the volumes this app sends (see conversation — Aug 2026), and its
+// credits don't carry a real-money expiry risk at this price point even
+// though they technically lapse after a year. Kept alongside Brevo, not
+// instead of it, for one more layer of resilience while ZeptoMail's sending
+// domain builds up its own reputation.
+async function sendViaZepto(
+  to: EmailRecipient[], subject: string, htmlContent: string,
+  from: { email: string; name: string }, replyTo?: ReplyTo,
+  attachments?: EmailAttachment[]
+): Promise<SendEmailResult> {
+  const apiKey = process.env.ZEPTOMAIL_API_KEY;
+  if (!apiKey) return { success: false, error: 'ZeptoMail not configured' };
+
+  const body: Record<string, unknown> = {
+    from: { address: from.email, name: from.name },
+    to: to.map(r => ({ email_address: { address: r.email, name: r.name || r.email } })),
+    subject,
+    htmlbody: htmlContent,
+    ...(replyTo?.email ? { reply_to: [{ address: replyTo.email, name: replyTo.name }] } : {}),
+    ...(attachments?.length ? {
+      attachments: attachments.map(a => ({
+        content: a.content, name: a.name, mime_type: mimeTypeFor(a.name),
+      })),
+    } : {}),
+  };
+
+  const res = await fetch('https://api.zeptomail.com/v1.1/email', {
+    method: 'POST',
+    headers: {
+      // Zoho's own scheme, not a bearer token — the key already contains the
+      // "Zoho-enczapikey" prefix's counterpart value, so this is the literal
+      // header format their docs specify, not a placeholder to swap out.
+      Authorization: `Zoho-enczapikey ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('ZeptoMail fallback error:', text);
+    return { success: false, error: `ZeptoMail: ${res.status}` };
+  }
+  return { success: true };
+}
+
+// Tries every configured fallback in order of cost (cheapest first) after
+// Resend has failed. ZeptoMail before Brevo — see sendViaZepto's comment for
+// why. Skips a provider entirely (no network call) when its key isn't set,
+// so this is safe to ship before ZeptoMail is actually configured.
+async function sendFallback(
+  to: EmailRecipient[], subject: string, htmlContent: string,
+  from: { email: string; name: string }, replyTo?: ReplyTo,
+  attachments?: EmailAttachment[]
+): Promise<SendEmailResult> {
+  if (process.env.ZEPTOMAIL_API_KEY) {
+    const zepto = await sendViaZepto(to, subject, htmlContent, from, replyTo, attachments);
+    if (zepto.success) return zepto;
+    console.warn('ZeptoMail send failed, falling back to Brevo:', zepto.error);
+  }
+  return sendViaBrevo(to, subject, htmlContent, from, replyTo, attachments);
+}
+
 export async function sendBrevoEmail(
   to: EmailRecipient[], subject: string, htmlContent: string, orgName?: string,
   attachments?: EmailAttachment[], replyTo?: ReplyTo
@@ -110,14 +194,14 @@ export async function sendBrevoEmail(
       // Brevo sidesteps it; if the failure is a genuinely bad recipient
       // address, Brevo will reject it too and we return that instead,
       // no worse off than before.
-      console.warn('Resend send failed, falling back to Brevo:', error.message);
-      return sendViaBrevo(to, subject, htmlContent, from, replyTo, attachments);
+      console.warn('Resend send failed, falling back:', error.message);
+      return sendFallback(to, subject, htmlContent, from, replyTo, attachments);
     }
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Failed to send email';
-    console.warn('Resend send threw, falling back to Brevo:', msg);
-    return sendViaBrevo(to, subject, htmlContent, from, replyTo, attachments);
+    console.warn('Resend send threw, falling back:', msg);
+    return sendFallback(to, subject, htmlContent, from, replyTo, attachments);
   }
 }
 
