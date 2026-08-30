@@ -67,6 +67,23 @@ const EMPTY_TEMPLATES: Record<'welcome'|'birthday'|'missed', {subject:string;bod
   missed:   { subject: 'We Miss You!',                    body: 'We noticed you have missed the last couple of gatherings. We hope everything is well with you.\n\nWe would love to see you again soon!' },
 };
 
+/* ─── Avatar ─────────────────────────────────────────────────────────────
+   One place for "photo if there is one, initials circle if there isn't" —
+   used everywhere a person shows up in a list, so a photo taken effect
+   shows up consistently rather than needing three separate fixes. */
+function Avatar({ name, photoUrl, size = 34 }: { name: string; photoUrl?: string | null; size?: number }) {
+  const style: React.CSSProperties = {
+    width: size, height: size, borderRadius: '50%', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: size * 0.4, color: '#7A6048', fontFamily: "'Playfair Display',serif",
+    background: '#F0EBE3', overflow: 'hidden',
+  };
+  if (photoUrl) {
+    return <div style={style}><img src={photoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} /></div>;
+  }
+  return <div style={style}>{name?.charAt(0) || '?'}</div>;
+}
+
 /* ─── Edit Person Modal ─────────────────────────────────────────────────── */
 
 function PersonModal({ person, categories, groups, personGroupIds, onClose, onSaved }: { person: Person | null; categories: GroupCategory[]; groups: Group[]; personGroupIds: string[]; onClose: () => void; onSaved: () => void }) {
@@ -90,9 +107,44 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
   const [err, setErr] = useState<string|null>(null);
   const set = (k:string) => (e:React.ChangeEvent<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>) => setForm(p=>({...p,[k]:e.target.value}));
 
+  // Admin-only photo — nothing here is ever reachable from the kiosk. Kept
+  // as a staged File until Save, uploaded then rather than on selection, so
+  // picking a photo and closing without saving never leaves an orphaned
+  // upload sitting in storage.
+  const [photoFile, setPhotoFile] = useState<File|null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string|null>(person?.photo_url || null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const onPhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setErr('Please choose an image file.'); return; }
+    if (file.size > 5*1024*1024) { setErr('Image is too large. Maximum size is 5MB.'); return; }
+    setErr(null);
+    setPhotoFile(file);
+    setPhotoRemoved(false);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
   const handleSave = async () => {
     setSaving(true); setErr(null);
     try {
+      let photo_url: string | null | undefined = undefined; // undefined = leave untouched
+      if (photoFile) {
+        setUploadingPhoto(true);
+        try {
+          const fd = new FormData();
+          fd.append('file', photoFile);
+          const upRes = await fetch('/api/upload/person-photo', { method: 'POST', body: fd });
+          const upData = await upRes.json();
+          if (!upRes.ok) { setErr(upData.error || 'Could not upload photo.'); return; }
+          photo_url = upData.url;
+        } finally { setUploadingPhoto(false); }
+      } else if (photoRemoved) {
+        photo_url = null;
+      }
+
       const payload = {
         ...form,
         email: form.email.trim() || null,
@@ -103,6 +155,7 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
         location: form.location.trim() || null,
         how_found_us: form.how_found_us.trim() || null,
         notes: form.notes.trim() || null,
+        ...(photo_url !== undefined ? { photo_url } : {}),
       };
       const res = await fetch('/api/people', {
         method: person ? 'PATCH' : 'POST',
@@ -140,6 +193,24 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
 
         <div className="px-6 py-5 space-y-5">
           {err && <div className="alert alert-error"><span>{err}</span></div>}
+
+          {/* Photo — optional, admin-set only. Never shown or asked for at
+              the kiosk; adding one here is a deliberate choice by whoever's
+              trusted with this person's phone number and giving history. */}
+          <div className="flex items-center gap-4">
+            <Avatar name={form.full_name} photoUrl={photoRemoved ? null : photoPreview} size={56} />
+            <div className="flex items-center gap-2">
+              <label className="btn btn-secondary text-sm" style={{cursor:'pointer'}}>
+                {photoPreview && !photoRemoved ? 'Change photo' : 'Add photo'}
+                <input type="file" accept="image/*" onChange={onPhotoSelected} style={{display:'none'}} />
+              </label>
+              {photoPreview && !photoRemoved && (
+                <button type="button" onClick={()=>{ setPhotoFile(null); setPhotoPreview(null); setPhotoRemoved(true); }} className="btn btn-ghost text-sm">
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
 
           <fieldset>
             <legend className="text-[11px] font-bold uppercase tracking-widest text-navy-400 mb-3">Core Info</legend>
@@ -238,7 +309,7 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
 
         <div className="px-6 py-4 border-t border-navy-100 flex gap-3 sticky bottom-0 bg-white rounded-b-2xl">
           <button onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
-          <button onClick={handleSave} className="btn btn-primary flex-1" disabled={saving}>{saving ? 'Saving…' : person ? 'Save changes' : 'Add person'}</button>
+          <button onClick={handleSave} className="btn btn-primary flex-1" disabled={saving}>{uploadingPhoto ? 'Uploading photo…' : saving ? 'Saving…' : person ? 'Save changes' : 'Add person'}</button>
         </div>
       </div>
     </div>
@@ -1676,9 +1747,7 @@ export default function AdminPage() {
                 ) : (<>
                   {todayCheckins.slice(0,8).map((c,i,arr)=>(
                     <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 0',borderBottom:i===arr.length-1?'none':'1px solid #F0EBE3'}}>
-                      <div style={{width:34,height:34,borderRadius:'50%',background:'#F0EBE3',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:'#7A6048',fontFamily:"'Playfair Display',serif",flexShrink:0}}>
-                        {c.person?.full_name?.charAt(0)||'?'}
-                      </div>
+                      <Avatar name={c.person?.full_name || ''} photoUrl={c.person?.photo_url} />
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:14,color:'#1C2A3A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.person?.full_name}</div>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -1785,11 +1854,11 @@ export default function AdminPage() {
               return (
                 <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
                   onClick={()=>setInfoService(null)}>
-                  <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:760,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
+                  <div className="admin-modal admin-service-modal" style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:760,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
                     onClick={e=>e.stopPropagation()}>
 
                     {/* Header */}
-                    <div style={{padding:'24px 28px 0',borderBottom:'1px solid #E4DFD5'}}>
+                    <div className="admin-modal-header" style={{padding:'24px 28px 0',borderBottom:'1px solid #E4DFD5'}}>
                       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:16}}>
                         <div>
                           <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:21,color:'#16243A',marginBottom:4}}>{infoService.title||'Untitled Service'}</h3>
@@ -1811,7 +1880,7 @@ export default function AdminPage() {
                     </div>
 
                     {/* Body */}
-                    <div style={{padding:'24px 28px',overflowY:'auto',flex:1}}>
+                    <div className="admin-modal-body" style={{padding:'24px 28px',overflowY:'auto',flex:1}}>
 
                       {/* Independent of which tab is open — "was so-and-so
                           here" is one question, not one scoped to whichever
@@ -1934,7 +2003,7 @@ export default function AdminPage() {
                           {b.leadersPresent.length+b.leadersAbsent.length===0 ? (
                             <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No leaders on record.</div>
                           ) : (
-                            <table style={{width:'100%',borderCollapse:'collapse'}}>
+                            <table className="service-report-table" style={{width:'100%',borderCollapse:'collapse'}}>
                               <thead><tr><th style={th}>Leader</th><th style={th}>Status</th><th style={th}>Phone</th><th style={th}>Last seen</th></tr></thead>
                               <tbody>
                                 {b.leadersPresent.map(r=>(
@@ -1998,7 +2067,7 @@ export default function AdminPage() {
                               {rows.length===0 ? (
                                 <div style={{fontSize:13,color:'#A89D8E',fontWeight:300,padding:'12px 4px'}}>Nobody matching &ldquo;{presentSearch}&rdquo; checked in today.</div>
                               ) : (
-                              <table style={{width:'100%',borderCollapse:'collapse'}}>
+                              <table className="service-report-table" style={{width:'100%',borderCollapse:'collapse'}}>
                                 <thead><tr><th style={th}>Time</th><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Category</th></tr></thead>
                                 <tbody>
                                   {rows.map(r=>(
@@ -2068,7 +2137,7 @@ export default function AdminPage() {
                                       <span style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>{sec.sub||'No leader assigned'} · {sec.people.length}</span>
                                     </div>
                                   )}
-                                  <table style={{width:'100%',borderCollapse:'collapse'}}>
+                                  <table className="service-report-table" style={{width:'100%',borderCollapse:'collapse'}}>
                                     <thead><tr><th style={th}>Name</th><th style={th}>Phone</th><th style={th}>Last visit</th><th style={th}>Visits</th></tr></thead>
                                     <tbody>
                                       {sec.people.map(p=>(
@@ -2107,7 +2176,7 @@ export default function AdminPage() {
                                 <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>Total · {b.givingRows.length}</div>
                               </div>
                             </div>
-                            <table style={{width:'100%',borderCollapse:'collapse'}}>
+                            <table className="service-report-table" style={{width:'100%',borderCollapse:'collapse'}}>
                               <thead><tr><th style={th}>Giver</th><th style={th}>Type</th><th style={th}>Amount</th><th style={th}>Method</th></tr></thead>
                               <tbody>
                                 {b.givingRows.map(g=>(
@@ -2125,7 +2194,7 @@ export default function AdminPage() {
                       )}
                     </div>
 
-                    <div style={{padding:'16px 28px 24px',borderTop:'1px solid #E4DFD5',display:'flex',gap:10}}>
+                    <div className="admin-modal-footer" style={{padding:'16px 28px 24px',borderTop:'1px solid #E4DFD5',display:'flex',gap:10}}>
                       <button onClick={()=>setInfoService(null)} className="btn btn-secondary" style={{flex:1}}>Close</button>
                       <button onClick={()=>{ const s=infoService; setInfoService(null); openReportModal(s); }} className="btn btn-primary" style={{flex:1}}>Email as spreadsheet</button>
                     </div>
@@ -2191,7 +2260,7 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
-                  <div style={{padding:'16px 28px 24px',borderTop:'1px solid #E4DFD5',display:'flex',gap:10}}>
+                  <div className="admin-modal-footer" style={{padding:'16px 28px 24px',borderTop:'1px solid #E4DFD5',display:'flex',gap:10}}>
                     <button onClick={()=>setServiceFormOpen(false)} className="btn btn-secondary" style={{flex:1}}>Cancel</button>
                     <button onClick={saveService} disabled={savingService} className="btn btn-primary" style={{flex:2}}>
                       {savingService?'Saving…':editingService?'Save changes':'Create service'}
@@ -2309,13 +2378,13 @@ export default function AdminPage() {
                 );
               })}
               {groups.length>0 && (
-                <select className="select text-xs" style={{width:'auto',minWidth:150,padding:'6px 28px 6px 12px',height:'auto'}}
+                <select className="select text-xs people-filter-select" style={{width:'auto',minWidth:150,padding:'6px 28px 6px 12px',height:'auto'}}
                   value={peopleGroupFilter} onChange={e=>setPeopleGroupFilter(e.target.value)}>
                   <option value="all">All categories</option>
                   {categories.filter(cat=>groups.some(g=>g.category_id===cat.id)).map(cat=>(<option key={cat.id} value={cat.id}>{cat.name}</option>))}
                 </select>
               )}
-              <select className="select text-xs" style={{width:'auto',minWidth:170,padding:'6px 28px 6px 12px',height:'auto'}}
+              <select className="select text-xs people-filter-select" style={{width:'auto',minWidth:170,padding:'6px 28px 6px 12px',height:'auto'}}
                 value={peopleProfileFilter} onChange={e=>setPeopleProfileFilter(e.target.value as typeof peopleProfileFilter)} aria-label="Filter by profile details">
                 <option value="all">All profile details</option>
                 <option value="incomplete">Incomplete profiles</option>
@@ -2409,7 +2478,7 @@ export default function AdminPage() {
                             </td>
                             <td className="table-cell">
                               <div className="flex items-center gap-2.5">
-                                <div style={{width:28,height:28,borderRadius:"50%",background:"#F0EBE3",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#7A6048",fontFamily:"'Playfair Display',serif",fontWeight:600,flexShrink:0}}>{formatPersonName(p.full_name).charAt(0)}</div>
+                                <Avatar name={formatPersonName(p.full_name)} photoUrl={p.photo_url} size={28} />
                                 <span className="font-medium text-navy-900 text-sm">{formatPersonName(p.full_name)}</span>
                               </div>
                             </td>
@@ -2608,7 +2677,7 @@ export default function AdminPage() {
             )}
 
             {/* Giving list */}
-            <div className="card p-0 overflow-hidden">
+            <div className="card p-0 overflow-hidden giving-directory-card">
               {giving.length===0 ? (
                 <div style={{textAlign:'center',padding:'60px 20px'}}>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:'#16243A',marginBottom:8}}>No gifts recorded yet</div>
@@ -2618,8 +2687,8 @@ export default function AdminPage() {
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="overflow-x-auto giving-directory-scroll">
+                  <table className="w-full giving-directory-table">
                     <thead><tr className="bg-cream">
                       <th className="table-header">Giver</th>
                       <th className="table-header">Type</th>
@@ -2795,9 +2864,7 @@ export default function AdminPage() {
                   : topAttenders.map((p,i)=>(
                       <div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:'1px solid #F0EBE3'}}>
                         <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:'#C97B1A',width:20,flexShrink:0}}>{i+1}</div>
-                        <div style={{width:32,height:32,borderRadius:'50%',background:'#F0EBE3',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'#7A6048',fontFamily:"'Playfair Display',serif",flexShrink:0}}>
-                          {p.full_name.charAt(0)}
-                        </div>
+                        <Avatar name={p.full_name} photoUrl={p.photo_url} size={32} />
                         <div style={{flex:1,fontSize:13,color:'#1C2A3A',fontWeight:500}}>{p.full_name}</div>
                         <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{p.total_checkins} visits</div>
                       </div>
@@ -2980,7 +3047,7 @@ export default function AdminPage() {
                     Enter your church&apos;s name and save — a brand-new name can take a few minutes for the network to approve
                     before it appears on real messages, but no need to contact us for it.
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 sms-inline-action">
                     <input
                       className="input"
                       style={{maxWidth:200,fontFamily:'monospace',letterSpacing:'0.05em'}}
@@ -3045,8 +3112,8 @@ export default function AdminPage() {
                     Pay by MoMo or card via Paystack. Credits are added automatically once payment clears.
                     Minimum 5 GHC (12 credits).
                   </p>
-                  <div className="flex gap-2 items-center">
-                    <div className="relative flex-1">
+                  <div className="flex gap-2 items-center sms-topup-row">
+                    <div className="relative flex-1 sms-topup-field">
                       <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13,color:'#7A6E60',fontWeight:500,pointerEvents:'none'}}>GHC</span>
                       <input
                         className="input"
@@ -3191,7 +3258,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center justify-between gap-4 broadcast-submit-row">
                   <div style={{fontSize:13,color:'#7A6E60'}}>
                     {broadcastMsg.trim() && smsSettings.sms_credits > 0 && (
                       <span>Each recipient costs {broadcastMsg.length <= 160 ? 1 : Math.ceil(broadcastMsg.length/153)} credit{broadcastMsg.length > 160 ? 's' : ''}</span>
@@ -3230,7 +3297,7 @@ export default function AdminPage() {
                       ))}
                     </div>
                     {broadcastTotal > 8 && (
-                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginTop:12,paddingTop:12,borderTop:'1px solid #F0EDE8'}}>
+                      <div className="broadcast-pagination" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginTop:12,paddingTop:12,borderTop:'1px solid #F0EDE8'}}>
                         <span style={{fontSize:12,color:'#7A6E60'}}>
                           Showing {(broadcastPage-1)*8+1}–{Math.min(broadcastPage*8,broadcastTotal)} of {broadcastTotal}
                         </span>
@@ -3293,7 +3360,7 @@ export default function AdminPage() {
                 <div>
                   <label className="block text-sm font-medium text-navy-700 mb-1.5">Background Image</label>
                   {branding.cover_image_url?<img src={branding.cover_image_url} alt="Background" className="w-full h-28 rounded-xl border border-navy-200 object-cover mb-2" />:<div style={{width:"100%",height:112,borderRadius:12,border:"2px dashed #E4DFD5",background:"#FAF9F6",display:"flex",alignItems:"center",justifyContent:"center",color:"#A89D8E",fontSize:14,marginBottom:8}}>No background image</div>}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 branding-file-row">
                     <input type="file" accept="image/*" className="block flex-1 text-sm text-navy-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-navy-100 file:text-navy-700 file:text-sm hover:file:bg-navy-200 cursor-pointer" onChange={e=>uploadBrandingImage('cover',e.target.files?.[0]||null)} />
                     {branding.cover_image_url && <button type="button" onClick={()=>setBranding(b=>({...b,cover_image_url:''}))} style={{fontSize:12,color:'#B23B3B',background:'none',border:'none',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>Remove</button>}
                   </div>
@@ -3386,7 +3453,7 @@ export default function AdminPage() {
                     const catGroups = groups.filter(g=>g.category_id===cat.id);
                     return (
                       <div key={cat.id} style={{border:'1px solid #E4DFD5',borderRadius:12,padding:'14px 16px'}}>
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:catGroups.length>0?10:0}}>
+                        <div className="settings-category-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:catGroups.length>0?10:0}}>
                           <span style={{fontSize:13,fontWeight:600,color:'#16243A'}}>{cat.name}</span>
                           <div style={{display:'flex',gap:8}}>
                             <button onClick={()=>setGroupForm({editingId:null, categoryId:cat.id, name:'', leader_person_id:''})}
@@ -3396,7 +3463,7 @@ export default function AdminPage() {
                           </div>
                         </div>
                         {catGroups.map(g=>(
-                          <div key={g.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'8px 0',borderTop:'1px solid #F0EBE3'}}>
+                          <div key={g.id} className="settings-group-row" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'8px 0',borderTop:'1px solid #F0EBE3'}}>
                             <div style={{minWidth:0}}>
                               <div style={{fontSize:14,color:'#16243A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.name}</div>
                               <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>{g.leader ? `Led by ${g.leader.full_name}` : 'No leader assigned'}</div>

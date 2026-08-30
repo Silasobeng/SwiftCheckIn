@@ -422,6 +422,69 @@ body {
   .admin-shell .people-directory-table .table-cell:nth-child(9) > span { line-height:1.4; white-space:normal; }
   .admin-shell .people-directory-table .service-more-menu { min-width:174px; }
 }
+/* Responsive admin controls and records. Dense desktop tools must reflow
+   inside the phone viewport instead of depending on sideways page scroll. */
+.admin-shell .service-report-table { max-width:100%; }
+@media (max-width:640px) {
+  .admin-shell .people-page-actions { flex-wrap:wrap; }
+  .admin-shell .people-page-actions .btn { flex:1 1 calc(50% - 4px); justify-content:center; min-width:0; }
+  .admin-shell .people-filter-select { flex:1 1 calc(50% - 4px); min-width:0 !important; }
+  .admin-shell .alert { flex-wrap:wrap; }
+
+  .admin-shell .giving-directory-card { overflow:visible !important; border:0; background:transparent; box-shadow:none; }
+  .admin-shell .giving-directory-scroll { overflow:visible; }
+  .admin-shell .giving-directory-table,
+  .admin-shell .giving-directory-table tbody { display:block; width:100%; }
+  .admin-shell .giving-directory-table thead { display:none; }
+  .admin-shell .giving-directory-table tbody { display:grid; gap:10px; }
+  .admin-shell .giving-directory-table .table-row {
+    display:grid; grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"giver status" "amount type" "date date" "actions actions";
+    align-items:center; gap:8px 12px; padding:15px 14px;
+    border:1px solid var(--admin-line); border-radius:12px; background:#fff;
+    box-shadow:0 1px 2px rgba(16,24,40,.035);
+  }
+  .admin-shell .giving-directory-table .table-row:hover { background:#fff; }
+  .admin-shell .giving-directory-table .table-cell { padding:0 !important; min-width:0; }
+  .admin-shell .giving-directory-table .table-cell:nth-child(1) { grid-area:giver; overflow-wrap:anywhere; }
+  .admin-shell .giving-directory-table .table-cell:nth-child(2) { grid-area:type; justify-self:end; }
+  .admin-shell .giving-directory-table .table-cell:nth-child(3) { grid-area:amount; }
+  .admin-shell .giving-directory-table .table-cell:nth-child(4) { display:block !important; grid-area:date; color:#667085; font-size:12px; }
+  .admin-shell .giving-directory-table .table-cell:nth-child(5) { grid-area:status; justify-self:end; }
+  .admin-shell .giving-directory-table .table-cell:nth-child(6) { grid-area:actions; padding-top:8px !important; border-top:1px solid #eef1f5; text-align:left; }
+  .admin-shell .giving-directory-table .table-cell:nth-child(6) > div { justify-content:flex-start !important; flex-wrap:wrap; }
+
+  .admin-shell .admin-service-modal { max-height:calc(100dvh - 16px) !important; border-radius:14px !important; }
+  .admin-shell .admin-modal-header { padding:18px 16px 0 !important; }
+  .admin-shell .admin-modal-body { padding:18px 16px !important; }
+  .admin-shell .admin-modal-footer { padding:14px 16px 16px !important; flex-direction:column-reverse; }
+  .admin-shell .service-report-table { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .admin-shell .service-report-table th,
+  .admin-shell .service-report-table td { min-width:96px; padding-right:16px !important; }
+  .admin-shell .service-report-table th:first-child,
+  .admin-shell .service-report-table td:first-child { min-width:120px; }
+
+  .admin-shell .sms-inline-action { flex-wrap:wrap; }
+  .admin-shell .sms-inline-action .input { max-width:none !important; flex:1 1 180px; min-width:0; }
+  .admin-shell .sms-inline-action .btn { flex:0 0 auto; }
+  .admin-shell .sms-topup-row { flex-wrap:wrap; align-items:stretch; }
+  .admin-shell .sms-topup-field { flex:1 1 100%; }
+  .admin-shell .sms-topup-row > span { flex:1 1 auto; align-self:center; white-space:normal !important; }
+  .admin-shell .sms-topup-row > .btn { flex:1 1 110px; justify-content:center; }
+  .admin-shell .broadcast-submit-row { align-items:stretch; flex-direction:column; }
+  .admin-shell .broadcast-submit-row .btn { width:100%; justify-content:center; }
+  .admin-shell .broadcast-pagination { align-items:stretch !important; flex-direction:column; }
+  .admin-shell .broadcast-pagination > div { width:100%; }
+  .admin-shell .broadcast-pagination .btn { flex:1; justify-content:center; }
+
+  .admin-shell .branding-file-row { align-items:stretch; flex-direction:column; }
+  .admin-shell .branding-file-row input { width:100%; min-width:0; }
+  .admin-shell .settings-category-header { align-items:stretch !important; flex-direction:column; }
+  .admin-shell .settings-category-header > div { display:flex; flex-wrap:wrap; }
+  .admin-shell .settings-category-header .btn { flex:1 1 auto; justify-content:center; }
+  .admin-shell .settings-group-row { align-items:flex-start !important; flex-wrap:wrap; }
+  .admin-shell .settings-group-row .service-actions { margin-left:0; }
+}
 /* WhatsApp support button. Collapses to a circle on phones so it never sits
    on top of content the user is trying to read or tap. */
 .wa-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(37,211,102,.45); }

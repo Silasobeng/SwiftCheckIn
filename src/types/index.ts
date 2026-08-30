@@ -95,6 +95,9 @@ export interface Person {
   last_checkin_at: string | null;
   archived: boolean;
   sms_opted_out: boolean;
+  // Admin-uploaded only — never settable from the kiosk or by the person
+  // themselves. See PersonModal / Avatar.
+  photo_url: string | null;
 }
 
 export interface Service {

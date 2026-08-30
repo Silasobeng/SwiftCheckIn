@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     const supabase = getServerSupabase();
     const body = await request.json();
 
-    const { full_name, phone, gender, email, role, date_of_birth, occupation, company, location, how_found_us, notes } = body;
+    const { full_name, phone, gender, email, role, date_of_birth, occupation, company, location, how_found_us, notes, photo_url } = body;
 
     const identityError = validatePersonIdentity(full_name, phone);
     if (identityError) return NextResponse.json({ error: identityError }, { status: 400 });
@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
         location: location || null,
         how_found_us: how_found_us || null,
         notes: notes || null,
+        photo_url: photo_url || null,
       })
       .select()
       .single();
@@ -117,7 +118,7 @@ export async function PATCH(request: NextRequest) {
       const allowedKeys = new Set([
         'full_name', 'phone', 'gender', 'email', 'date_of_birth',
         'occupation', 'company', 'location', 'how_found_us',
-        'notes', 'role', 'archived'
+        'notes', 'role', 'archived', 'photo_url'
       ]);
       const safeUpdates = Object.fromEntries(
         Object.entries(updates).filter(([key]) => allowedKeys.has(key))
