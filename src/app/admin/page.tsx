@@ -336,6 +336,8 @@ export default function AdminPage() {
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState<{ delivered: number; failed: number; credits_used: number } | null>(null);
   const [broadcasts, setBroadcasts] = useState<import('@/types').SmsBroadcast[]>([]);
+  const [broadcastPage, setBroadcastPage] = useState(1);
+  const [broadcastTotal, setBroadcastTotal] = useState(0);
   const [smsUsage, setSmsUsage] = useState<Record<string, number>>({});
   const [categories, setCategories] = useState<GroupCategory[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -728,11 +730,15 @@ export default function AdminPage() {
     } finally { setSavingSenderId(false); }
   };
 
-  const loadBroadcasts = async () => {
+  const loadBroadcasts = async (page = 1) => {
     try {
-      const res = await fetch('/api/sms/broadcast');
+      const res = await fetch(`/api/sms/broadcast?page=${page}`);
       const data = await res.json();
-      if (res.ok) setBroadcasts(data.broadcasts || []);
+      if (res.ok) {
+        setBroadcasts(data.broadcasts || []);
+        setBroadcastPage(data.page || page);
+        setBroadcastTotal(data.total || 0);
+      }
     } catch { /* non-critical */ }
     try {
       const res = await fetch('/api/sms/usage');
@@ -778,7 +784,7 @@ export default function AdminPage() {
       setBroadcastMsg('');
       setSpecificRecipientIds(new Set());
       setSmsSettings(s => ({ ...s, sms_credits: s.sms_credits - (data.credits_used || 0) }));
-      await loadBroadcasts();
+      await loadBroadcasts(1);
     } finally { setBroadcastSending(false); }
   };
 
@@ -1524,7 +1530,7 @@ export default function AdminPage() {
             {TAB_ORDER.map(t=>{
               const active = tab===t;
               return (
-                <button key={t} onClick={()=>{ setTab(t); setMobileMenuOpen(false); if(t==='emails') loadBroadcasts(); }} aria-current={active?'page':undefined}
+                <button key={t} onClick={()=>{ setTab(t); setMobileMenuOpen(false); if(t==='emails') loadBroadcasts(1); }} aria-current={active?'page':undefined}
                   style={{
                     display:'flex',width:'100%',alignItems:'center',gap:10,
                     padding:'11px 12px',borderRadius:9,marginBottom:2,
@@ -1550,7 +1556,7 @@ export default function AdminPage() {
           {TAB_ORDER.map(t=>{
             const active = tab===t;
             return (
-              <button key={t} onClick={()=>{ setTab(t); if(t==='emails') loadBroadcasts(); }} aria-current={active?'page':undefined}
+              <button key={t} onClick={()=>{ setTab(t); if(t==='emails') loadBroadcasts(1); }} aria-current={active?'page':undefined}
                 style={{
                   display:'flex',alignItems:'center',gap:7,
                   padding:'9px 16px',borderRadius:10,
@@ -2343,12 +2349,22 @@ export default function AdminPage() {
               </div>
             )}
 
-            <div className="card p-0 overflow-hidden">
+            <div className="card p-0 overflow-hidden people-directory-card">
               {filteredPeople.length===0 ? (
                 <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleProfileFilter!=='all'?'No profiles match this detail filter.':peopleGroupFilter!=='all'?'Nobody is assigned to this category yet.':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. Add a person or wait for the first check-in.'}</p></div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <>
+                  <div className="people-mobile-listbar">
+                    <label>
+                      <input type="checkbox" aria-label="Select all matching people"
+                        checked={filteredPeople.length>0 && filteredPeople.every(p=>selectedPersonIds.has(p.id))}
+                        onChange={e=>setSelectedPersonIds(e.target.checked ? new Set(filteredPeople.map(p=>p.id)) : new Set())} />
+                      Select all matches
+                    </label>
+                    <span>{filteredPeople.length} {filteredPeople.length===1?'profile':'profiles'}</span>
+                  </div>
+                  <div className="overflow-x-auto people-directory-scroll">
+                    <table className="w-full people-directory-table">
                     <thead><tr className="bg-cream">
                       <th className="table-header" style={{width:36}}>
                         <input type="checkbox" aria-label="Select all"
@@ -2418,8 +2434,9 @@ export default function AdminPage() {
                         );
                       })}
                     </tbody>
-                  </table>
-                </div>
+                    </table>
+                  </div>
+                </>
               )}
               {filteredPeople.length > PEOPLE_PAGE_SIZE && (
                 <div className="flex items-center justify-between gap-3 flex-wrap" style={{padding:'12px 16px',borderTop:'1px solid #F0EDE8'}}>
@@ -3179,7 +3196,10 @@ export default function AdminPage() {
                 {/* Broadcast history */}
                 {broadcasts.length > 0 && (
                   <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
-                    <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',marginBottom:10,textTransform:'uppercase',letterSpacing:'0.08em'}}>Recent Broadcasts</div>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:10}}>
+                      <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',textTransform:'uppercase',letterSpacing:'0.08em'}}>Recent broadcasts</div>
+                      <div style={{fontSize:11,color:'#A89D8E'}}>{broadcastTotal} total</div>
+                    </div>
                     <div className="space-y-2">
                       {broadcasts.map(b => (
                         <div key={b.id} style={{background:'#FAF9F6',borderRadius:8,padding:'10px 12px',fontSize:13}}>
@@ -3196,6 +3216,17 @@ export default function AdminPage() {
                         </div>
                       ))}
                     </div>
+                    {broadcastTotal > 8 && (
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginTop:12,paddingTop:12,borderTop:'1px solid #F0EDE8'}}>
+                        <span style={{fontSize:12,color:'#7A6E60'}}>
+                          Showing {(broadcastPage-1)*8+1}–{Math.min(broadcastPage*8,broadcastTotal)} of {broadcastTotal}
+                        </span>
+                        <div className="flex gap-2">
+                          <button className="btn btn-secondary text-xs py-1.5 px-3" disabled={broadcastPage===1} onClick={()=>loadBroadcasts(broadcastPage-1)}>Previous</button>
+                          <button className="btn btn-secondary text-xs py-1.5 px-3" disabled={broadcastPage*8>=broadcastTotal} onClick={()=>loadBroadcasts(broadcastPage+1)}>Next</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

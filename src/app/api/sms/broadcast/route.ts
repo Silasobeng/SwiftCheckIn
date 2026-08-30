@@ -5,20 +5,27 @@ import { formatGhanaPhone, sendSMSBatched } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic';
 
-// GET — recent broadcasts for this org
-export async function GET() {
+// GET — newest-first broadcast history, one bounded page at a time
+export async function GET(request: NextRequest) {
   const auth = await requireActiveSubscription();
   if ('error' in auth) return auth.error;
 
+  const requestedPage = Number(request.nextUrl.searchParams.get('page') || '1');
+  const page = Number.isFinite(requestedPage) ? Math.max(1, Math.floor(requestedPage)) : 1;
+  const pageSize = 8;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
   const supabase = getServerSupabase();
-  const { data } = await supabase
+  const { data, count, error } = await supabase
     .from('sms_broadcasts')
-    .select('*')
+    .select('*', { count: 'exact' })
     .eq('org_id', auth.session.orgId)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .range(from, to);
 
-  return NextResponse.json({ broadcasts: data || [] });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ broadcasts: data || [], total: count || 0, page, pageSize });
 }
 
 // POST — send a broadcast

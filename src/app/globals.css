@@ -379,12 +379,48 @@ body {
 .admin-shell .people-quality-copy p { margin-top:2px; color:#667085; font-size:12px; line-height:1.5; }
 .admin-shell .row-more { display:inline-block; text-align:left; }
 .admin-shell .row-more summary { margin-left:auto; }
+.admin-shell .people-mobile-listbar { display:none; }
 .admin-shell .wa-fab-admin:hover { box-shadow:0 8px 20px rgba(16,42,67,.24) !important; }
 @media (max-width:640px) {
   .admin-shell .people-page-actions { flex-basis:100%; justify-content:flex-start; }
   .admin-shell .people-search { flex-basis:100%; width:100%; }
   .admin-shell .people-quality-panel { align-items:flex-start; flex-wrap:wrap; }
   .admin-shell .people-quality-panel .btn { width:100%; }
+  .admin-shell .people-directory-card { overflow:visible !important; border:0; background:transparent; box-shadow:none; }
+  .admin-shell .people-mobile-listbar {
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin-bottom:10px; padding:11px 13px; border:1px solid var(--admin-line);
+    border-radius:10px; background:#fff; color:#667085; font-size:12px;
+  }
+  .admin-shell .people-mobile-listbar label { display:flex; align-items:center; gap:8px; color:#344054; font-weight:600; }
+  .admin-shell .people-directory-scroll { overflow:visible; }
+  .admin-shell .people-directory-table,
+  .admin-shell .people-directory-table tbody { display:block; width:100%; }
+  .admin-shell .people-directory-table thead { display:none; }
+  .admin-shell .people-directory-table tbody { display:grid; gap:10px; }
+  .admin-shell .people-directory-table .table-row {
+    display:grid; grid-template-columns:30px minmax(0,1fr) auto 36px;
+    grid-template-areas:"select name role actions" ". phone role actions" ". status status actions";
+    align-items:center; column-gap:10px; row-gap:5px; padding:14px 12px;
+    border:1px solid var(--admin-line); border-radius:12px; background:#fff;
+    box-shadow:0 1px 2px rgba(16,24,40,.035);
+  }
+  .admin-shell .people-directory-table .table-row:hover { background:#fff; }
+  .admin-shell .people-directory-table .table-cell { padding:0 !important; min-width:0; }
+  .admin-shell .people-directory-table .table-cell:nth-child(1) { grid-area:select; }
+  .admin-shell .people-directory-table .table-cell:nth-child(2) { grid-area:name; }
+  .admin-shell .people-directory-table .table-cell:nth-child(3) { display:block !important; grid-area:phone; color:#667085; font-size:12px; }
+  .admin-shell .people-directory-table .table-cell:nth-child(4) { grid-area:role; align-self:start; }
+  .admin-shell .people-directory-table .table-cell:nth-child(5),
+  .admin-shell .people-directory-table .table-cell:nth-child(6),
+  .admin-shell .people-directory-table .table-cell:nth-child(7),
+  .admin-shell .people-directory-table .table-cell:nth-child(8) { display:none !important; }
+  .admin-shell .people-directory-table .table-cell:nth-child(9) { grid-area:status; padding-top:5px !important; border-top:1px solid #eef1f5; }
+  .admin-shell .people-directory-table .table-cell:nth-child(10) { grid-area:actions; align-self:start; }
+  .admin-shell .people-directory-table .table-cell:nth-child(2) > div { align-items:flex-start; }
+  .admin-shell .people-directory-table .table-cell:nth-child(2) span { line-height:1.35; overflow-wrap:anywhere; }
+  .admin-shell .people-directory-table .table-cell:nth-child(9) > span { line-height:1.4; white-space:normal; }
+  .admin-shell .people-directory-table .service-more-menu { min-width:174px; }
 }
 /* WhatsApp support button. Collapses to a circle on phones so it never sits
    on top of content the user is trying to read or tap. */
