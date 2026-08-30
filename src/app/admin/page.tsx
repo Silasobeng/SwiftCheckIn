@@ -282,8 +282,9 @@ export default function AdminPage() {
   const [infoService, setInfoService] = useState<Service|null>(null);
   const [infoTab, setInfoTab] = useState<'summary'|'attendance'|'followup'|'giving'>('summary');
   const [presentFilter, setPresentFilter] = useState<'all'|'leader'|'member'|'firsttime'|'returning'>('all');
-  // Quick "was so-and-so here today" lookup over the attendance list — a
-  // church with a large service otherwise has to scroll an unfiltered table.
+  // Quick "was so-and-so here today" lookup, independent of which info tab
+  // is open — searches both present and absent (members/leaders) so it
+  // gives a real verdict either way, not just "not found in this list."
   const [presentSearch, setPresentSearch] = useState('');
   const [absentGroupCategoryId, setAbsentGroupCategoryId] = useState<string>('');
   const [giving, setGiving] = useState<Giving[]>([]);
@@ -1661,6 +1662,53 @@ export default function AdminPage() {
                     {/* Body */}
                     <div style={{padding:'24px 28px',overflowY:'auto',flex:1}}>
 
+                      {/* Independent of which tab is open — "was so-and-so
+                          here" is one question, not one scoped to whichever
+                          sub-tab you happen to be looking at. Also narrows
+                          the Attendance tab's list below when that's open,
+                          but works (and gives a real Present/Absent verdict)
+                          even on Summary or Follow-up. */}
+                      <div style={{marginBottom:20}}>
+                        <input
+                          className="input text-sm"
+                          placeholder="Was someone here today? Search by name or phone…"
+                          value={presentSearch}
+                          onChange={e=>setPresentSearch(e.target.value)}
+                        />
+                        {presentSearch.trim() && (() => {
+                          const q = presentSearch.trim().toLowerCase();
+                          const matchPerson = (p: {full_name?:string|null; phone?:string|null}|undefined) =>
+                            !!p && (p.full_name?.toLowerCase().includes(q) || (!!p.phone && p.phone.includes(q)));
+                          const presentMatches = b.present.filter(r=>matchPerson(r.person));
+                          const absentMatches  = b.absent.filter(p=>matchPerson(p));
+                          if (presentMatches.length===0 && absentMatches.length===0) {
+                            return (
+                              <div style={{marginTop:8,fontSize:13,color:'#A89D8E',fontWeight:300}}>
+                                No match — check the spelling, or they may not be a registered member or leader (attendance is only tracked as &ldquo;absent&rdquo; for members and leaders, not visitors).
+                              </div>
+                            );
+                          }
+                          return (
+                            <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:6}}>
+                              {presentMatches.map(r=>(
+                                <div key={r.person?.id} style={{display:'flex',alignItems:'center',gap:10,fontSize:13.5}}>
+                                  <span style={{color:'#2E7D4E',fontWeight:600}}>Present</span>
+                                  <span style={{color:'#16243A'}}>{r.person?.full_name}</span>
+                                  <span style={{color:'#A89D8E'}}>— checked in {b.fmtTime.format(new Date(r.checked_in_at))}</span>
+                                </div>
+                              ))}
+                              {absentMatches.map(p=>(
+                                <div key={p.id} style={{display:'flex',alignItems:'center',gap:10,fontSize:13.5}}>
+                                  <span style={{color:'#B23B3B',fontWeight:600}}>Absent</span>
+                                  <span style={{color:'#16243A'}}>{p.full_name}</span>
+                                  {p.weeksAway!=null && <span style={{color:'#A89D8E'}}>— last seen {p.weeksAway===0?'this week':`${p.weeksAway} week${p.weeksAway===1?'':'s'} ago`}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
                       {infoTab==='summary' && (
                         <>
                           {/* A labelled record, not a decorated list. The
@@ -1781,13 +1829,9 @@ export default function AdminPage() {
                           const catColor:Record<string,string> = {leader:'#486581',member:'#16243A',firsttime:'#2E7D4E',returning:'#C97B1A'};
                           return (
                             <>
-                              <input
-                                className="input text-sm"
-                                placeholder="Search by name or phone — was someone here today?"
-                                value={presentSearch}
-                                onChange={e=>setPresentSearch(e.target.value)}
-                                style={{marginBottom:12}}
-                              />
+                              {/* No search box here — the one above the tabs
+                                  already narrows this list, and also covers
+                                  absent members, which this tab alone can't. */}
                               <div style={{display:'flex',flexWrap:'wrap',gap:7,marginBottom:18}}>
                                 {CATS.filter(c=>c.v==='all'||c.n>0).map(({v,l,n})=>{
                                   const on = presentFilter===v;
