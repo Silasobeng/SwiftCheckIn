@@ -11,6 +11,20 @@ import WhatsAppSupport from '@/components/WhatsAppSupport';
 
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
 
+// Hoisted to module scope because it's now drawn in two places — the desktop
+// tab strip and the mobile hamburger menu — rather than recreated inline in
+// whichever one happened to render first.
+const TAB_ICONS: Record<Tab, JSX.Element> = {
+  dashboard: <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>,
+  services: <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>,
+  people: <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-4a4 4 0 10-4-4 4 4 0 004 4zm6 0a4 4 0 10-4-4"/>,
+  giving: <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .672-3 1.5S10.343 11 12 11s3 .672 3 1.5-1.343 1.5-3 1.5m0-6V6m0 8v1.5m0-9.5a9 9 0 100 18 9 9 0 000-18z"/>,
+  analytics: <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2"/>,
+  emails: <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>,
+  settings: <><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></>,
+};
+const TAB_ORDER: Tab[] = ['dashboard','services','people','giving','analytics','emails','settings'];
+
 // Module scope, not component scope: this is a static map, and re-creating it
 // each render would make it a fresh object every time — defeating the
 // useMemo that lists it as a dependency.
@@ -225,6 +239,7 @@ export default function AdminPage() {
   const [session, setSession] = useState<SessionData|null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [checkins, setCheckins] = useState<Checkin[]>([]);
@@ -1316,17 +1331,56 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <nav className="admin-tabs bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-[68px] z-30">
-        <div className="max-w-7xl mx-auto flex gap-1 overflow-x-auto hide-scrollbar tab-scroll-fade" style={{paddingTop:10,paddingBottom:10}}>
-          {(['dashboard','services','people','giving','analytics','emails','settings'] as Tab[]).map(t=>{
-            const icons: Record<Tab,JSX.Element> = {
-              dashboard: <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>,
-              services: <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>,
-              people: <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-4a4 4 0 10-4-4 4 4 0 004 4zm6 0a4 4 0 10-4-4"/>,
-              giving: <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .672-3 1.5S10.343 11 12 11s3 .672 3 1.5-1.343 1.5-3 1.5m0-6V6m0 8v1.5m0-9.5a9 9 0 100 18 9 9 0 000-18z"/>,
-              analytics: <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2"/>,
-              emails: <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>,
-              settings: <><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></>,
-            };
+        {/* Mobile: current section + hamburger. A horizontal scroll strip here
+            cut "People" off mid-word with no visible sign that Giving,
+            Analytics, Messaging, and Settings existed further along — a real
+            church admin confirmed exactly that on a real phone. A menu makes
+            every section equally reachable in one tap, not something you
+            stumble into by swiping. */}
+        <div className="flex sm:hidden items-center justify-between max-w-7xl mx-auto" style={{paddingTop:10,paddingBottom:10}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,fontSize:14,fontWeight:600,color:'#16243A'}}>
+            <svg style={{width:16,height:16,flexShrink:0}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>{TAB_ICONS[tab]}</svg>
+            {TAB_LABELS[tab]}
+          </div>
+          <button
+            onClick={()=>setMobileMenuOpen(o=>!o)}
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
+            style={{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',borderRadius:9,border:'1px solid #E4DFD5',background:mobileMenuOpen?'#F8F4EE':'#fff',color:'#16243A',fontSize:13,fontWeight:500,cursor:'pointer'}}
+          >
+            <svg style={{width:16,height:16}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+            Menu
+          </button>
+        </div>
+        {mobileMenuOpen && (
+          <div className="sm:hidden max-w-7xl mx-auto" style={{paddingBottom:10}}>
+            {TAB_ORDER.map(t=>{
+              const active = tab===t;
+              return (
+                <button key={t} onClick={()=>{ setTab(t); setMobileMenuOpen(false); if(t==='emails') loadBroadcasts(); }} aria-current={active?'page':undefined}
+                  style={{
+                    display:'flex',width:'100%',alignItems:'center',gap:10,
+                    padding:'11px 12px',borderRadius:9,marginBottom:2,
+                    fontSize:14,fontWeight:500,textAlign:'left',
+                    fontFamily:"'DM Sans',sans-serif",
+                    background: active ? '#16243A' : 'transparent',
+                    color: active ? '#fff' : '#3A3226',
+                    border:'none',cursor:'pointer',
+                  }}
+                >
+                  <svg style={{width:16,height:16,flexShrink:0,opacity:active?1:0.6}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>{TAB_ICONS[t]}</svg>
+                  {TAB_LABELS[t]}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Desktop: unchanged horizontal strip — plenty of room here, and
+            these are frequent-enough actions that a menu tap would be pure
+            friction where a phone's screen width was the actual problem. */}
+        <div className="hidden sm:flex max-w-7xl mx-auto gap-1 overflow-x-auto hide-scrollbar tab-scroll-fade" style={{paddingTop:10,paddingBottom:10}}>
+          {TAB_ORDER.map(t=>{
             const active = tab===t;
             return (
               <button key={t} onClick={()=>{ setTab(t); if(t==='emails') loadBroadcasts(); }} aria-current={active?'page':undefined}
@@ -1343,7 +1397,7 @@ export default function AdminPage() {
                 onMouseEnter={e=>{ if(!active) e.currentTarget.style.background='#F8F4EE'; }}
                 onMouseLeave={e=>{ if(!active) e.currentTarget.style.background='transparent'; }}
               >
-                <svg style={{width:15,height:15,flexShrink:0,opacity:active?1:0.6}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>{icons[t]}</svg>
+                <svg style={{width:15,height:15,flexShrink:0,opacity:active?1:0.6}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>{TAB_ICONS[t]}</svg>
                 {TAB_LABELS[t]}
               </button>
             );

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import WhatsAppSupport from '@/components/WhatsAppSupport';
+import PasswordInput from '@/components/PasswordInput';
 
 type Screen = 'login' | 'forgot' | 'forgot-sent';
 
@@ -157,7 +158,7 @@ export default function LoginPage() {
                   <label style={{ fontSize:12, fontWeight:500, color:'#7A6E60', letterSpacing:'0.06em', textTransform:'uppercase' }}>Password</label>
                   <button type="button" onClick={()=>setScreen('forgot')} style={{ fontSize:13, color:'#C97B1A', background:'none', border:'none', cursor:'pointer' }}>Forgot password?</button>
                 </div>
-                <input className="input" type="password" placeholder="••••••••••" value={form.password} onChange={e=>setForm(p=>({...p,password:e.target.value}))} required/>
+                <PasswordInput placeholder="••••••••••" value={form.password} onChange={e=>setForm(p=>({...p,password:e.target.value}))} required/>
               </div>
               <button type="submit" disabled={loading} className="lp-cta" style={{ width:'100%', marginTop:24, background:'#C97B1A', color:'#fff', border:'none', borderRadius:11, padding:'15px', fontFamily:"'DM Sans',sans-serif", fontSize:15, fontWeight:500, cursor:loading?'wait':'pointer', transition:'all .2s', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
                 {loading ? 'Signing in…' : <>

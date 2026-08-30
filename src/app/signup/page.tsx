@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import PasswordInput from '@/components/PasswordInput';
 function OnboardingIcon({ kind }: { kind: 'checkin'|'email'|'insights' }) {
   const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   if (kind === 'checkin') return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path {...common} d="M5 12.5l4.2 4L19 7" /></svg>;
@@ -110,11 +111,11 @@ export default function SignupPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap:14, marginBottom:24 }}>
               <div>
                 <label style={{ fontSize:12, fontWeight:500, color:'#7A6E60', letterSpacing:'0.06em', textTransform:'uppercase', display:'block', marginBottom:8 }}>Password</label>
-                <input className="input" type="password" placeholder="8+ characters" value={form.password} onChange={set('password')} required/>
+                <PasswordInput placeholder="8+ characters" value={form.password} onChange={set('password')} required/>
               </div>
               <div>
                 <label style={{ fontSize:12, fontWeight:500, color:'#7A6E60', letterSpacing:'0.06em', textTransform:'uppercase', display:'block', marginBottom:8 }}>Confirm</label>
-                <input className="input" type="password" placeholder="Repeat password" value={form.confirmPassword} onChange={set('confirmPassword')} required/>
+                <PasswordInput placeholder="Repeat password" value={form.confirmPassword} onChange={set('confirmPassword')} required/>
               </div>
             </div>
 

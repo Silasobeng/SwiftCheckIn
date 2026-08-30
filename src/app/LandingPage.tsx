@@ -160,8 +160,12 @@ export default function LandingPage({ images }: { images: LandingImages }) {
               <Link href="/admin" onClick={()=>setMobileOpen(false)} className="block rounded-full bg-gold-500 py-3 text-center font-semibold text-navy-900">Dashboard →</Link>
             ) : (
               <>
-                <Link href="/signup" onClick={()=>setMobileOpen(false)} className="block rounded-full bg-gold-500 py-3 text-center font-semibold text-navy-900">Start Free →</Link>
-                <Link href="/login" onClick={()=>setMobileOpen(false)} className="mt-2 block py-3 text-center text-navy-600">Sign in</Link>
+                {/* Sign in first, Start Free last as the highlighted button —
+                    matches the desktop nav order and the convention nearly
+                    every SaaS site follows. This was reversed here, the one
+                    inconsistency between the two layouts. */}
+                <Link href="/login" onClick={()=>setMobileOpen(false)} className="block py-3 text-center text-navy-600">Sign in</Link>
+                <Link href="/signup" onClick={()=>setMobileOpen(false)} className="mt-2 block rounded-full bg-gold-500 py-3 text-center font-semibold text-navy-900">Start Free →</Link>
               </>
             )}
           </div>
