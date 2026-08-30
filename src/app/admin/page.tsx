@@ -339,6 +339,24 @@ export default function AdminPage() {
     else if (billing === 'failed') { setError('Payment did not go through. No charge was made — try again.'); router.replace('/admin'); }
   }, [router]);
 
+  // The ?tab=settings&topup=success|failed round trip from an SMS top-up
+  // checkout — same idea as billing above, plus actually landing on the
+  // Settings tab, since that's the only place the credit balance is shown
+  // and a church had no way to tell a top-up went through before this.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'settings') setTab('settings');
+    const topup = params.get('topup');
+    if (topup === 'success') {
+      const credits = params.get('credits');
+      setMessage(credits ? `Payment received — ${credits} SMS credits added.` : 'Payment received — your SMS balance has been updated.');
+      router.replace('/admin?tab=settings');
+    } else if (topup === 'failed') {
+      setError('SMS top-up did not go through. No charge was made — try again.');
+      router.replace('/admin?tab=settings');
+    }
+  }, [router]);
+
   // Whole days until the trial ends, in the church's own timezone — comparing
   // date keys rather than subtracting timestamps, so "ends tomorrow" doesn't
   // flip to "ends today" purely because it's late in the evening.

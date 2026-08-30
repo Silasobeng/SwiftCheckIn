@@ -21,7 +21,11 @@ export async function POST(request: NextRequest) {
     }
 
     const origin      = request.headers.get('origin') || 'https://wemotiply.com';
-    const callbackUrl = `${origin}/admin?tab=settings&topup=success`;
+    // Routed through a verifying callback, not straight to /admin — Paystack
+    // redirects here regardless of outcome, so this can't just hardcode
+    // "success" into the URL (it used to, and the admin page never even read
+    // the param, so a church had no way to tell a top-up landed either way).
+    const callbackUrl = `${origin}/api/sms/topup/callback`;
 
     const { authorization_url } = await initializeSmsTopup(
       auth.session.adminEmail,
