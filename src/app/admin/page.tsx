@@ -452,10 +452,21 @@ export default function AdminPage() {
       }
     };
 
+    // Analytics (monthly trend, retention, year-over-year) reads this same
+    // checkins array over the org's full history. Without a date floor, the
+    // API's default 300-row cap silently truncates that history for any
+    // church doing more than ~300 check-ins total — a few hundred regular
+    // attenders hits that within weeks, at which point the trend charts go
+    // quietly wrong with no visible error. 25 months covers the "last 6
+    // months" trend and a full year-over-year comparison in every case,
+    // and the raised row limit is a generous secondary cap so a large,
+    // established congregation doesn't get truncated within that window.
+    const checkinsSince = new Date(Date.now() - 25*30*24*60*60*1000).toISOString();
+
     const [sD, pD, cD, stD, tD, gD, grD, catD, pgD] = await Promise.all([
       safeFetch('/api/services', { services: [] }),
       safeFetch('/api/people', { people: [] }),
-      safeFetch('/api/checkin', { checkins: [] }),
+      safeFetch(`/api/checkin?since=${encodeURIComponent(checkinsSince)}&limit=20000`, { checkins: [] }),
       safeFetch<{settings: (AppSettings & {organization?: Organization}) | null}>('/api/settings', { settings: null }),
       safeFetch('/api/email/templates', { templates: [] }),
       safeFetch('/api/giving', { giving: [] }),
@@ -509,8 +520,14 @@ export default function AdminPage() {
         return fallback;
       }
     };
+    // Same date-bounded fetch as the main load, not the bare default — this
+    // poll runs every 8s during an open kiosk session and would otherwise
+    // overwrite the correct wide window with the truncated 300-row default
+    // on every single tick, undoing the fix the moment check-ins were
+    // actually happening.
+    const checkinsSince = new Date(Date.now() - 25*30*24*60*60*1000).toISOString();
     const [cD, stD, pD] = await Promise.all([
-      safeFetch('/api/checkin', { checkins: [] }),
+      safeFetch(`/api/checkin?since=${encodeURIComponent(checkinsSince)}&limit=20000`, { checkins: [] }),
       safeFetch<{settings: (AppSettings & {organization?: Organization}) | null}>('/api/settings', { settings: null }),
       safeFetch('/api/people', { people: [] }),
     ]);
