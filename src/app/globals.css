@@ -485,6 +485,20 @@ body {
   .admin-shell .settings-group-row { align-items:flex-start !important; flex-wrap:wrap; }
   .admin-shell .settings-group-row .service-actions { margin-left:0; }
 }
+.admin-shell .broadcast-history { margin-top:4px; border-top:1px solid #f0ede8; }
+.admin-shell .broadcast-history > summary {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:16px 0 4px; color:#7a6e60; cursor:pointer; list-style:none;
+  font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+}
+.admin-shell .broadcast-history > summary::-webkit-details-marker { display:none; }
+.admin-shell .broadcast-history-meta { display:inline-flex; align-items:center; gap:8px; color:#a89d8e; font-size:11px; font-weight:400; letter-spacing:0; text-transform:none; }
+.admin-shell .broadcast-history-meta svg { width:16px; height:16px; transition:transform .16s ease; }
+.admin-shell .broadcast-history[open] .broadcast-history-meta svg { transform:rotate(180deg); }
+.admin-shell .broadcast-history-body { padding-top:12px; }
+@media (max-width:640px) {
+  .admin-shell .broadcast-history > summary { min-height:44px; }
+}
 /* WhatsApp support button. Collapses to a circle on phones so it never sits
    on top of content the user is trying to read or tap. */
 .wa-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(37,211,102,.45); }

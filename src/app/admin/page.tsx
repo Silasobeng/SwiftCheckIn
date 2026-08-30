@@ -3275,12 +3275,18 @@ export default function AdminPage() {
 
                 {/* Broadcast history */}
                 {broadcasts.length > 0 && (
-                  <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:10}}>
-                      <div style={{fontSize:12,fontWeight:500,color:'#7A6E60',textTransform:'uppercase',letterSpacing:'0.08em'}}>Recent broadcasts</div>
-                      <div style={{fontSize:11,color:'#A89D8E'}}>{broadcastTotal} total</div>
-                    </div>
-                    <div className="space-y-2">
+                  <details className="broadcast-history">
+                    <summary>
+                      <span>Recent broadcasts</span>
+                      <span className="broadcast-history-meta">
+                        {broadcastTotal} total
+                        <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </span>
+                    </summary>
+                    <div className="broadcast-history-body">
+                      <div className="space-y-2">
                       {broadcasts.map(b => (
                         <div key={b.id} style={{background:'#FAF9F6',borderRadius:8,padding:'10px 12px',fontSize:13}}>
                           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
@@ -3307,7 +3313,8 @@ export default function AdminPage() {
                         </div>
                       </div>
                     )}
-                  </div>
+                    </div>
+                  </details>
                 )}
               </div>
             </div>
