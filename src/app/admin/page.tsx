@@ -8,6 +8,7 @@ import { calculateAge, getAgeGroup, getGreeting } from '@/lib/utils';
 import { tzFormatter, timeFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRangeLabel, yearKeyOf, yearRangeLabel } from '@/lib/monthWindow';
 import { StackedTrend, RankedBars, OrdinalBars, SplitBar, SingleTrend } from '@/components/Charts';
 import WhatsAppSupport from '@/components/WhatsAppSupport';
+import { formatPersonName } from '@/lib/personIdentity';
 
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
 
@@ -68,12 +69,12 @@ const EMPTY_TEMPLATES: Record<'welcome'|'birthday'|'missed', {subject:string;bod
 
 /* ─── Edit Person Modal ─────────────────────────────────────────────────── */
 
-function EditPersonModal({ person, categories, groups, personGroupIds, onClose, onSaved }: { person: Person; categories: GroupCategory[]; groups: Group[]; personGroupIds: string[]; onClose: () => void; onSaved: () => void }) {
+function PersonModal({ person, categories, groups, personGroupIds, onClose, onSaved }: { person: Person | null; categories: GroupCategory[]; groups: Group[]; personGroupIds: string[]; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
-    full_name: person.full_name || '', phone: person.phone || '', email: person.email || '',
-    gender: person.gender || '', date_of_birth: person.date_of_birth || '', role: person.role || 'visitor',
-    occupation: person.occupation || '', company: person.company || '',
-    location: person.location || '', how_found_us: person.how_found_us || '', notes: person.notes || '',
+    full_name: person?.full_name || '', phone: person?.phone || '', email: person?.email || '',
+    gender: person?.gender || '', date_of_birth: person?.date_of_birth || '', role: person?.role || 'visitor',
+    occupation: person?.occupation || '', company: person?.company || '',
+    location: person?.location || '', how_found_us: person?.how_found_us || '', notes: person?.notes || '',
   });
   // One slot per category — a person can hold at most one group within any
   // given category (one Cell Group, one Department) but one across each.
@@ -92,20 +93,32 @@ function EditPersonModal({ person, categories, groups, personGroupIds, onClose, 
   const handleSave = async () => {
     setSaving(true); setErr(null);
     try {
-      const res = await fetch('/api/people', { method:'PATCH', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ personId: person.id, updates: { ...form,
-          email: form.email.trim()||null, date_of_birth: form.date_of_birth||null,
-          gender: form.gender||null, occupation: form.occupation.trim()||null,
-          company: form.company.trim()||null, location: form.location.trim()||null,
-          how_found_us: form.how_found_us.trim()||null, notes: form.notes.trim()||null,
-        }})});
+      const payload = {
+        ...form,
+        email: form.email.trim() || null,
+        date_of_birth: form.date_of_birth || null,
+        gender: form.gender || null,
+        occupation: form.occupation.trim() || null,
+        company: form.company.trim() || null,
+        location: form.location.trim() || null,
+        how_found_us: form.how_found_us.trim() || null,
+        notes: form.notes.trim() || null,
+      };
+      const res = await fetch('/api/people', {
+        method: person ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(person ? { personId: person.id, updates: payload } : payload),
+      });
       const data = await res.json();
-      if (!res.ok) { setErr(data.error||'Could not save.'); return; }
+      if (!res.ok) { setErr(data.error || (person ? 'Profile could not be saved.' : 'Person could not be added.')); return; }
 
+      const savedPersonId = person?.id || data.person?.id;
       const groupIds = Object.values(groupByCategory).filter(Boolean);
-      const gRes = await fetch('/api/people-groups', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ personId: person.id, groupIds }) });
-      if (!gRes.ok) { const gData = await gRes.json(); setErr(gData.error||'Profile saved, but groups could not be updated.'); return; }
+      if (savedPersonId) {
+        const gRes = await fetch('/api/people-groups', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ personId: savedPersonId, groupIds }) });
+        if (!gRes.ok) { const gData = await gRes.json(); setErr(gData.error || 'Profile saved, but groups could not be updated.'); return; }
+      }
 
       onSaved(); onClose();
     } finally { setSaving(false); }
@@ -117,8 +130,8 @@ function EditPersonModal({ person, categories, groups, personGroupIds, onClose, 
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto animate-scale-in" onClick={e=>e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-5 border-b border-navy-100 sticky top-0 bg-white rounded-t-2xl z-10">
           <div>
-            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',fontWeight:400}}>Edit Profile</h2>
-            <p style={{fontSize:13,color:'#A89D8E',fontWeight:300,marginTop:2}}>{person.full_name}</p>
+            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',fontWeight:400}}>{person ? 'Edit profile' : 'Add person'}</h2>
+            <p style={{fontSize:13,color:'#A89D8E',fontWeight:300,marginTop:2}}>{person ? formatPersonName(person.full_name) : 'Create a record outside Sunday check-in.'}</p>
           </div>
           <button onClick={onClose} className="btn btn-ghost btn-icon text-navy-400">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -225,7 +238,7 @@ function EditPersonModal({ person, categories, groups, personGroupIds, onClose, 
 
         <div className="px-6 py-4 border-t border-navy-100 flex gap-3 sticky bottom-0 bg-white rounded-b-2xl">
           <button onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
-          <button onClick={handleSave} className="btn btn-primary flex-1" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</button>
+          <button onClick={handleSave} className="btn btn-primary flex-1" disabled={saving}>{saving ? 'Saving…' : person ? 'Save changes' : 'Add person'}</button>
         </div>
       </div>
     </div>
@@ -251,6 +264,7 @@ export default function AdminPage() {
   const [error, setError] = useState<string|null>(null);
   const [customEmail, setCustomEmail] = useState({audience:'all',subject:'',message:''});
   const [editingPerson, setEditingPerson]     = useState<Person|null>(null);
+  const [addingPerson, setAddingPerson]         = useState(false);
   const [serviceFormOpen, setServiceFormOpen] = useState(false);
   const [editingService, setEditingService]   = useState<Service|null>(null);
   const [serviceForm, setServiceForm]         = useState({
@@ -267,6 +281,7 @@ export default function AdminPage() {
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleRoleFilter, setPeopleRoleFilter] = useState<'all'|'member'|'leader'|'visitor'>('all');
   const [peopleGroupFilter, setPeopleGroupFilter] = useState<string>('all');
+  const [peopleProfileFilter, setPeopleProfileFilter] = useState<'all'|'incomplete'|'missing_email'|'missing_dob'>('all');
   // Rendering every matching row unconditionally was fine for a few dozen
   // people and got visibly heavy for a church with a few hundred — every
   // row is a full <tr> with several cells, buttons, and inline styles, and
@@ -1033,6 +1048,8 @@ export default function AdminPage() {
   }, [activePeople, tzFmt, currentMonthKey]);
   const missingBirthdayCount = useMemo(() => activePeople.filter(p=>!p.date_of_birth).length, [activePeople]);
   const missingEmailCount = useMemo(() => activePeople.filter(p=>!p.email).length, [activePeople]);
+  const incompleteProfileCount = useMemo(() => activePeople.filter(p=>!p.date_of_birth || !p.email).length, [activePeople]);
+  const profileCompleteness = activePeople.length===0 ? 100 : Math.round(((activePeople.length-incompleteProfileCount)/activePeople.length)*100);
   const firstTimersThisMonth = useMemo(() => currentMonthCheckins.filter(c=>c.is_first_time).length, [currentMonthCheckins]);
   const returningThisMonth = currentMonthCheckins.length-firstTimersThisMonth;
   const peopleRoleCounts = useMemo(() => ({
@@ -1046,13 +1063,17 @@ export default function AdminPage() {
     return activePeople.filter(p=>
       (peopleRoleFilter==='all' || p.role===peopleRoleFilter) &&
       (peopleGroupFilter==='all' || (groupsByPersonId[p.id]||[]).some(g=>g.category_id===peopleGroupFilter)) &&
+      (peopleProfileFilter==='all' ||
+        (peopleProfileFilter==='incomplete' && (!p.email || !p.date_of_birth)) ||
+        (peopleProfileFilter==='missing_email' && !p.email) ||
+        (peopleProfileFilter==='missing_dob' && !p.date_of_birth)) &&
       (!q || p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)||p.email?.toLowerCase().includes(q))
     );
-  }, [activePeople,peopleSearch,peopleRoleFilter,peopleGroupFilter,groupsByPersonId]);
+  }, [activePeople,peopleSearch,peopleRoleFilter,peopleGroupFilter,peopleProfileFilter,groupsByPersonId]);
   // A stale page number after narrowing a filter would either show an empty
   // page that still has matches on page 1, or (once someone is deep in a
   // long list) silently render nothing at all.
-  useEffect(() => { setPeoplePage(1); }, [peopleSearch, peopleRoleFilter, peopleGroupFilter]);
+  useEffect(() => { setPeoplePage(1); }, [peopleSearch, peopleRoleFilter, peopleGroupFilter, peopleProfileFilter]);
   const peopleTotalPages = Math.max(1, Math.ceil(filteredPeople.length / PEOPLE_PAGE_SIZE));
   const pagedPeople = useMemo(
     () => filteredPeople.slice((peoplePage-1)*PEOPLE_PAGE_SIZE, peoplePage*PEOPLE_PAGE_SIZE),
@@ -1342,7 +1363,14 @@ export default function AdminPage() {
 
   return (
     <div className="admin-shell" style={{minHeight:"100vh",background:"#F8F4EE"}}>
-      {editingPerson && <EditPersonModal person={editingPerson} categories={categories} groups={groups} personGroupIds={(groupsByPersonId[editingPerson.id]||[]).map(g=>g.id)} onClose={()=>setEditingPerson(null)} onSaved={()=>{loadData();setMessage('Profile updated.');}} />}
+      {(addingPerson || editingPerson) && <PersonModal
+        person={editingPerson}
+        categories={categories}
+        groups={groups}
+        personGroupIds={editingPerson ? (groupsByPersonId[editingPerson.id]||[]).map(g=>g.id) : []}
+        onClose={()=>{ setAddingPerson(false); setEditingPerson(null); }}
+        onSaved={()=>{ loadData(); setMessage(editingPerson ? 'Profile updated.' : 'Person added.'); }}
+      />}
 
       {/* Code-gated delete confirmation — shared across services, people, giving */}
       {deleteTarget && (
@@ -1637,8 +1665,8 @@ export default function AdminPage() {
               <div className="panel" style={{padding:'24px 28px'}}>
                 <div className="panel-label" style={{display:'block',marginBottom:18}}>Things to know</div>
                 {[
-                  {label:'Members without birthday on file', value:missingBirthdayCount, action:missingBirthdayCount>0?()=>setTab('people'):undefined, urgent:missingBirthdayCount>5},
-                  {label:'Members without email',             value:missingEmailCount,    action:missingEmailCount>0?()=>setTab('people'):undefined,    urgent:missingEmailCount>5},
+                  {label:'People without date of birth', value:missingBirthdayCount, action:missingBirthdayCount>0?()=>setTab('people'):undefined, urgent:missingBirthdayCount>5},
+                  {label:'People without email',             value:missingEmailCount,    action:missingEmailCount>0?()=>setTab('people'):undefined,    urgent:missingEmailCount>5},
                   {label:'New visitors this month',           value:firstTimersThisMonth, action:undefined, urgent:false},
                   {label:'Unique attendees this month',       value:currentMonthUnique,   action:undefined, urgent:false},
                 ].map((row,i,arr)=>(
@@ -2211,12 +2239,19 @@ export default function AdminPage() {
         {/* ── PEOPLE ── */}
         {tab==='people' && (
           <div className="admin-page space-y-5 animate-fade-in">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400}}>People <span style={{fontSize:16,color:'#A89D8E',fontWeight:300}}>({activePeople.length})</span></h2>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <input className="input text-sm flex-1 sm:w-60" placeholder="Search by name, phone or email…" value={peopleSearch} onChange={e=>setPeopleSearch(e.target.value)} />
+            <div className="people-page-heading">
+              <div>
+                <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400}}>People <span style={{fontSize:16,color:'#A89D8E',fontWeight:300}}>({activePeople.length})</span></h2>
+                <p className="people-page-subtitle">Manage profiles, roles, groups and follow-up details.</p>
+              </div>
+              <div className="people-page-actions">
+                <input className="input text-sm people-search" placeholder="Search by name, phone or email…" value={peopleSearch} onChange={e=>setPeopleSearch(e.target.value)} />
+                <button onClick={()=>{ setEditingPerson(null); setAddingPerson(true); }} className="btn btn-primary text-sm shrink-0">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" /></svg>
+                  Add person
+                </button>
                 <a href="/api/export?type=people" className="btn btn-secondary text-sm shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                   Export
                 </a>
               </div>
@@ -2244,6 +2279,13 @@ export default function AdminPage() {
                   {categories.filter(cat=>groups.some(g=>g.category_id===cat.id)).map(cat=>(<option key={cat.id} value={cat.id}>{cat.name}</option>))}
                 </select>
               )}
+              <select className="select text-xs" style={{width:'auto',minWidth:170,padding:'6px 28px 6px 12px',height:'auto'}}
+                value={peopleProfileFilter} onChange={e=>setPeopleProfileFilter(e.target.value as typeof peopleProfileFilter)} aria-label="Filter by profile details">
+                <option value="all">All profile details</option>
+                <option value="incomplete">Incomplete profiles</option>
+                <option value="missing_email">Missing email</option>
+                <option value="missing_dob">Missing date of birth</option>
+              </select>
             </div>
 
             {selectedPersonIds.size>0 && (
@@ -2273,15 +2315,20 @@ export default function AdminPage() {
             )}
 
             {(missingBirthdayCount>0||missingEmailCount>0) && (
-              <div className="alert alert-warning">
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
-                <span><strong>{missingBirthdayCount}</strong> {missingBirthdayCount===1?'person is':'people are'} missing birthdays and <strong>{missingEmailCount}</strong> missing emails — click <em>Edit</em> to fill them in.</span>
+              <div className="panel people-quality-panel">
+                <div className="people-quality-score" aria-hidden="true">{profileCompleteness}%</div>
+                <div className="people-quality-copy">
+                  <div className="panel-label">Profile completeness</div>
+                  <div className="people-quality-title">{profileCompleteness}% complete</div>
+                  <p>{missingBirthdayCount} {missingBirthdayCount===1?'person needs':'people need'} a date of birth · {missingEmailCount} {missingEmailCount===1?'person needs':'people need'} an email address.</p>
+                </div>
+                <button onClick={()=>setPeopleProfileFilter('incomplete')} className="btn btn-secondary text-xs shrink-0">Review incomplete profiles</button>
               </div>
             )}
 
             <div className="card p-0 overflow-hidden">
               {filteredPeople.length===0 ? (
-                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleGroupFilter!=='all'?'Nobody has this field set yet.':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. They appear after check-ins.'}</p></div>
+                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleProfileFilter!=='all'?'No profiles match this detail filter.':peopleGroupFilter!=='all'?'Nobody is assigned to this category yet.':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. Add a person or wait for the first check-in.'}</p></div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -2298,14 +2345,14 @@ export default function AdminPage() {
                       <th className="table-header hidden lg:table-cell">First Visit</th>
                       <th className="table-header hidden lg:table-cell">Last Seen</th>
                       <th className="table-header hidden md:table-cell">Visits</th>
-                      <th className="table-header">Missing Info</th>
-                      <th className="table-header text-right">Action</th>
+                      <th className="table-header">Profile details</th>
+                      <th className="table-header text-right">Actions</th>
                     </tr></thead>
                     <tbody>
                       {pagedPeople.map(p=>{
                         const missing:string[]=[];
-                        if(!p.email) missing.push('email');
-                        if(!p.date_of_birth) missing.push('birthday');
+                        if(!p.email) missing.push('Email');
+                        if(!p.date_of_birth) missing.push('Date of birth');
                         const personGroupList = groupsByPersonId[p.id]||[];
                         return (
                           <tr key={p.id} className="table-row">
@@ -2316,22 +2363,27 @@ export default function AdminPage() {
                             </td>
                             <td className="table-cell">
                               <div className="flex items-center gap-2.5">
-                                <div style={{width:28,height:28,borderRadius:"50%",background:"#F0EBE3",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#7A6048",fontFamily:"'Playfair Display',serif",fontWeight:600,flexShrink:0}}>{p.full_name.charAt(0)}</div>
-                                <span className="font-medium text-navy-900 text-sm">{p.full_name}</span>
+                                <div style={{width:28,height:28,borderRadius:"50%",background:"#F0EBE3",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#7A6048",fontFamily:"'Playfair Display',serif",fontWeight:600,flexShrink:0}}>{formatPersonName(p.full_name).charAt(0)}</div>
+                                <span className="font-medium text-navy-900 text-sm">{formatPersonName(p.full_name)}</span>
                               </div>
                             </td>
                             <td className="table-cell hidden sm:table-cell text-navy-500 text-sm">{p.phone}</td>
                             <td className="table-cell"><span className={`badge text-[11px] capitalize ${p.role==='leader'?'badge-purple':p.role==='member'?'badge-primary':'badge-warning'}`}>{p.role}</span></td>
                             <td className="table-cell hidden lg:table-cell text-navy-500 text-sm">{personGroupList.length>0 ? personGroupList.map(g=>g.name).join(', ') : <span className="text-navy-300">—</span>}</td>
                             <td className="table-cell hidden lg:table-cell text-navy-500 text-sm whitespace-nowrap">{p.first_attendance_date ? new Date(p.first_attendance_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : <span className="text-navy-300">—</span>}</td>
-                            <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null||!p.last_checkin_at) return <span className="text-navy-300">Never</span>; return (<><span className={w>=3?'text-red-600 font-medium':'text-navy-600'}>{new Date(p.last_checkin_at).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>{w>0&&<span className="text-navy-300"> · {w}w</span>}</>); })()}</td>
+                            <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null||!p.last_checkin_at) return <span className="text-navy-300">Never</span>; return (<><span className="text-navy-600">{new Date(p.last_checkin_at).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>{w>0&&<span className={w>=3?'text-amber-600':'text-navy-300'}> · {w}w ago</span>}</>); })()}</td>
                             <td className="table-cell hidden md:table-cell text-navy-500 text-sm">{p.total_checkins}</td>
-                            <td className="table-cell">{missing.length>0?<span className="text-amber-600 text-xs font-medium">{missing.join(', ')}</span>:<span className="text-emerald-600 text-xs inline-flex items-center gap-1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.2 4L19 7" /></svg>Complete</span>}</td>
+                            <td className="table-cell">{missing.length>0?<span className="text-amber-600 text-xs font-medium">{missing.join(', ')}</span>:<span className="text-navy-300 text-xs" title="Profile details complete">—</span>}</td>
                             <td className="table-cell text-right">
-                              <div className="flex gap-2 justify-end">
-                                <button onClick={()=>setEditingPerson(p)} className="btn btn-secondary text-xs py-1.5 px-3">Edit</button>
-                                <button onClick={()=>askDelete('people', p.id, p.full_name)} className="btn btn-ghost text-xs py-1.5 px-3 text-red-500">Delete</button>
-                              </div>
+                              <details className="service-more row-more">
+                                <summary aria-label={`Actions for ${formatPersonName(p.full_name)}`} title="More actions">
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+                                </summary>
+                                <div className="service-more-menu">
+                                  <button onClick={()=>setEditingPerson(p)}>Edit profile</button>
+                                  <button onClick={()=>askDelete('people', p.id, formatPersonName(p.full_name))} className="service-danger">Delete permanently</button>
+                                </div>
+                              </details>
                             </td>
                           </tr>
                         );
@@ -2515,7 +2567,7 @@ export default function AdminPage() {
                       <th className="table-header">Amount</th>
                       <th className="table-header hidden sm:table-cell">Date</th>
                       <th className="table-header">Status</th>
-                      <th className="table-header text-right">Action</th>
+                      <th className="table-header text-right">Actions</th>
                     </tr></thead>
                     <tbody>
                       {giving.map(g=>(
@@ -3348,7 +3400,7 @@ export default function AdminPage() {
       </main>
 
       {/* Support for the person actually running the church's account. */}
-      <WhatsAppSupport context="the WeMotiply dashboard" />
+      <WhatsAppSupport variant="admin" context="the WeMotiply dashboard" />
     </div>
   );
 }

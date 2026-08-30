@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
 import { requireActiveSubscription } from '@/lib/auth';
 import { kioskCodeMatches } from '@/lib/confirmCode';
+import { formatPersonName, validatePersonIdentity } from '@/lib/personIdentity';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,24 +39,26 @@ export async function POST(request: NextRequest) {
     const supabase = getServerSupabase();
     const body = await request.json();
 
-    const { full_name, phone, gender, email, role, date_of_birth, occupation, location } = body;
+    const { full_name, phone, gender, email, role, date_of_birth, occupation, company, location, how_found_us, notes } = body;
 
-    if (!full_name || !phone) {
-      return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 });
-    }
+    const identityError = validatePersonIdentity(full_name, phone);
+    if (identityError) return NextResponse.json({ error: identityError }, { status: 400 });
 
     const { data, error } = await supabase
       .from('people')
       .insert({
         org_id: auth.session.orgId,
-        full_name: full_name.trim(),
+        full_name: formatPersonName(full_name),
         phone: phone.trim(),
         gender: gender || null,
         email: email?.trim() || null,
         role: role || 'visitor',
         date_of_birth: date_of_birth || null,
         occupation: occupation || null,
+        company: company || null,
         location: location || null,
+        how_found_us: how_found_us || null,
+        notes: notes || null,
       })
       .select()
       .single();
@@ -105,6 +108,12 @@ export async function PATCH(request: NextRequest) {
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     } else if (updates) {
+      if (updates.full_name !== undefined && String(updates.full_name).trim().toLocaleLowerCase() === String(updates.full_name).trim().toLocaleUpperCase()) {
+        return NextResponse.json({ error: 'Enter a name that includes letters' }, { status: 400 });
+      }
+      if (updates.phone !== undefined && String(updates.phone).replace(/\D/g, '').length < 7) {
+        return NextResponse.json({ error: 'Enter a valid phone number' }, { status: 400 });
+      }
       const allowedKeys = new Set([
         'full_name', 'phone', 'gender', 'email', 'date_of_birth',
         'occupation', 'company', 'location', 'how_found_us',
@@ -113,6 +122,9 @@ export async function PATCH(request: NextRequest) {
       const safeUpdates = Object.fromEntries(
         Object.entries(updates).filter(([key]) => allowedKeys.has(key))
       );
+
+      if (typeof safeUpdates.full_name === 'string') safeUpdates.full_name = formatPersonName(safeUpdates.full_name);
+      if (typeof safeUpdates.phone === 'string') safeUpdates.phone = safeUpdates.phone.trim();
 
       if (Object.keys(safeUpdates).length === 0) {
         return NextResponse.json({ error: 'No valid updates provided' }, { status: 400 });

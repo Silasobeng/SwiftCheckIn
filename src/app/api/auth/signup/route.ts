@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     //
     // Subjects deliberately carry no emoji. Gmail reads emoji in a subject as a
     // marketing signal and files the message under Promotions, which is exactly
-    // where these must not go — and "We Miss You! 💛" in particular contradicts
+    // where these must not go — and a decorated missed-visit subject in particular contradicts
     // the message underneath it, which is written to read as a personal note.
     // A church can still add emoji from the Emails tab if it wants them.
     const { error: templateError } = await supabase.from('email_templates').insert([

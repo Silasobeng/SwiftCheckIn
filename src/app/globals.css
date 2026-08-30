@@ -366,6 +366,26 @@ body {
 .admin-shell .alert { box-shadow:inset 3px 0 0 currentColor; }
 @media (max-width:640px) { .admin-shell .admin-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .admin-shell .admin-stat { min-height:108px; } .admin-shell .admin-page { max-width:none; } }
 
+/* People directory: profile quality is useful operational context, not an
+   emergency. Keep it calm, compact and directly filterable. */
+.admin-shell .people-page-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap; }
+.admin-shell .people-page-subtitle { margin-top:3px; color:#667085; font-size:13px; font-weight:400; }
+.admin-shell .people-page-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex:1 1 520px; }
+.admin-shell .people-search { min-width:240px; flex:1 1 260px; }
+.admin-shell .people-quality-panel { display:flex; align-items:center; gap:16px; padding:16px 18px; background:#fff; }
+.admin-shell .people-quality-score { display:grid; place-items:center; width:48px; height:48px; flex:0 0 48px; border:1px solid #d7dee8; border-radius:50%; color:#172b4d; background:#f7f9fc; font-size:12px; font-weight:700; font-variant-numeric:tabular-nums; }
+.admin-shell .people-quality-copy { min-width:0; flex:1; }
+.admin-shell .people-quality-title { margin-top:3px; color:#172033; font-size:14px; font-weight:650; }
+.admin-shell .people-quality-copy p { margin-top:2px; color:#667085; font-size:12px; line-height:1.5; }
+.admin-shell .row-more { display:inline-block; text-align:left; }
+.admin-shell .row-more summary { margin-left:auto; }
+.admin-shell .wa-fab-admin:hover { box-shadow:0 8px 20px rgba(16,42,67,.24) !important; }
+@media (max-width:640px) {
+  .admin-shell .people-page-actions { flex-basis:100%; justify-content:flex-start; }
+  .admin-shell .people-search { flex-basis:100%; width:100%; }
+  .admin-shell .people-quality-panel { align-items:flex-start; flex-wrap:wrap; }
+  .admin-shell .people-quality-panel .btn { width:100%; }
+}
 /* WhatsApp support button. Collapses to a circle on phones so it never sits
    on top of content the user is trying to read or tap. */
 .wa-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(37,211,102,.45); }

@@ -10,6 +10,7 @@ import {
   getQueue, enqueueCheckin, removeFromQueue,
   cacheKioskData, getCachedKioskData, isNetworkError,
 } from '@/lib/offlineQueue';
+import { validatePersonIdentity } from '@/lib/personIdentity';
 
 type Screen = 'loading' | 'closed' | 'welcome' | 'returning' | 'new' | 'success' | 'error';
 
@@ -412,12 +413,12 @@ export default function KioskPage() {
           <svg className="w-14 h-14 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
         </div>
         <h1 className="text-5xl sm:text-6xl font-bold text-white mb-3 animate-fade-in-up" style={{ fontFamily:'var(--font-serif)', animationDelay:'0.15s', opacity:0 }}>
-          {alreadyCheckedIn ? 'Already in!' : isFirstTime ? 'Welcome! 🎉' : 'Welcome back!'}
+          {alreadyCheckedIn ? 'Already in!' : isFirstTime ? 'Welcome!' : 'Welcome back!'}
         </h1>
         <p className="text-3xl sm:text-4xl text-white/80 font-medium mb-10 animate-fade-in-up" style={{ animationDelay:'0.25s', opacity:0 }}>{successName}</p>
         <div className="rounded-2xl p-7 max-w-sm animate-fade-in-up" style={{ animationDelay:'0.4s', opacity:0, background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.12)' }}>
           {alreadyCheckedIn
-            ? <p className="text-white text-lg">You&apos;re already checked in — enjoy the service! 🙏</p>
+            ? <p className="text-white text-lg">You&apos;re already checked in — enjoy the service.</p>
             : <><p className="text-white italic text-base leading-relaxed" style={{ fontFamily:'var(--font-serif)' }}>"{blessing.current.text}"</p><p className="text-white/45 text-sm mt-2">— {blessing.current.ref}</p></>
           }
         </div>
@@ -585,7 +586,7 @@ export default function KioskPage() {
 
       <div className="flex-1 flex flex-col items-center justify-start max-w-md mx-auto w-full relative z-10">
         <div className="text-center mb-8 animate-fade-in-up" style={{ opacity:0 }}>
-          <div className="text-4xl mb-3">👋</div>
+          <div className="w-12 h-12 rounded-full border border-white/15 mx-auto mb-4 flex items-center justify-center text-white/70"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5.5 20c.7-4 2.8-6 6.5-6s5.8 2 6.5 6"/></svg></div>
           <h2 className="text-4xl sm:text-5xl font-bold text-white mb-2" style={{ fontFamily:'var(--font-serif)' }}>Nice to meet you!</h2>
           <p className="text-white/45">Just a few quick details and you&apos;re in</p>
         </div>
@@ -615,7 +616,7 @@ export default function KioskPage() {
               {(['male','female'] as const).map(g => (
                 <label key={g} className={`flex items-center justify-center gap-2.5 p-4 rounded-xl border-2 cursor-pointer transition-all select-none ${newForm.gender===g ? 'border-yellow-400 bg-yellow-400/15 text-white' : 'border-white/15 text-white/50'}`}>
                   <input type="radio" name="gender" value={g} checked={newForm.gender===g} onChange={e => setNewForm({...newForm, gender:e.target.value})} className="sr-only"/>
-                  <span className="text-xl">{g==='male'?'👨':'👩'}</span>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5.5 20c.7-4 2.8-6 6.5-6s5.8 2 6.5 6"/></svg>
                   <span className="font-semibold capitalize">{g}</span>
                 </label>
               ))}
@@ -632,8 +633,11 @@ export default function KioskPage() {
           <button
             onClick={() => {
               const errors = { full_name:'', phone:'' };
+              const identityError = validatePersonIdentity(newForm.full_name, newForm.phone);
               if(!newForm.full_name.trim()) errors.full_name = 'Please enter your full name';
+              else if(identityError === 'Enter a name that includes letters') errors.full_name = identityError;
               if(!newForm.phone.trim()) errors.phone = 'Please enter your phone number';
+              else if(identityError === 'Enter a valid phone number') errors.phone = identityError;
               if(errors.full_name || errors.phone) { setNewErrors(errors); return; }
               handleCheckin(undefined, newForm);
             }}

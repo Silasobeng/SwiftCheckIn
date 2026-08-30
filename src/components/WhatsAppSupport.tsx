@@ -21,7 +21,7 @@ export default function WhatsAppSupport({
 }: {
   /** Prefills the message so the reply doesn't start with "who is this?". */
   context?: string;
-  variant?: 'floating' | 'inline';
+  variant?: 'floating' | 'inline' | 'admin';
 }) {
   const message = context
     ? `Hi WeMotiply, I need help with ${context}.`
@@ -58,13 +58,14 @@ export default function WhatsAppSupport({
       rel="noopener noreferrer"
       aria-label="Get help on WhatsApp"
       title="Get help on WhatsApp"
-      className="wa-fab"
+      className={`wa-fab ${variant === 'admin' ? 'wa-fab-admin' : ''}`}
       style={{
         position: 'fixed', bottom: 20, right: 20, zIndex: 50,
         display: 'flex', alignItems: 'center', gap: 9,
-        background: '#25D366', color: '#fff',
-        borderRadius: 999, padding: '12px 16px',
-        boxShadow: '0 6px 22px rgba(37,211,102,0.35)',
+        background: variant === 'admin' ? '#172B4D' : '#25D366', color: '#fff',
+        border: variant === 'admin' ? '1px solid rgba(255,255,255,0.16)' : 'none',
+        borderRadius: 999, padding: variant === 'admin' ? '10px 14px' : '12px 16px',
+        boxShadow: variant === 'admin' ? '0 5px 16px rgba(16,42,67,0.18)' : '0 6px 22px rgba(37,211,102,0.35)',
         textDecoration: 'none', fontSize: 14, fontWeight: 500,
         fontFamily: "'DM Sans', sans-serif",
         transition: 'transform .15s ease, box-shadow .15s ease',
@@ -72,7 +73,7 @@ export default function WhatsAppSupport({
     >
       {glyph}
       {/* Label collapses on phones so the button never covers real content. */}
-      <span className="wa-fab-label">Need help?</span>
+      <span className="wa-fab-label">{variant === 'admin' ? 'Help' : 'Need help?'}</span>
     </a>
   );
 }

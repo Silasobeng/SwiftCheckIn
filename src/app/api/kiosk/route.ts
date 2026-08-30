@@ -4,6 +4,7 @@ import { sendWelcomeEmail } from '@/lib/email';
 import { sendSMS, welcomeMessage } from '@/lib/sms';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { tzFormatter, dayKeyOf } from '@/lib/monthWindow';
+import { formatPersonName, validatePersonIdentity } from '@/lib/personIdentity';
 
 // A service is only "today" once, in the church's own timezone — a kiosk left
 // open past that (nobody closed it after Sunday) must not silently accept a
@@ -194,9 +195,8 @@ export async function POST(request: NextRequest) {
       // New person registration
       const { full_name, phone, gender, email } = newPerson;
 
-      if (!full_name || !phone) {
-        return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 });
-      }
+      const identityError = validatePersonIdentity(full_name, phone);
+      if (identityError) return NextResponse.json({ error: identityError }, { status: 400 });
 
       // Check if phone already exists
       const { data: existing } = await supabase
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
           .from('people')
           .insert({
             org_id: org.id,
-            full_name: full_name.trim(),
+            full_name: formatPersonName(full_name),
             phone: phone.trim(),
             gender: gender || null,
             email: email?.trim() || null,
