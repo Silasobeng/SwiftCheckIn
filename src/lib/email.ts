@@ -130,7 +130,10 @@ async function sendViaZepto(
   if (!res.ok) {
     const text = await res.text();
     console.error('ZeptoMail fallback error:', text);
-    return { success: false, error: `ZeptoMail: ${res.status}` };
+    // The body text, not just the status, so a caller (right now: the debug
+    // test route) can see what Zoho actually objected to instead of a bare
+    // "500" that could mean anything from a bad sender to no credits left.
+    return { success: false, error: `ZeptoMail: ${res.status} ${text}`.slice(0, 500) };
   }
   return { success: true };
 }
