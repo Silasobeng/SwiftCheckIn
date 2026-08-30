@@ -135,6 +135,19 @@ async function sendViaZepto(
   return { success: true };
 }
 
+// Temporary — lets a one-off debug route (see src/app/api/debug/test-zepto)
+// trigger a real ZeptoMail send in isolation, bypassing Resend/Brevo, so the
+// new provider can be confirmed working before it's relied on in the real
+// fallback chain. Remove both once verified.
+export async function testZeptoSend(to: string): Promise<SendEmailResult> {
+  return sendViaZepto(
+    [{ email: to }],
+    'WeMotiply — ZeptoMail test',
+    '<p>This confirms ZeptoMail is correctly wired up as an email fallback for WeMotiply.</p>',
+    { email: process.env.RESEND_FROM_EMAIL || 'noreply@wemotiply.com', name: 'WeMotiply' }
+  );
+}
+
 // Tries every configured fallback in order of cost (cheapest first) after
 // Resend has failed. ZeptoMail before Brevo — see sendViaZepto's comment for
 // why. Skips a provider entirely (no network call) when its key isn't set,
