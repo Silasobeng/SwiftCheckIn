@@ -99,8 +99,13 @@ async function sendViaZepto(
   from: { email: string; name: string }, replyTo?: ReplyTo,
   attachments?: EmailAttachment[]
 ): Promise<SendEmailResult> {
-  const apiKey = process.env.ZEPTOMAIL_API_KEY;
-  if (!apiKey) return { success: false, error: 'ZeptoMail not configured' };
+  const rawKey = process.env.ZEPTOMAIL_API_KEY;
+  if (!rawKey) return { success: false, error: 'ZeptoMail not configured' };
+  // Zoho's own dashboard shows this key as the full ready-to-paste header
+  // value ("Zoho-enczapikey <token>"), not the bare token — so whoever set
+  // ZEPTOMAIL_API_KEY may have copied that whole line. Strip a leading
+  // prefix if present so the header comes out right either way.
+  const apiKey = rawKey.replace(/^Zoho-enczapikey\s+/i, '');
 
   const body: Record<string, unknown> = {
     from: { address: from.email, name: from.name },
