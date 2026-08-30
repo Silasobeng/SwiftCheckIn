@@ -302,6 +302,12 @@ export default function AdminPage() {
   tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'', timezone:'' });
   const [smsSettings, setSmsSettings] = useState({ sms_welcome_enabled: false, sms_birthday_enabled: false, sms_missed_enabled: false, sms_credits: 0, sms_sender_id: '' });
   const [savingSms, setSavingSms] = useState(false);
+  // Separate from smsSettings.sms_sender_id, which tracks whatever's
+  // currently typed in the field (saved or not). This tracks what's
+  // actually in the database — the one that matters for "who will this
+  // send as," since typing a name and forgetting to hit Save is exactly
+  // the trap that made it look like the whole feature was broken.
+  const [savedSenderId, setSavedSenderId] = useState('');
   const [smsTopupAmount, setSmsTopupAmount] = useState('');
   const [toppingUp, setToppingUp] = useState(false);
   const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -440,6 +446,7 @@ export default function AdminPage() {
           sms_credits:          org.sms_credits          ?? 0,
           sms_sender_id:        org.sms_sender_id        ?? '',
         });
+        setSavedSenderId(org.sms_sender_id ?? '');
       }
       if (!stD.settings) setError('Some dashboard data could not be refreshed — check your connection.');
     }
@@ -635,6 +642,7 @@ export default function AdminPage() {
       const res = await fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(smsSettings) });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Could not save SMS settings.'); return; }
+      setSavedSenderId(smsSettings.sms_sender_id);
       setMessage('SMS settings saved.');
     } finally { setSavingSms(false); }
   };
@@ -2876,6 +2884,20 @@ export default function AdminPage() {
                   <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.7}}>
                     Send a message to your congregation. Credits are deducted per recipient; failed deliveries are refunded.
                   </p>
+                  {/* What actually gets used is whatever's saved in the
+                      database, not whatever's sitting unsaved in the Sender
+                      Name field above — a text arriving under the wrong
+                      name is exactly what made this feature look broken
+                      when it was really just an un-clicked Save button. */}
+                  <p style={{fontSize:12,color:'#A89D8E',marginTop:6}}>
+                    Sending as: <strong style={{color:'#5A4E3C'}}>{savedSenderId || 'WeMotiply'}</strong>
+                    {!savedSenderId && ' (set and save a Sender Name above to send as your church instead)'}
+                  </p>
+                  {smsSettings.sms_sender_id !== savedSenderId && (
+                    <p style={{fontSize:12,color:'#C97B1A',marginTop:4,fontWeight:500}}>
+                      You typed a new Sender Name above but haven&apos;t saved it yet — this send will still go out as &ldquo;{savedSenderId || 'WeMotiply'}&rdquo;.
+                    </p>
+                  )}
                 </div>
 
                 {broadcastResult && (
