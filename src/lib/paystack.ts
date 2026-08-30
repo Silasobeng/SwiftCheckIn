@@ -12,7 +12,7 @@ import { creditsFromPesewas } from './sms';
 // handles both of those directly in GHS.
 //
 // Amounts sent to Paystack are always in the currency's smallest subunit —
-// for GHS that is pesewas, so GHS 89.00 is sent as 8900.
+// for GHS that is pesewas, so GHS 99.00 is sent as 9900.
 
 const PAYSTACK_API = 'https://api.paystack.co';
 const SUBUNIT = 100;
@@ -26,8 +26,8 @@ export type BillingPlan = 'monthly' | 'annual';
 // Annual is priced at ten months rather than twelve, so a church that pays up
 // front gets two months free (89 x 12 = 1,068 against 890, saving 178).
 export const PLAN_PRICING: Record<BillingPlan, { amountGHS: number; days: number; label: string }> = {
-  monthly: { amountGHS: 89, days: 30, label: 'Monthly' },
-  annual: { amountGHS: 890, days: 365, label: 'Annual' },
+  monthly: { amountGHS: 99, days: 30, label: 'Monthly' },
+  annual: { amountGHS: 990, days: 365, label: 'Annual' },
 };
 
 function secretKey(): string {

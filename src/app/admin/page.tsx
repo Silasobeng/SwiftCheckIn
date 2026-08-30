@@ -1170,7 +1170,7 @@ export default function AdminPage() {
           <div className="card" style={{padding:'20px 22px',marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center',gap:16}}>
             <div>
               <div style={{fontSize:12,color:'#A89D8E',fontWeight:500,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Monthly</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 89<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / month</span></div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 99<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / month</span></div>
             </div>
             <button onClick={()=>startCheckout('monthly')} disabled={billingBusy!==null} className="btn btn-secondary">
               {billingBusy==='monthly' ? 'Redirecting…' : 'Choose'}
@@ -1179,8 +1179,8 @@ export default function AdminPage() {
 
           <div className="card" style={{padding:'20px 22px',marginBottom:20,display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,border:'1px solid #C97B1A',background:'#FDF3E0'}}>
             <div>
-              <div style={{fontSize:12,color:'#7A4A0E',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Annual · Save GHS 178</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 890<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / year</span></div>
+              <div style={{fontSize:12,color:'#7A4A0E',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Annual · Save GHS 198</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 990<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / year</span></div>
             </div>
             <button onClick={()=>startCheckout('annual')} disabled={billingBusy!==null} className="btn btn-primary">
               {billingBusy==='annual' ? 'Redirecting…' : 'Choose'}
