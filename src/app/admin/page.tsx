@@ -308,6 +308,7 @@ export default function AdminPage() {
   // send as," since typing a name and forgetting to hit Save is exactly
   // the trap that made it look like the whole feature was broken.
   const [savedSenderId, setSavedSenderId] = useState('');
+  const [savingSenderId, setSavingSenderId] = useState(false);
   const [smsTopupAmount, setSmsTopupAmount] = useState('');
   const [toppingUp, setToppingUp] = useState(false);
   const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -636,15 +637,39 @@ export default function AdminPage() {
     } finally { setSavingBranding(false); }
   };
 
+  // Scoped to just the notification toggles now — the sender name has its
+  // own save button and its own endpoint call below, so this no longer
+  // touches it (and can't accidentally overwrite an unsaved typed name with
+  // whatever was there before, or vice versa).
   const saveSmsSettings = async () => {
     setSavingSms(true); setMessage(null); setError(null);
     try {
-      const res = await fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(smsSettings) });
+      const res = await fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        sms_welcome_enabled: smsSettings.sms_welcome_enabled,
+        sms_birthday_enabled: smsSettings.sms_birthday_enabled,
+        sms_missed_enabled: smsSettings.sms_missed_enabled,
+      }) });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Could not save SMS settings.'); return; }
-      setSavedSenderId(smsSettings.sms_sender_id);
-      setMessage('SMS settings saved.');
+      if (!res.ok) { setError(data.error || 'Could not save notification settings.'); return; }
+      setMessage('Notification settings saved.');
     } finally { setSavingSms(false); }
+  };
+
+  const saveSenderId = async () => {
+    setSavingSenderId(true); setMessage(null); setError(null);
+    try {
+      const res = await fetch('/api/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sms_sender_id: smsSettings.sms_sender_id }) });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Could not save sender name.'); return; }
+      setSavedSenderId(smsSettings.sms_sender_id);
+      // Arkesel needs a short window to approve a brand-new sender name
+      // before it actually takes effect — learned the hard way, worth
+      // saying up front so "it's still showing the old name" for the next
+      // few minutes doesn't look like another bug.
+      setMessage(smsSettings.sms_sender_id
+        ? 'Sender name saved. A brand-new name can take Arkesel a few minutes to approve before it appears on real sends.'
+        : 'Sender name cleared — sending as WeMotiply again.');
+    } finally { setSavingSenderId(false); }
   };
 
   const loadBroadcasts = async () => {
@@ -2779,24 +2804,33 @@ export default function AdminPage() {
                 {/* Sender ID */}
                 <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
                   <label className="block text-sm font-medium text-navy-700 mb-1">SMS Sender Name</label>
-                  {/* Self-service field — a church can type any name here.
-                      The one real constraint is outside our control: mobile
-                      networks only deliver sender IDs that have been
-                      registered with them in advance, so this doubles as the
-                      instruction for how that actually happens. */}
+                  {/* Fully self-service — a church types any name and saves
+                      it themselves, no manual registration step on our end.
+                      Confirmed against this exact Arkesel account: a brand-
+                      new name just needs a short network approval window
+                      (minutes, not a support request) before it takes
+                      effect on real sends. */}
                   <p style={{fontSize:11,color:'#A89D8E',fontWeight:300,marginBottom:8,lineHeight:1.6}}>
                     The name recipients see instead of a phone number. Max 11 characters, no spaces.
-                    Enter your church&apos;s name here, then <strong style={{color:'#7A6E60',fontWeight:500}}>message us to get it registered</strong> with
-                    the mobile networks — once approved, your SMS will send under this name instead of the platform default.
+                    Enter your church&apos;s name and save — a brand-new name can take a few minutes for the network to approve
+                    before it appears on real messages, but no need to contact us for it.
                   </p>
-                  <input
-                    className="input"
-                    style={{maxWidth:200,fontFamily:'monospace',letterSpacing:'0.05em'}}
-                    placeholder="e.g. GraceChurch"
-                    maxLength={11}
-                    value={smsSettings.sms_sender_id}
-                    onChange={e => setSmsSettings(s => ({ ...s, sms_sender_id: e.target.value.replace(/\s/g,'').slice(0,11) }))}
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="input"
+                      style={{maxWidth:200,fontFamily:'monospace',letterSpacing:'0.05em'}}
+                      placeholder="e.g. GraceChurch"
+                      maxLength={11}
+                      value={smsSettings.sms_sender_id}
+                      onChange={e => setSmsSettings(s => ({ ...s, sms_sender_id: e.target.value.replace(/\s/g,'').slice(0,11) }))}
+                    />
+                    {/* Its own Save, separate from the toggles below — typing
+                        a name and hitting the wrong (or no) button is what
+                        made this look broken before. */}
+                    <button onClick={saveSenderId} disabled={savingSenderId || smsSettings.sms_sender_id===savedSenderId} className="btn btn-secondary text-sm">
+                      {savingSenderId ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Toggles */}
@@ -2836,7 +2870,7 @@ export default function AdminPage() {
                 </div>
 
                 <button onClick={saveSmsSettings} disabled={savingSms} className="btn btn-gold text-sm">
-                  {savingSms ? 'Saving…' : 'Save SMS Settings'}
+                  {savingSms ? 'Saving…' : 'Save Notification Settings'}
                 </button>
 
                 {/* Top-up */}
