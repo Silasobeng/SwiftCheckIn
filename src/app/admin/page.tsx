@@ -2373,7 +2373,19 @@ export default function AdminPage() {
                             <td className="table-cell hidden lg:table-cell text-navy-500 text-sm whitespace-nowrap">{p.first_attendance_date ? new Date(p.first_attendance_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : <span className="text-navy-300">—</span>}</td>
                             <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null||!p.last_checkin_at) return <span className="text-navy-300">Never</span>; return (<><span className="text-navy-600">{new Date(p.last_checkin_at).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>{w>0&&<span className={w>=3?'text-amber-600':'text-navy-300'}> · {w}w ago</span>}</>); })()}</td>
                             <td className="table-cell hidden md:table-cell text-navy-500 text-sm">{p.total_checkins}</td>
-                            <td className="table-cell">{missing.length>0?<span className="text-amber-600 text-xs font-medium">{missing.join(', ')}</span>:<span className="text-navy-300 text-xs" title="Profile details complete">—</span>}</td>
+                            <td className="table-cell">
+                              {missing.length>0 ? (
+                                <span className="inline-flex items-center gap-1.5 text-amber-700 text-xs font-medium" title="Profile details incomplete">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.5h.01"/></svg>
+                                  {missing.join(', ')} missing
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-emerald-700 text-xs font-medium" title="Profile details complete">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.5L16 9.5"/></svg>
+                                  Complete
+                                </span>
+                              )}
+                            </td>
                             <td className="table-cell text-right">
                               <details className="service-more row-more">
                                 <summary aria-label={`Actions for ${formatPersonName(p.full_name)}`} title="More actions">
