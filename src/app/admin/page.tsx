@@ -360,6 +360,9 @@ export default function AdminPage() {
   const [deleteCode, setDeleteCode] = useState('');
   const [deletingBusy, setDeletingBusy] = useState(false);
   const [peopleSearch, setPeopleSearch] = useState('');
+  const [peopleView, setPeopleView] = useState<'active'|'archived'>('active');
+  const [archiveTarget, setArchiveTarget] = useState<Person|null>(null);
+  const [archivingBusy, setArchivingBusy] = useState(false);
   const [peopleRoleFilter, setPeopleRoleFilter] = useState<'all'|'member'|'leader'|'visitor'>('all');
   const [peopleGroupFilter, setPeopleGroupFilter] = useState<string>('all');
   const [peopleProfileFilter, setPeopleProfileFilter] = useState<'all'|'incomplete'|'missing_email'|'missing_dob'>('all');
@@ -1052,6 +1055,8 @@ export default function AdminPage() {
   // data that actually changes it, so the clock tick costs a diff, not a
   // full re-scan of the church.
   const activePeople = useMemo(() => people.filter(p=>!p.archived), [people]);
+  const archivedPeople = useMemo(() => people.filter(p=>p.archived), [people]);
+  const directoryPeople = peopleView==='active' ? activePeople : archivedPeople;
   // personId -> the Group rows they belong to (across every category). Built
   // once here from the flat membership list rather than re-joined everywhere
   // it's needed.
@@ -1167,14 +1172,14 @@ export default function AdminPage() {
   const firstTimersThisMonth = useMemo(() => currentMonthCheckins.filter(c=>c.is_first_time).length, [currentMonthCheckins]);
   const returningThisMonth = currentMonthCheckins.length-firstTimersThisMonth;
   const peopleRoleCounts = useMemo(() => ({
-    all: activePeople.length,
-    member: activePeople.filter(p=>p.role==='member').length,
-    leader: activePeople.filter(p=>p.role==='leader').length,
-    visitor: activePeople.filter(p=>p.role==='visitor').length,
-  }), [activePeople]);
+    all: directoryPeople.length,
+    member: directoryPeople.filter(p=>p.role==='member').length,
+    leader: directoryPeople.filter(p=>p.role==='leader').length,
+    visitor: directoryPeople.filter(p=>p.role==='visitor').length,
+  }), [directoryPeople]);
   const filteredPeople = useMemo(() => {
     const q=peopleSearch.trim().toLowerCase();
-    return activePeople.filter(p=>
+    return directoryPeople.filter(p=>
       (peopleRoleFilter==='all' || p.role===peopleRoleFilter) &&
       (peopleGroupFilter==='all' || (groupsByPersonId[p.id]||[]).some(g=>g.category_id===peopleGroupFilter)) &&
       (peopleProfileFilter==='all' ||
@@ -1183,11 +1188,11 @@ export default function AdminPage() {
         (peopleProfileFilter==='missing_dob' && !p.date_of_birth)) &&
       (!q || p.full_name.toLowerCase().includes(q)||p.phone?.includes(q)||p.email?.toLowerCase().includes(q))
     );
-  }, [activePeople,peopleSearch,peopleRoleFilter,peopleGroupFilter,peopleProfileFilter,groupsByPersonId]);
+  }, [directoryPeople,peopleSearch,peopleRoleFilter,peopleGroupFilter,peopleProfileFilter,groupsByPersonId]);
   // A stale page number after narrowing a filter would either show an empty
   // page that still has matches on page 1, or (once someone is deep in a
   // long list) silently render nothing at all.
-  useEffect(() => { setPeoplePage(1); }, [peopleSearch, peopleRoleFilter, peopleGroupFilter, peopleProfileFilter]);
+  useEffect(() => { setPeoplePage(1); setSelectedPersonIds(new Set()); }, [peopleView, peopleSearch, peopleRoleFilter, peopleGroupFilter, peopleProfileFilter]);
   const peopleTotalPages = Math.max(1, Math.ceil(filteredPeople.length / PEOPLE_PAGE_SIZE));
   const pagedPeople = useMemo(
     () => filteredPeople.slice((peoplePage-1)*PEOPLE_PAGE_SIZE, peoplePage*PEOPLE_PAGE_SIZE),
@@ -1395,7 +1400,10 @@ export default function AdminPage() {
     if (!deleteTarget) return;
     setDeletingBusy(true); setError(null);
     try {
-      const res = await fetch(`/api/${deleteTarget.kind}?id=${encodeURIComponent(deleteTarget.id)}&code=${encodeURIComponent(deleteCode.trim())}`, { method:'DELETE' });
+      const confirmation = deleteTarget.kind==='people'
+        ? `confirm=${encodeURIComponent(deleteCode.trim())}`
+        : `code=${encodeURIComponent(deleteCode.trim())}`;
+      const res = await fetch(`/api/${deleteTarget.kind}?id=${encodeURIComponent(deleteTarget.id)}&${confirmation}`, { method:'DELETE' });
       const data = await res.json();
       if (!res.ok) { setError(data.error||'Could not delete.'); return; }
       setMessage('Deleted.');
@@ -1406,6 +1414,22 @@ export default function AdminPage() {
 
   const askDelete = (kind:'services'|'people'|'giving', id:string, label:string) => {
     setDeleteCode(''); setDeleteTarget({ kind, id, label });
+  };
+
+  const changePersonArchiveState = async (person:Person, action:'archive'|'restore') => {
+    setArchivingBusy(true); setError(null);
+    try {
+      const res = await fetch('/api/people', {
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ personId:person.id, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || `Could not ${action} this person.`); return; }
+      setMessage(action==='archive' ? `${formatPersonName(person.full_name)} archived. Their history is preserved.` : `${formatPersonName(person.full_name)} restored to Active people.`);
+      setArchiveTarget(null);
+      loadData();
+    } finally { setArchivingBusy(false); }
   };
 
 
@@ -1486,7 +1510,30 @@ export default function AdminPage() {
         onSaved={()=>{ loadData(); setMessage(editingPerson ? 'Profile updated.' : 'Person added.'); }}
       />}
 
-      {/* Code-gated delete confirmation — shared across services, people, giving */}
+      {archiveTarget && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4" onClick={()=>setArchiveTarget(null)}>
+          <div className="absolute inset-0 bg-navy-900/60 backdrop-blur-sm" />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scale-in" onClick={e=>e.stopPropagation()}>
+            <div className="px-7 pt-7 pb-5">
+              <div className="archive-confirm-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M5.5 7l1 13h11l1-13M9 11h6M8 4h8l1 3H7l1-3Z"/></svg>
+              </div>
+              <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',marginBottom:8}}>Archive {formatPersonName(archiveTarget.full_name)}?</h2>
+              <p style={{fontSize:14,color:'#7A6E60',fontWeight:300,lineHeight:1.7}}>
+                They will be removed from active People, check-in and automatic messages. Their profile, attendance and giving history stay preserved and you can restore them at any time.
+              </p>
+            </div>
+            <div className="px-7 pb-7 flex gap-3 archive-confirm-actions">
+              <button onClick={()=>setArchiveTarget(null)} className="btn btn-secondary flex-1">Cancel</button>
+              <button onClick={()=>changePersonArchiveState(archiveTarget,'archive')} disabled={archivingBusy} className="btn btn-primary flex-1">
+                {archivingBusy ? 'Archiving…' : 'Archive person'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent deletion is intentionally separate from routine archiving. */}
       {deleteTarget && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center p-4" onClick={()=>setDeleteTarget(null)}>
           <div className="absolute inset-0 bg-navy-900/60 backdrop-blur-sm" />
@@ -1495,26 +1542,28 @@ export default function AdminPage() {
               <div style={{width:44,height:44,borderRadius:12,background:'#FDECEA',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16}}>
                 <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
               </div>
-              <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',marginBottom:8}}>Delete {deleteTarget.label}?</h2>
+              <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',marginBottom:8}}>{deleteTarget.kind==='people' ? 'Permanently delete' : 'Delete'} {deleteTarget.label}?</h2>
               <p style={{fontSize:14,color:'#7A6E60',fontWeight:300,lineHeight:1.7,marginBottom:16}}>
-                {deleteTarget.kind==='groups'
+                {deleteTarget.kind==='people'
+                  ? <>This permanently removes the profile, attendance records and group memberships. Giving records remain, but will no longer link to this person. This can&apos;t be undone.</>
+                  : deleteTarget.kind==='groups'
                   ? "People with this choice aren't deleted — it's just cleared from their profile."
                   : deleteTarget.kind==='group-categories'
                   ? "This can't be undone. Every choice under this field is deleted too, and everyone's answer for it goes with it."
                   : <>This can&apos;t be undone.{deleteTarget.kind==='services' && ' Its check-ins are removed too.'}</>
-                } Type your kiosk code to confirm.
+                } {deleteTarget.kind==='people' ? 'Type DELETE to confirm.' : settings?.kiosk_access_code ? 'Type your kiosk code to confirm.' : 'Type DELETE to confirm.'}
               </p>
-              <label className="block text-xs font-medium text-navy-600 mb-1.5">Kiosk code</label>
+              <label className="block text-xs font-medium text-navy-600 mb-1.5">{deleteTarget.kind==='people' || !settings?.kiosk_access_code ? 'Type DELETE' : 'Kiosk code'}</label>
               <input className="input" style={{letterSpacing:'0.15em'}} value={deleteCode}
                 onChange={e=>setDeleteCode(e.target.value)}
-                onKeyDown={e=>{ if(e.key==='Enter' && deleteCode.trim()) confirmDelete(); }}
-                placeholder={settings?.kiosk_access_code ? '••••••' : 'No code set — leave blank'}
+                onKeyDown={e=>{ if(e.key==='Enter' && (deleteTarget.kind==='people' ? deleteCode.trim()==='DELETE' : deleteCode.trim())) confirmDelete(); }}
+                placeholder={deleteTarget.kind==='people' || !settings?.kiosk_access_code ? 'DELETE' : '••••••'}
                 autoFocus autoComplete="off" spellCheck={false} />
-              <p style={{fontSize:11,color:'#A89D8E',marginTop:8,fontWeight:300}}>Find this under Settings → Kiosk access code.</p>
+              <p style={{fontSize:11,color:'#A89D8E',marginTop:8,fontWeight:300}}>{deleteTarget.kind==='people' || !settings?.kiosk_access_code ? 'This confirmation is case-sensitive.' : 'Find this under Settings → Kiosk access code.'}</p>
             </div>
             <div className="px-7 pb-7 flex gap-3">
               <button onClick={()=>setDeleteTarget(null)} className="btn btn-secondary flex-1">Cancel</button>
-              <button onClick={confirmDelete} disabled={deletingBusy || (!!settings?.kiosk_access_code && !deleteCode.trim())} className="btn btn-danger flex-1">
+              <button onClick={confirmDelete} disabled={deletingBusy || (deleteTarget.kind==='people' ? deleteCode.trim()!=='DELETE' : !deleteCode.trim())} className="btn btn-danger flex-1">
                 {deletingBusy ? 'Deleting…' : 'Delete'}
               </button>
             </div>
@@ -2356,7 +2405,7 @@ export default function AdminPage() {
           <div className="admin-page space-y-5 animate-fade-in">
             <div className="people-page-heading">
               <div>
-                <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400}}>People <span style={{fontSize:16,color:'#A89D8E',fontWeight:300}}>({activePeople.length})</span></h2>
+                <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A',fontWeight:400}}>People <span style={{fontSize:16,color:'#A89D8E',fontWeight:300}}>({directoryPeople.length})</span></h2>
                 <p className="people-page-subtitle">Manage profiles, roles, groups and follow-up details.</p>
               </div>
               <div className="people-page-actions">
@@ -2370,6 +2419,11 @@ export default function AdminPage() {
                   Export
                 </a>
               </div>
+            </div>
+
+            <div className="people-view-switch" role="group" aria-label="People record status">
+              <button type="button" aria-pressed={peopleView==='active'} onClick={()=>setPeopleView('active')} className={`btn text-xs ${peopleView==='active'?'btn-primary':'btn-secondary'}`}>Active <span>({activePeople.length})</span></button>
+              <button type="button" aria-pressed={peopleView==='archived'} onClick={()=>setPeopleView('archived')} className={`btn text-xs ${peopleView==='archived'?'btn-primary':'btn-secondary'}`}>Archived <span>({archivedPeople.length})</span></button>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -2403,7 +2457,7 @@ export default function AdminPage() {
               </select>
             </div>
 
-            {selectedPersonIds.size>0 && (
+            {peopleView==='active' && selectedPersonIds.size>0 && (
               <div className="alert" style={{background:'var(--chart-track)',border:'1px solid rgba(47,92,153,0.28)',color:'#16243A'}}>
                 <span style={{flex:1}}>{selectedPersonIds.size} selected</span>
                 {groups.length>0 ? (
@@ -2429,7 +2483,7 @@ export default function AdminPage() {
               </div>
             )}
 
-            {(missingBirthdayCount>0||missingEmailCount>0) && (
+            {peopleView==='active' && (missingBirthdayCount>0||missingEmailCount>0) && (
               <div className="panel people-quality-panel">
                 <div className="people-quality-score" aria-hidden="true">{profileCompleteness}%</div>
                 <div className="people-quality-copy">
@@ -2443,25 +2497,27 @@ export default function AdminPage() {
 
             <div className="card p-0 overflow-hidden people-directory-card">
               {filteredPeople.length===0 ? (
-                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleProfileFilter!=='all'?'No profiles match this detail filter.':peopleGroupFilter!=='all'?'Nobody is assigned to this category yet.':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. Add a person or wait for the first check-in.'}</p></div>
+                <div className="text-center py-16"><svg className="w-12 h-12 text-navy-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg><p className="text-navy-400 text-sm">{peopleSearch?'No results found':peopleView==='archived'?'No archived people.':peopleProfileFilter!=='all'?'No profiles match this detail filter.':peopleGroupFilter!=='all'?'Nobody is assigned to this category yet.':peopleRoleFilter!=='all'?`No ${peopleRoleFilter}s yet.`:'No people yet. Add a person or wait for the first check-in.'}</p></div>
               ) : (
                 <>
                   <div className="people-mobile-listbar">
-                    <label>
-                      <input type="checkbox" aria-label="Select all matching people"
-                        checked={filteredPeople.length>0 && filteredPeople.every(p=>selectedPersonIds.has(p.id))}
-                        onChange={e=>setSelectedPersonIds(e.target.checked ? new Set(filteredPeople.map(p=>p.id)) : new Set())} />
-                      Select all matches
-                    </label>
+                    {peopleView==='active' ? (
+                      <label>
+                        <input type="checkbox" aria-label="Select all matching people"
+                          checked={filteredPeople.length>0 && filteredPeople.every(p=>selectedPersonIds.has(p.id))}
+                          onChange={e=>setSelectedPersonIds(e.target.checked ? new Set(filteredPeople.map(p=>p.id)) : new Set())} />
+                        Select all matches
+                      </label>
+                    ) : <span>Archived records</span>}
                     <span>{filteredPeople.length} {filteredPeople.length===1?'profile':'profiles'}</span>
                   </div>
                   <div className="overflow-x-auto people-directory-scroll">
                     <table className="w-full people-directory-table">
                     <thead><tr className="bg-cream">
                       <th className="table-header" style={{width:36}}>
-                        <input type="checkbox" aria-label="Select all"
+                        {peopleView==='active' && <input type="checkbox" aria-label="Select all"
                           checked={filteredPeople.length>0 && filteredPeople.every(p=>selectedPersonIds.has(p.id))}
-                          onChange={e=>setSelectedPersonIds(e.target.checked ? new Set(filteredPeople.map(p=>p.id)) : new Set())} />
+                          onChange={e=>setSelectedPersonIds(e.target.checked ? new Set(filteredPeople.map(p=>p.id)) : new Set())} />}
                       </th>
                       <th className="table-header">Name</th>
                       <th className="table-header hidden sm:table-cell">Phone</th>
@@ -2482,9 +2538,9 @@ export default function AdminPage() {
                         return (
                           <tr key={p.id} className="table-row">
                             <td className="table-cell">
-                              <input type="checkbox" aria-label={`Select ${p.full_name}`}
+                              {peopleView==='active' && <input type="checkbox" aria-label={`Select ${p.full_name}`}
                                 checked={selectedPersonIds.has(p.id)}
-                                onChange={e=>setSelectedPersonIds(prev=>{ const next=new Set(prev); if(e.target.checked) next.add(p.id); else next.delete(p.id); return next; })} />
+                                onChange={e=>setSelectedPersonIds(prev=>{ const next=new Set(prev); if(e.target.checked) next.add(p.id); else next.delete(p.id); return next; })} />}
                             </td>
                             <td className="table-cell">
                               <div className="flex items-center gap-2.5">
@@ -2499,7 +2555,9 @@ export default function AdminPage() {
                             <td className="table-cell hidden lg:table-cell text-sm whitespace-nowrap">{(()=>{ const w=weeksSince(p.last_checkin_at); if(w===null||!p.last_checkin_at) return <span className="text-navy-300">Never</span>; return (<><span className="text-navy-600">{new Date(p.last_checkin_at).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>{w>0&&<span className={w>=3?'text-amber-600':'text-navy-300'}> · {w}w ago</span>}</>); })()}</td>
                             <td className="table-cell hidden md:table-cell text-navy-500 text-sm">{p.total_checkins}</td>
                             <td className="table-cell">
-                              {missing.length>0 ? (
+                              {peopleView==='archived' ? (
+                                <span className="badge text-[11px]">Archived</span>
+                              ) : missing.length>0 ? (
                                 <span className="inline-flex items-center gap-1.5 text-amber-700 text-xs font-medium" title="Profile details incomplete">
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16.5h.01"/></svg>
                                   {missing.join(', ')} missing
@@ -2517,8 +2575,17 @@ export default function AdminPage() {
                                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
                                 </summary>
                                 <div className="service-more-menu">
-                                  <button onClick={()=>setEditingPerson(p)}>Edit profile</button>
-                                  <button onClick={()=>askDelete('people', p.id, formatPersonName(p.full_name))} className="service-danger">Delete permanently</button>
+                                  {peopleView==='active' ? (
+                                    <>
+                                      <button onClick={()=>setEditingPerson(p)}>Edit profile</button>
+                                      <button onClick={()=>setArchiveTarget(p)}>Archive person</button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button onClick={()=>changePersonArchiveState(p,'restore')} disabled={archivingBusy}>Restore person</button>
+                                      <button onClick={()=>askDelete('people', p.id, formatPersonName(p.full_name))} className="service-danger">Delete permanently</button>
+                                    </>
+                                  )}
                                 </div>
                               </details>
                             </td>

@@ -366,6 +366,15 @@ body {
 .admin-shell .alert { box-shadow:inset 3px 0 0 currentColor; }
 @media (max-width:640px) { .admin-shell .admin-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .admin-shell .admin-stat { min-height:108px; } .admin-shell .admin-page { max-width:none; } }
 
+.admin-shell .people-view-switch { display:inline-flex; gap:6px; padding:4px; border:1px solid var(--admin-line); border-radius:10px; background:#fff; }
+.admin-shell .people-view-switch .btn { min-height:32px; padding:6px 11px; }
+.admin-shell .people-view-switch .btn span { opacity:.7; font-variant-numeric:tabular-nums; }
+.admin-shell .archive-confirm-icon { display:grid; place-items:center; width:44px; height:44px; margin-bottom:16px; border-radius:12px; background:#eef2f7; color:#172b4d; }
+@media (max-width:640px) {
+  .admin-shell .people-view-switch { display:flex; width:100%; }
+  .admin-shell .people-view-switch .btn { flex:1; justify-content:center; }
+  .admin-shell .archive-confirm-actions { flex-direction:column-reverse; }
+}
 /* People directory: profile quality is useful operational context, not an
    emergency. Keep it calm, compact and directly filterable. */
 .admin-shell .people-page-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap; }
