@@ -21,5 +21,21 @@ export async function GET() {
 
   const supabase = getServerSupabase();
   const result = await creditSmsTopup(supabase, REFERENCE);
-  return NextResponse.json(result);
+
+  // Read the actual stored balance directly, bypassing whatever the
+  // Settings page fetches/renders — "Already processed" only proves a
+  // topup row exists, not that this org's number reflects it.
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('id, name, sms_credits')
+    .eq('id', auth.session.orgId)
+    .single();
+
+  const { data: topupRow } = await supabase
+    .from('sms_topups')
+    .select('*')
+    .eq('paystack_reference', REFERENCE)
+    .maybeSingle();
+
+  return NextResponse.json({ result, currentOrg: org, topupRow });
 }
