@@ -998,6 +998,16 @@ export default function AdminPage() {
   const lastMonthKey = prevMonthKey(currentMonthKey);
   const monthOf = (iso?: string|null) => iso ? monthKeyOf(tzFmt, iso) : '';
   const todayCheckins = useMemo(() => checkins.filter(c=>c.checked_in_at && dayKeyOf(tzFmt, c.checked_in_at)===today), [checkins, tzFmt, today]);
+  // Today's check-ins are grouped by calendar day, not by which specific
+  // service is active — deliberately, so a person who attends two services
+  // in one day counts once, not twice. But that means the list below is a
+  // blend when there IS more than one service today, and nothing said so.
+  // Only tag entries with which service they belong to when it's actually
+  // ambiguous — a church with one service a day (most of them) never sees
+  // this at all.
+  const todayHasMultipleServices = useMemo(() =>
+    new Set(todayCheckins.map(c=>c.service_id)).size > 1
+  , [todayCheckins]);
   const currentMonthCheckins = useMemo(() => checkins.filter(c=>monthOf(c.checked_in_at)===currentMonthKey), [checkins, tzFmt, currentMonthKey]);
   const lastMonthCheckins = useMemo(() => checkins.filter(c=>monthOf(c.checked_in_at)===lastMonthKey), [checkins, tzFmt, lastMonthKey]);
   const currentMonthUnique = useMemo(() => new Set(currentMonthCheckins.map(c=>c.person_id)).size, [currentMonthCheckins]);
@@ -1671,7 +1681,10 @@ export default function AdminPage() {
                       </div>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:14,color:'#1C2A3A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.person?.full_name}</div>
-                        {c.is_first_time && <div style={{fontSize:11,color:'#2E7D4E',fontWeight:500,display:'flex',alignItems:'center',gap:4}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.2 4L19 7" /></svg>First visit</div>}
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          {c.is_first_time && <div style={{fontSize:11,color:'#2E7D4E',fontWeight:500,display:'flex',alignItems:'center',gap:4}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.2 4L19 7" /></svg>First visit</div>}
+                          {todayHasMultipleServices && <div style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>{c.service?.title || 'Untitled service'}</div>}
+                        </div>
                       </div>
                       <div style={{fontSize:12,color:'#A89D8E',flexShrink:0}}>{new Date(c.checked_in_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
                     </div>
