@@ -199,9 +199,19 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
               trusted with this person's phone number and giving history. */}
           <div className="flex items-center gap-4">
             <Avatar name={form.full_name} photoUrl={photoRemoved ? null : photoPreview} size={56} />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Two explicit actions rather than one generic file picker —
+                  a bare picker sometimes surfaces "Camera" as an option on
+                  mobile and sometimes doesn't, depending on the phone and
+                  browser. `capture="environment"` forces the rear camera to
+                  open directly, since the admin is photographing someone
+                  else standing in front of them, not taking a selfie. */}
               <label className="btn btn-secondary text-sm" style={{cursor:'pointer'}}>
-                {photoPreview && !photoRemoved ? 'Change photo' : 'Add photo'}
+                Take photo
+                <input type="file" accept="image/*" capture="environment" onChange={onPhotoSelected} style={{display:'none'}} />
+              </label>
+              <label className="btn btn-secondary text-sm" style={{cursor:'pointer'}}>
+                {photoPreview && !photoRemoved ? 'Change photo' : 'Upload photo'}
                 <input type="file" accept="image/*" onChange={onPhotoSelected} style={{display:'none'}} />
               </label>
               {photoPreview && !photoRemoved && (
