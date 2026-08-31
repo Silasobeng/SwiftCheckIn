@@ -5,6 +5,7 @@ import { sendSMS, welcomeMessage } from '@/lib/sms';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { tzFormatter, dayKeyOf } from '@/lib/monthWindow';
 import { formatPersonName, validatePersonIdentity } from '@/lib/personIdentity';
+import { checkEmailDomain } from '@/lib/emailDomainCheck';
 
 // A service is only "today" once, in the church's own timezone — a kiosk left
 // open past that (nobody closed it after Sunday) must not silently accept a
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
     const supabase = getServerSupabase();
     const body = await request.json();
 
-    const { orgSlug, personId, newPerson, serviceId } = body;
+    const { orgSlug, personId, newPerson, serviceId, confirmEmailAnyway } = body;
 
     if (!orgSlug || !serviceId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -197,6 +198,20 @@ export async function POST(request: NextRequest) {
 
       const identityError = validatePersonIdentity(full_name, phone);
       if (identityError) return NextResponse.json({ error: identityError }, { status: 400 });
+
+      // Catch a typo'd or made-up email domain right here, while the person
+      // is still standing at the kiosk and can actually fix it — the far
+      // better moment than a bounce webhook discovering it hours later.
+      // Only a definitive "this domain has no mail server" blocks the
+      // submission, and only once — the client resubmits with
+      // confirmEmailAnyway to go through regardless, so a person who really
+      // does use an odd domain is never stuck.
+      if (email?.trim() && !confirmEmailAnyway) {
+        const domainCheck = await checkEmailDomain(email.trim());
+        if (domainCheck === 'no-mail-server') {
+          return NextResponse.json({ error: 'EMAIL_UNVERIFIED', message: `We couldn't find a mail server for "${email.trim()}" — check the spelling, or continue anyway.` }, { status: 422 });
+        }
+      }
 
       // Check if phone already exists
       const { data: existing } = await supabase

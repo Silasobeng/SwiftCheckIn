@@ -147,6 +147,10 @@ export default function KioskPage() {
   const [fsNotice, setFsNotice]       = useState('');
   const [newForm, setNewForm]           = useState({ full_name:'', phone:'', gender:'', email:'' });
   const [newErrors, setNewErrors]       = useState({ full_name:'', phone:'' });
+  // Set when the server can't find a mail server for the typed email — a
+  // soft "are you sure" rather than a hard block, so a real person with an
+  // unusual domain is never stuck. Cleared the moment they edit the email.
+  const [emailWarning, setEmailWarning] = useState('');
   const [search, setSearch]             = useState('');
   // isOffline reflects the last network attempt, not navigator.onLine — a
   // device can report "online" while still unable to reach this server, and
@@ -280,12 +284,19 @@ export default function KioskPage() {
     return () => { window.removeEventListener('online', onOnline); clearInterval(interval); };
   }, [flushQueue]);
 
-  const handleCheckin = async (personId?:string, newPerson?:typeof newForm) => {
+  const handleCheckin = async (personId?:string, newPerson?:typeof newForm, confirmEmailAnyway?:boolean) => {
     if(!data) return;
     try {
-      const res  = await fetch('/api/kiosk', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orgSlug:slug, serviceId:data.service.id, personId, newPerson }) });
+      const res  = await fetch('/api/kiosk', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orgSlug:slug, serviceId:data.service.id, personId, newPerson, confirmEmailAnyway }) });
       const json = await res.json();
-      if(!res.ok) { setError(json.error||'Check-in failed'); setScreen('error'); return; }
+      if(!res.ok) {
+        // A soft warning, not a hard failure — stays on the same form so
+        // the email is right there to either fix or confirm, instead of
+        // bouncing to a generic error screen for something this minor.
+        if (json.error === 'EMAIL_UNVERIFIED') { setEmailWarning(json.message || "We couldn't find a mail server for this email."); return; }
+        setError(json.error||'Check-in failed'); setScreen('error'); return;
+      }
+      setEmailWarning('');
       setJustQueued(false);
       setSuccessName(json.person.full_name); setIsFirstTime(json.isFirstTime); setAlreadyCheckedIn(json.alreadyCheckedIn||false); setScreen('success');
       setTimeout(() => { setSearch(''); setNewForm({ full_name:'', phone:'', gender:'', email:'' }); loadKiosk(); }, 4500);
@@ -627,7 +638,16 @@ export default function KioskPage() {
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color:'rgba(255,255,255,.5)' }}>
               Email <span className="font-normal normal-case text-white/30 tracking-normal text-xs">(optional)</span>
             </label>
-            <input type="email" className="input-dark input-lg" placeholder="your@email.com" value={newForm.email} onChange={e => setNewForm({...newForm, email:e.target.value})}/>
+            <input type="email" className="input-dark input-lg" placeholder="your@email.com" value={newForm.email}
+              onChange={e => { setNewForm({...newForm, email:e.target.value}); if(emailWarning) setEmailWarning(''); }}/>
+            {emailWarning && (
+              <div className="mt-2.5 rounded-xl px-4 py-3 text-sm" style={{ background:'rgba(232,170,24,.12)', border:'1px solid rgba(232,170,24,.35)', color:'rgba(255,255,255,.85)' }}>
+                {emailWarning}
+                <button type="button" onClick={() => handleCheckin(undefined, newForm, true)} className="block mt-1.5 font-bold underline" style={{ color:'#f5c842' }}>
+                  Continue anyway
+                </button>
+              </div>
+            )}
           </div>
 
           <button
