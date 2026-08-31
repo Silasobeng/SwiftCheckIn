@@ -292,13 +292,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to check in' }, { status: 500 });
     }
 
-    // Send welcome email for first-timers with email
-    if (isFirstTime && person.email) {
+    // Send welcome email for first-timers with a working email — an address
+    // the Resend webhook has already marked as bounced/complained is treated
+    // the same as having no email at all, so it falls through to SMS below
+    // instead of silently trying the same dead address again.
+    if (isFirstTime && person.email && !person.email_invalid_at) {
       sendWelcomeEmail(person, org.id, service).catch(console.error);
     }
 
-    // Send welcome SMS for first-timers without email (phone is always present)
-    if (isFirstTime && !person.email && org.sms_welcome_enabled && org.sms_credits > 0 && !person.sms_opted_out) {
+    // Send welcome SMS for first-timers without a working email (phone is always present)
+    if (isFirstTime && (!person.email || person.email_invalid_at) && org.sms_welcome_enabled && org.sms_credits > 0 && !person.sms_opted_out) {
       const firstName = person.full_name.split(' ')[0];
       sendSMS(person.phone, welcomeMessage(firstName, org.name), org.id, 'welcome', person.id).catch(console.error);
     }

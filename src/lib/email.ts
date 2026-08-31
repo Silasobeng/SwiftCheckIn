@@ -335,6 +335,11 @@ export async function sendWelcomeEmail(
   person: Person, orgId: string, service?: Service | null
 ): Promise<SendEmailResult> {
   if (!person.email) return { success: false, error: 'No email address' };
+  // Set only by the Resend bounce webhook when this address has already
+  // hard-bounced or complained — retrying it on every future welcome/
+  // birthday/missed send would just be attempting a known-dead address
+  // forever with nothing to show for it.
+  if (person.email_invalid_at) return { success: false, error: 'Email previously bounced' };
   const supabase = getServerSupabase();
   const { data: org }      = await supabase.from('organizations').select('*').eq('id', orgId).single();
   if (!org) return { success: false, error: 'Organization not found' };
