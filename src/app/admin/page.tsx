@@ -1400,10 +1400,7 @@ export default function AdminPage() {
     if (!deleteTarget) return;
     setDeletingBusy(true); setError(null);
     try {
-      const confirmation = deleteTarget.kind==='people'
-        ? `confirm=${encodeURIComponent(deleteCode.trim())}`
-        : `code=${encodeURIComponent(deleteCode.trim())}`;
-      const res = await fetch(`/api/${deleteTarget.kind}?id=${encodeURIComponent(deleteTarget.id)}&${confirmation}`, { method:'DELETE' });
+      const res = await fetch(`/api/${deleteTarget.kind}?id=${encodeURIComponent(deleteTarget.id)}&code=${encodeURIComponent(deleteCode.trim())}`, { method:'DELETE' });
       const data = await res.json();
       if (!res.ok) { setError(data.error||'Could not delete.'); return; }
       setMessage('Deleted.');
@@ -1551,19 +1548,19 @@ export default function AdminPage() {
                   : deleteTarget.kind==='group-categories'
                   ? "This can't be undone. Every choice under this field is deleted too, and everyone's answer for it goes with it."
                   : <>This can&apos;t be undone.{deleteTarget.kind==='services' && ' Its check-ins are removed too.'}</>
-                } {deleteTarget.kind==='people' ? 'Type DELETE to confirm.' : settings?.kiosk_access_code ? 'Type your kiosk code to confirm.' : 'Type DELETE to confirm.'}
+                } {settings?.kiosk_access_code ? 'Type your kiosk code to confirm.' : 'Type DELETE to confirm.'}
               </p>
-              <label className="block text-xs font-medium text-navy-600 mb-1.5">{deleteTarget.kind==='people' || !settings?.kiosk_access_code ? 'Type DELETE' : 'Kiosk code'}</label>
+              <label className="block text-xs font-medium text-navy-600 mb-1.5">{!settings?.kiosk_access_code ? 'Type DELETE' : 'Kiosk code'}</label>
               <input className="input" style={{letterSpacing:'0.15em'}} value={deleteCode}
                 onChange={e=>setDeleteCode(e.target.value)}
-                onKeyDown={e=>{ if(e.key==='Enter' && (deleteTarget.kind==='people' ? deleteCode.trim()==='DELETE' : deleteCode.trim())) confirmDelete(); }}
-                placeholder={deleteTarget.kind==='people' || !settings?.kiosk_access_code ? 'DELETE' : '••••••'}
+                onKeyDown={e=>{ if(e.key==='Enter' && deleteCode.trim()) confirmDelete(); }}
+                placeholder={!settings?.kiosk_access_code ? 'DELETE' : '••••••'}
                 autoFocus autoComplete="off" spellCheck={false} />
-              <p style={{fontSize:11,color:'#A89D8E',marginTop:8,fontWeight:300}}>{deleteTarget.kind==='people' || !settings?.kiosk_access_code ? 'This confirmation is case-sensitive.' : 'Find this under Settings → Kiosk access code.'}</p>
+              <p style={{fontSize:11,color:'#A89D8E',marginTop:8,fontWeight:300}}>{!settings?.kiosk_access_code ? 'This confirmation is case-sensitive.' : 'Find this under Settings → Kiosk access code.'}</p>
             </div>
             <div className="px-7 pb-7 flex gap-3">
               <button onClick={()=>setDeleteTarget(null)} className="btn btn-secondary flex-1">Cancel</button>
-              <button onClick={confirmDelete} disabled={deletingBusy || (deleteTarget.kind==='people' ? deleteCode.trim()!=='DELETE' : !deleteCode.trim())} className="btn btn-danger flex-1">
+              <button onClick={confirmDelete} disabled={deletingBusy || !deleteCode.trim()} className="btn btn-danger flex-1">
                 {deletingBusy ? 'Deleting…' : 'Delete'}
               </button>
             </div>
