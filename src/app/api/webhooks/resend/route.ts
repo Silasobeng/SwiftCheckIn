@@ -61,7 +61,16 @@ export async function POST(request: NextRequest) {
   if (isComplaint || isHardBounce) {
     const supabase = getServerSupabase();
     const now = new Date().toISOString();
-    const recipients = (event.data.to || []).map((e: string) => e.trim()).filter(Boolean);
+    // Resend sends "Name <email>" here, not a bare address — matching that
+    // whole string against people.email (which only ever holds the bare
+    // address) silently matched zero rows every time. Confirmed live: a
+    // real permanent bounce came through, verified correctly, returned
+    // 200, and flagged nobody because of exactly this.
+    const extractEmail = (raw: string): string => {
+      const match = raw.match(/<([^>]+)>/);
+      return (match ? match[1] : raw).trim();
+    };
+    const recipients = (event.data.to || []).map(extractEmail).filter(Boolean);
 
     for (const email of recipients) {
       // Case-insensitive, and intentionally not scoped to one org — a
