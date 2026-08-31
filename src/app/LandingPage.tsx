@@ -132,6 +132,7 @@ export default function LandingPage({ images }: { images: LandingImages }) {
           </Link>
 
           <nav className="hidden items-center gap-8 md:flex">
+            <Link href="/manual" className={`text-sm transition-colors hover:text-gold-500 ${navSolid ? 'text-navy-600' : 'text-white/85'}`}>Manual</Link>
             {isLoggedIn ? (
               <Link href="/admin" className="rounded-full bg-gold-500 px-6 py-2.5 text-sm font-semibold text-navy-900 transition hover:brightness-105">Dashboard →</Link>
             ) : (
@@ -156,8 +157,9 @@ export default function LandingPage({ images }: { images: LandingImages }) {
 
         {mobileOpen && (
           <div className="border-t border-cream-dark bg-white px-6 py-4 md:hidden">
+            <Link href="/manual" onClick={()=>setMobileOpen(false)} className="block py-3 text-center text-navy-600">Manual</Link>
             {isLoggedIn ? (
-              <Link href="/admin" onClick={()=>setMobileOpen(false)} className="block rounded-full bg-gold-500 py-3 text-center font-semibold text-navy-900">Dashboard →</Link>
+              <Link href="/admin" onClick={()=>setMobileOpen(false)} className="mt-2 block rounded-full bg-gold-500 py-3 text-center font-semibold text-navy-900">Dashboard →</Link>
             ) : (
               <>
                 {/* Sign in first, Start Free last as the highlighted button —

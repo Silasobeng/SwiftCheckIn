@@ -1590,6 +1590,11 @@ export default function AdminPage() {
             <button onClick={()=>loadData()} className="btn btn-ghost btn-icon" title="Refresh" aria-label="Refresh data">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
+            {/* Always reachable, not just tied to the Open Check-In hint
+                below — someone might go looking for it from any tab. */}
+            <a href="/manual" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-icon" title="Manual — how WeMotiply works" aria-label="Open the manual">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+            </a>
             {/* This is the single most important button in the app — it's how
                 a church actually starts letting people check in — so unlike
                 Refresh and Logout beside it, it never drops to icon-only. A
@@ -1758,10 +1763,14 @@ export default function AdminPage() {
                   </p>
                 )}
               </div>
-              <div style={{display:'flex',gap:10}}>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}>
                 <button onClick={toggleKiosk} className={`btn ${settings?.kiosk_open ? 'btn-secondary' : 'btn-primary'} text-sm`}>
                   {settings?.kiosk_open ? 'Close Check-In' : 'Open Check-In'}
                 </button>
+                {/* Deliberately quiet — a first-time admin opening check-in
+                    for the first time might want this, but a big banner
+                    here would be noise the 50th time they do it. */}
+                <a href="/manual#kiosk" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>New here? See the manual →</a>
               </div>
             </div>
 
