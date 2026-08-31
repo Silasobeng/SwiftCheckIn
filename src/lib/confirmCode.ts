@@ -5,8 +5,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // unlock the tablet — so accidental or casual deletion is prevented without a
 // second password to remember.
 //
-// If the church has cleared its kiosk code, there is nothing to check, so the
-// delete proceeds (the admin is already authenticated for their own org).
+// If the church has cleared its kiosk code, there's no PIN to check it
+// against — but that used to mean skipping confirmation entirely, so a
+// misclick on Delete (sitting right next to Edit in the People list) went
+// straight through with nothing typed at all. The admin is already
+// authenticated for their own org either way, so this was never about
+// authorisation — it's purely a "did you mean to do this" speed bump, and
+// that bump shouldn't disappear just because a church never set a PIN.
+// Falls back to typing the literal word DELETE instead.
 export async function kioskCodeMatches(
   supabase: SupabaseClient,
   orgId: string,
@@ -19,9 +25,13 @@ export async function kioskCodeMatches(
     .maybeSingle();
 
   const expected = data?.kiosk_access_code;
-  if (!expected) return { ok: true, noCodeSet: true };
+  const typed = typeof code === 'string' ? code.trim() : '';
 
-  if (typeof code === 'string' && code.trim().toLowerCase() === expected.trim().toLowerCase()) {
+  if (!expected) {
+    return { ok: typed.toUpperCase() === 'DELETE', noCodeSet: true };
+  }
+
+  if (typed.toLowerCase() === expected.trim().toLowerCase()) {
     return { ok: true };
   }
   return { ok: false };
