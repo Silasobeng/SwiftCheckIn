@@ -1083,17 +1083,16 @@ export default function AdminPage() {
   const currentMonthKey = monthKeyOf(tzFmt, new Date());
   const lastMonthKey = prevMonthKey(currentMonthKey);
   const monthOf = (iso?: string|null) => iso ? monthKeyOf(tzFmt, iso) : '';
-  const todayCheckins = useMemo(() => checkins.filter(c=>c.checked_in_at && dayKeyOf(tzFmt, c.checked_in_at)===today), [checkins, tzFmt, today]);
-  // Today's check-ins are grouped by calendar day, not by which specific
-  // service is active — deliberately, so a person who attends two services
-  // in one day counts once, not twice. But that means the list below is a
-  // blend when there IS more than one service today, and nothing said so.
-  // Only tag entries with which service they belong to when it's actually
-  // ambiguous — a church with one service a day (most of them) never sees
-  // this at all.
-  const todayHasMultipleServices = useMemo(() =>
-    new Set(todayCheckins.map(c=>c.service_id)).size > 1
-  , [todayCheckins]);
+  // The dashboard is a live service desk, not a calendar-day ledger. A new
+  // active service must therefore begin with a clean attendance slate even
+  // when a church has already run another gathering that same day.
+  const activeServiceCheckins = useMemo(() =>
+    activeService ? checkins.filter(c => c.service_id === activeService.id) : []
+  , [checkins, activeService]);
+  const activeServiceFirstTimers = useMemo(() =>
+    activeServiceCheckins.filter(c => c.is_first_time).length
+  , [activeServiceCheckins]);
+  const activeServiceReturning = activeServiceCheckins.length - activeServiceFirstTimers;
   const currentMonthCheckins = useMemo(() => checkins.filter(c=>monthOf(c.checked_in_at)===currentMonthKey), [checkins, tzFmt, currentMonthKey]);
   const lastMonthCheckins = useMemo(() => checkins.filter(c=>monthOf(c.checked_in_at)===lastMonthKey), [checkins, tzFmt, lastMonthKey]);
   const currentMonthUnique = useMemo(() => new Set(currentMonthCheckins.map(c=>c.person_id)).size, [currentMonthCheckins]);
@@ -1784,48 +1783,71 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Stat cards */}
-            <div className="admin-stat-grid">
-              {[
-                {label:"Checked in today",    value:todayCheckins.length},
-                {label:"Members",             value:members.length},
-                {label:"Visitors",            value:visitors.length},
-                {label:"Total services",      value:services.length},
-              ].map(({label,value})=>(
-                <div key={label} className="panel admin-stat" style={{padding:'22px 24px'}}>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:34,color:'#16243A',lineHeight:1,marginBottom:6}}>{value}</div>
-                  <div style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>{label}</div>
+            {/* The live service is deliberately the loudest information here.
+                Roster totals remain useful, but should not compete with
+                attendance while a church is receiving people. */}
+            <section className="panel" style={{padding:'22px 24px',marginBottom:18,borderTop:'3px solid #C97B1A',background:'linear-gradient(135deg,#FFFFFF 0%,#FFF9F0 100%)'}}>
+              <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:16,flexWrap:'wrap',marginBottom:18}}>
+                <div>
+                  <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#C97B1A',fontWeight:700,marginBottom:5}}>Live service attendance</div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:23,color:'#16243A'}}>{activeService?.title || 'No service selected'}</div>
                 </div>
-              ))}
+                <div style={{fontSize:12,color:settings?.kiosk_open?'#2E7D4E':'#7A6E60',fontWeight:500,display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{width:7,height:7,borderRadius:'50%',background:settings?.kiosk_open?'#2E7D4E':'#A89D8E',display:'inline-block'}} />
+                  {settings?.kiosk_open ? 'Receiving check-ins now' : 'Open check-in to begin'}
+                </div>
+              </div>
+              <div className="admin-stat-grid">
+                {[
+                  {label:'Checked in for this service', value:activeServiceCheckins.length},
+                  {label:'First-time visitors', value:activeServiceFirstTimers},
+                  {label:'Returning people', value:activeServiceReturning},
+                ].map(({label,value})=>(
+                  <div key={label} style={{padding:'8px 0'}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:36,color:'#16243A',lineHeight:1,marginBottom:7}}>{value}</div>
+                    <div style={{fontSize:12,color:'#7A6E60',fontWeight:400}}>{label}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <div style={{display:'flex',alignItems:'center',gap:10,margin:'0 2px 18px',color:'#8A7C6B',fontSize:12,flexWrap:'wrap'}}>
+              <span style={{fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',fontSize:10}}>Church at a glance</span>
+              <span aria-hidden="true" style={{color:'#D7CCBC'}}>•</span>
+              <span>{members.length} total members</span>
+              <span aria-hidden="true" style={{color:'#D7CCBC'}}>•</span>
+              <span>{visitors.length} total visitors</span>
+              <span aria-hidden="true" style={{color:'#D7CCBC'}}>•</span>
+              <span>{services.length} services recorded</span>
             </div>
 
             {/* Two column grid — stacks below lg so neither panel gets squeezed */}
             <div className="grid gap-5 grid-cols-1 lg:grid-cols-[1.3fr_1fr]">
 
-              {/* Today&apos;s check-ins */}
+              {/* Only the active service appears here. Starting a new service
+                  never carries an earlier service's attendance list. */}
               <div className="panel" style={{padding:'24px 28px'}}>
-                <div className="panel-label" style={{display:'block',marginBottom:18}}>Today&apos;s check-ins</div>
-                {todayCheckins.length===0 ? (
+                <div className="panel-label" style={{display:'block',marginBottom:18}}>This service&apos;s check-ins</div>
+                {activeServiceCheckins.length===0 ? (
                   <div style={{textAlign:'center',padding:'32px 0',color:'#A89D8E'}}>
-                    <div style={{fontSize:14,fontWeight:300}}>Nobody checked in yet</div>
+                    <div style={{fontSize:14,fontWeight:300}}>{activeService ? 'Nobody checked in for this service yet' : 'Create a service to begin check-in'}</div>
                   </div>
                 ) : (<>
-                  {todayCheckins.slice(0,8).map((c,i,arr)=>(
+                  {activeServiceCheckins.slice(0,8).map((c,i,arr)=>(
                     <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 0',borderBottom:i===arr.length-1?'none':'1px solid #F0EBE3'}}>
                       <Avatar name={c.person?.full_name || ''} photoUrl={c.person?.photo_url} />
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:14,color:'#1C2A3A',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.person?.full_name}</div>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
                           {c.is_first_time && <div style={{fontSize:11,color:'#2E7D4E',fontWeight:500,display:'flex',alignItems:'center',gap:4}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.2 4L19 7" /></svg>First visit</div>}
-                          {todayHasMultipleServices && <div style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>{c.service?.title || 'Untitled service'}</div>}
                         </div>
                       </div>
                       <div style={{fontSize:12,color:'#A89D8E',flexShrink:0}}>{new Date(c.checked_in_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
                     </div>
                   ))}
-                  {todayCheckins.length>8 && (
+                  {activeServiceCheckins.length>8 && (
                     <div style={{fontSize:12,color:'#A89D8E',fontWeight:300,paddingTop:14,borderTop:'1px solid #F0EBE3',marginTop:4}}>
-                      + {todayCheckins.length-8} more checked in today
+                      + {activeServiceCheckins.length-8} more checked in for this service
                     </div>
                   )}
                 </>)}
