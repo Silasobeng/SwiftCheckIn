@@ -636,9 +636,13 @@ export default function KioskPage() {
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color:'rgba(255,255,255,.5)' }}>
-              Email <span className="font-normal normal-case text-white/30 tracking-normal text-xs">(optional)</span>
+              Email address <span className="font-normal normal-case text-white/30 tracking-normal text-xs">(optional)</span>
             </label>
-            <input type="email" className="input-dark input-lg" placeholder="your@email.com" value={newForm.email}
+            {/* Soft, explicit permission to skip rather than a field that
+                just sits there implying it should be filled — the point is
+                removing the felt pressure to type something under pressure,
+                not the option to give a real one. */}
+            <input type="email" className="input-dark input-lg" placeholder="Leave blank if you don't have one" value={newForm.email}
               onChange={e => { setNewForm({...newForm, email:e.target.value}); if(emailWarning) setEmailWarning(''); }}/>
             {emailWarning && (
               <div className="mt-2.5 rounded-xl px-4 py-3 text-sm" style={{ background:'rgba(232,170,24,.12)', border:'1px solid rgba(232,170,24,.35)', color:'rgba(255,255,255,.85)' }}>
