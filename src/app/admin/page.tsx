@@ -385,6 +385,12 @@ export default function AdminPage() {
   // is open — searches both present and absent (members/leaders) so it
   // gives a real verdict either way, not just "not found in this list."
   const [presentSearch, setPresentSearch] = useState('');
+  // The care/follow-up lists on the Dashboard used to cap at 5 with static
+  // "+N more" text and no way to actually reach the rest — a real dead end
+  // for exactly the churches this feature matters most for (more people
+  // needing a call, not fewer). These toggle the full list inline instead.
+  const [showAllMissed, setShowAllMissed] = useState(false);
+  const [showAllIrregular, setShowAllIrregular] = useState(false);
   const [absentGroupCategoryId, setAbsentGroupCategoryId] = useState<string>('');
   const [giving, setGiving] = useState<Giving[]>([]);
   const [givingFormOpen, setGivingFormOpen] = useState(false);
@@ -658,6 +664,13 @@ export default function AdminPage() {
   const toggleKiosk = async () => {
     if (!settings) return; setMessage(null); setError(null);
     if (!settings.kiosk_open && (!activeService || activeService.service_date !== today)) {
+      // A today-dated service someone already created (just not yet marked
+      // active) shouldn't force a trip to Today's Service — that's exactly
+      // the one-extra-step friction this got flagged for. Only actually
+      // redirect when nothing for today exists at all, since there's
+      // genuinely nothing to start check-in for yet.
+      const todaysService = services.find(s => s.service_date === today);
+      if (todaysService) { await startCheckinForService(todaysService); return; }
       setError('Choose today’s service and start check-in from Today’s Service first.');
       setTab('services');
       return;
@@ -2964,7 +2977,7 @@ export default function AdminPage() {
                     <p style={{fontSize:12,color:'#7A6E60',fontWeight:300,lineHeight:1.5,margin:'0 0 12px'}}>Members and leaders absent from both most recent service days.</p>
                     {recentServiceDays.length<2 ? <div style={{fontSize:12,color:'#A89D8E'}}>Needs two completed services to measure.</div>
                       : missedTwoServices.length===0 ? <div style={{fontSize:12,color:'#2E7D4E'}}>Everyone expected attended at least one of the last two services.</div>
-                      : <div>{missedTwoServices.slice(0,5).map(person=><div key={person.id} style={{fontSize:13,color:'#3A3020',padding:'7px 0',borderTop:'1px solid #F4EEE5'}}>{person.full_name}<span style={{color:'#A89D8E',fontSize:11}}> · last seen {person.last_checkin_at ? `${Math.floor((Date.now()-new Date(person.last_checkin_at).getTime())/(7*24*60*60*1000))}w ago` : 'never'}</span></div>)}{missedTwoServices.length>5&&<div style={{fontSize:11,color:'#A89D8E',paddingTop:8}}>+ {missedTwoServices.length-5} more in the service follow-up list</div>}</div>}
+                      : <div>{(showAllMissed?missedTwoServices:missedTwoServices.slice(0,5)).map(person=><div key={person.id} style={{fontSize:13,color:'#3A3020',padding:'7px 0',borderTop:'1px solid #F4EEE5'}}>{person.full_name}<span style={{color:'#A89D8E',fontSize:11}}> · last seen {person.last_checkin_at ? `${Math.floor((Date.now()-new Date(person.last_checkin_at).getTime())/(7*24*60*60*1000))}w ago` : 'never'}</span></div>)}{missedTwoServices.length>5&&<button onClick={()=>setShowAllMissed(v=>!v)} style={{fontSize:11,color:'#C97B1A',fontWeight:600,paddingTop:8,background:'none',border:'none',cursor:'pointer'}}>{showAllMissed?'Show fewer':`Show all ${missedTwoServices.length}`}</button>}</div>}
                   </div>
 
                   <div style={{background:'#fff',border:'1px solid #E9DFD0',borderRadius:14,padding:'18px 19px'}}>
@@ -2975,7 +2988,7 @@ export default function AdminPage() {
                     <p style={{fontSize:12,color:'#7A6E60',fontWeight:300,lineHeight:1.5,margin:'0 0 12px'}}>Active members and leaders who attended fewer than half of the last eight service days.</p>
                     {recentServiceDays.length<4 ? <div style={{fontSize:12,color:'#A89D8E'}}>Needs four completed services to spot a pattern.</div>
                       : irregularAttenders.length===0 ? <div style={{fontSize:12,color:'#2E7D4E'}}>No established members are currently irregular.</div>
-                      : <div>{irregularAttenders.slice(0,5).map(({person,attended})=><div key={person.id} style={{fontSize:13,color:'#3A3020',padding:'7px 0',borderTop:'1px solid #F4EEE5'}}>{person.full_name}<span style={{color:'#A89D8E',fontSize:11}}> · attended {attended}/{recentServiceDays.length}</span></div>)}{irregularAttenders.length>5&&<div style={{fontSize:11,color:'#A89D8E',paddingTop:8}}>+ {irregularAttenders.length-5} more people</div>}</div>}
+                      : <div>{(showAllIrregular?irregularAttenders:irregularAttenders.slice(0,5)).map(({person,attended})=><div key={person.id} style={{fontSize:13,color:'#3A3020',padding:'7px 0',borderTop:'1px solid #F4EEE5'}}>{person.full_name}<span style={{color:'#A89D8E',fontSize:11}}> · attended {attended}/{recentServiceDays.length}</span></div>)}{irregularAttenders.length>5&&<button onClick={()=>setShowAllIrregular(v=>!v)} style={{fontSize:11,color:'#C97B1A',fontWeight:600,paddingTop:8,background:'none',border:'none',cursor:'pointer'}}>{showAllIrregular?'Show fewer':`Show all ${irregularAttenders.length}`}</button>}</div>}
                   </div>
                 </div>
               </>}
