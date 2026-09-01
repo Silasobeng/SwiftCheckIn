@@ -1093,6 +1093,51 @@ export default function AdminPage() {
     activeServiceCheckins.filter(c => c.is_first_time).length
   , [activeServiceCheckins]);
   const activeServiceReturning = activeServiceCheckins.length - activeServiceFirstTimers;
+  // Care is measured by service DAY rather than individual service rows: a
+  // church with 9am and 11am gatherings should count someone who attends
+  // either one as present that week. Eight service days is long enough to
+  // identify a pattern without labelling a recently joined person unfairly.
+  const recentServiceDays = useMemo(() => Array.from(new Set(
+    services.map(s => s.service_date).filter(Boolean)
+  )).sort().slice(-8), [services]);
+  const expectedCarePeople = useMemo(() => activePeople.filter(
+    p => p.role === 'member' || p.role === 'leader'
+  ), [activePeople]);
+  const careAttendance = useMemo(() => {
+    const dayForService = new Map(services.map(s => [s.id, s.service_date]));
+    const expectedIds = new Set(expectedCarePeople.map(p => p.id));
+    const presentByDay = new Map<string, Set<string>>();
+    for (const day of recentServiceDays) presentByDay.set(day, new Set());
+    for (const checkin of checkins) {
+      const day = dayForService.get(checkin.service_id);
+      if (day && expectedIds.has(checkin.person_id) && presentByDay.has(day)) {
+        presentByDay.get(day)!.add(checkin.person_id);
+      }
+    }
+    return { dayForService, presentByDay };
+  }, [services, checkins, expectedCarePeople, recentServiceDays]);
+  const weeklyAttendance = useMemo(() => recentServiceDays.map(day => {
+    const present = careAttendance.presentByDay.get(day)?.size || 0;
+    const expected = expectedCarePeople.length;
+    return { day, present, expected, percentage: expected ? Math.round((present / expected) * 100) : null };
+  }), [recentServiceDays, careAttendance, expectedCarePeople]);
+  const missedTwoServices = useMemo(() => {
+    const lastTwo = recentServiceDays.slice(-2);
+    if (lastTwo.length < 2) return [];
+    return expectedCarePeople.filter(person => lastTwo.every(
+      day => !careAttendance.presentByDay.get(day)?.has(person.id)
+    ));
+  }, [recentServiceDays, expectedCarePeople, careAttendance]);
+  const irregularAttenders = useMemo(() => {
+    if (recentServiceDays.length < 4) return [];
+    const firstTrackedDay = recentServiceDays[0];
+    return expectedCarePeople.map(person => {
+      const attended = recentServiceDays.filter(day => careAttendance.presentByDay.get(day)?.has(person.id)).length;
+      const joined = person.first_attendance_date || person.created_at.slice(0, 10);
+      return { person, attended, eligible: joined <= firstTrackedDay };
+    }).filter(({ person, attended, eligible }) => eligible && attended > 0 && attended / recentServiceDays.length < 0.5)
+      .sort((a, b) => a.attended - b.attended || a.person.full_name.localeCompare(b.person.full_name));
+  }, [recentServiceDays, expectedCarePeople, careAttendance]);
   const currentMonthCheckins = useMemo(() => checkins.filter(c=>monthOf(c.checked_in_at)===currentMonthKey), [checkins, tzFmt, currentMonthKey]);
   const lastMonthCheckins = useMemo(() => checkins.filter(c=>monthOf(c.checked_in_at)===lastMonthKey), [checkins, tzFmt, lastMonthKey]);
   const currentMonthUnique = useMemo(() => new Set(currentMonthCheckins.map(c=>c.person_id)).size, [currentMonthCheckins]);
@@ -2844,6 +2889,64 @@ export default function AdminPage() {
               <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:'#16243A',fontWeight:400,marginBottom:4}}>Attendance Trends</h2>
               <p style={{fontSize:14,color:'#7A6E60',fontWeight:300}}>How your congregation is growing over time.</p>
             </div>
+
+            {/* A pastor's first question is not "what is the chart?" but
+                "who needs us?" This section turns the last eight gatherings
+                into a short care queue before the deeper trend reporting. */}
+            <section className="panel" style={{padding:'26px 28px',marginBottom:20,borderTop:'3px solid #C97B1A',background:'linear-gradient(135deg,#FFFFFF 0%,#FFF9F0 100%)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',gap:16,alignItems:'flex-start',flexWrap:'wrap',marginBottom:22}}>
+                <div>
+                  <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#C97B1A',fontWeight:700,marginBottom:5}}>Care &amp; attendance</div>
+                  <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:23,color:'#16243A',fontWeight:400,margin:0}}>Who is showing up—and who needs a call?</h3>
+                </div>
+                <div style={{fontSize:12,color:'#7A6E60',fontWeight:400,background:'#fff',border:'1px solid #E9DFD0',borderRadius:99,padding:'7px 11px'}}>
+                  Last {recentServiceDays.length} service {recentServiceDays.length===1?'day':'days'}
+                </div>
+              </div>
+
+              {recentServiceDays.length===0 ? (
+                <p style={{fontSize:13,color:'#A89D8E',fontWeight:300,margin:0}}>Create a service and begin recording check-ins to see attendance care insights here.</p>
+              ) : <>
+                <div style={{marginBottom:24}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'#3A3020',marginBottom:12}}>Attendance percentage by service day</div>
+                  <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(weeklyAttendance.length,8)}, minmax(34px,1fr))`,gap:8,alignItems:'end',minHeight:112}}>
+                    {weeklyAttendance.map(({day,percentage,present,expected}) => (
+                      <div key={day} style={{minWidth:0,textAlign:'center'}} title={`${present} of ${expected} members and leaders attended`}>
+                        <div style={{fontSize:11,color:'#7A6E60',marginBottom:6,fontWeight:600}}>{percentage===null?'—':`${percentage}%`}</div>
+                        <div style={{height:64,background:'#F1E8DC',borderRadius:5,overflow:'hidden',display:'flex',alignItems:'flex-end'}}>
+                          <div style={{height:`${percentage ?? 0}%`,width:'100%',background:percentage!==null && percentage>=70?'#2E7D4E':percentage!==null && percentage>=40?'#C97B1A':'#B23B3B',borderRadius:5,transition:'height .45s ease'}} />
+                        </div>
+                        <div style={{fontSize:10,color:'#A89D8E',marginTop:7,whiteSpace:'nowrap'}}>{new Date(`${day}T12:00:00`).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
+                  <div style={{background:'#fff',border:'1px solid #E9DFD0',borderRadius:14,padding:'18px 19px'}}>
+                    <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:8}}>
+                      <div style={{fontSize:13,color:'#16243A',fontWeight:600}}>Missed the last 2 services</div>
+                      <span style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:missedTwoServices.length?'#B23B3B':'#2E7D4E',lineHeight:1}}>{missedTwoServices.length}</span>
+                    </div>
+                    <p style={{fontSize:12,color:'#7A6E60',fontWeight:300,lineHeight:1.5,margin:'0 0 12px'}}>Members and leaders absent from both most recent service days.</p>
+                    {recentServiceDays.length<2 ? <div style={{fontSize:12,color:'#A89D8E'}}>Needs two completed services to measure.</div>
+                      : missedTwoServices.length===0 ? <div style={{fontSize:12,color:'#2E7D4E'}}>Everyone expected attended at least one of the last two services.</div>
+                      : <div>{missedTwoServices.slice(0,5).map(person=><div key={person.id} style={{fontSize:13,color:'#3A3020',padding:'7px 0',borderTop:'1px solid #F4EEE5'}}>{person.full_name}<span style={{color:'#A89D8E',fontSize:11}}> · last seen {person.last_checkin_at ? `${Math.floor((Date.now()-new Date(person.last_checkin_at).getTime())/(7*24*60*60*1000))}w ago` : 'never'}</span></div>)}{missedTwoServices.length>5&&<div style={{fontSize:11,color:'#A89D8E',paddingTop:8}}>+ {missedTwoServices.length-5} more in the service follow-up list</div>}</div>}
+                  </div>
+
+                  <div style={{background:'#fff',border:'1px solid #E9DFD0',borderRadius:14,padding:'18px 19px'}}>
+                    <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:12,marginBottom:8}}>
+                      <div style={{fontSize:13,color:'#16243A',fontWeight:600}}>Irregular attendance</div>
+                      <span style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:irregularAttenders.length?'#C97B1A':'#2E7D4E',lineHeight:1}}>{irregularAttenders.length}</span>
+                    </div>
+                    <p style={{fontSize:12,color:'#7A6E60',fontWeight:300,lineHeight:1.5,margin:'0 0 12px'}}>Active members and leaders who attended fewer than half of the last eight service days.</p>
+                    {recentServiceDays.length<4 ? <div style={{fontSize:12,color:'#A89D8E'}}>Needs four completed services to spot a pattern.</div>
+                      : irregularAttenders.length===0 ? <div style={{fontSize:12,color:'#2E7D4E'}}>No established members are currently irregular.</div>
+                      : <div>{irregularAttenders.slice(0,5).map(({person,attended})=><div key={person.id} style={{fontSize:13,color:'#3A3020',padding:'7px 0',borderTop:'1px solid #F4EEE5'}}>{person.full_name}<span style={{color:'#A89D8E',fontSize:11}}> · attended {attended}/{recentServiceDays.length}</span></div>)}{irregularAttenders.length>5&&<div style={{fontSize:11,color:'#A89D8E',paddingTop:8}}>+ {irregularAttenders.length-5} more people</div>}</div>}
+                  </div>
+                </div>
+              </>}
+            </section>
 
             {/* Top stat cards */}
             <div className="admin-stat-grid">
