@@ -65,26 +65,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Deactivate all other services and activate this one
-    await supabase
-      .from('services')
-      .update({ is_active: false })
-      .eq('org_id', auth.session.orgId);
-
-    await supabase
-      .from('services')
-      .update({ is_active: true })
-      .eq('id', service.id);
-
-    // Update app settings
-    await supabase
-      .from('app_settings')
-      .upsert({
-        org_id: auth.session.orgId,
-        active_service_id: service.id,
-        kiosk_open: false,
-      });
-
+    // Planning a service must not take over the dashboard or change where a
+    // currently-running kiosk writes attendance. The administrator starts a
+    // specific service explicitly when it is time to receive check-ins.
     return NextResponse.json({ success: true, service });
   } catch (error) {
     console.error('Services POST error:', error);

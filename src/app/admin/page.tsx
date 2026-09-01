@@ -657,6 +657,11 @@ export default function AdminPage() {
 
   const toggleKiosk = async () => {
     if (!settings) return; setMessage(null); setError(null);
+    if (!settings.kiosk_open && (!activeService || activeService.service_date !== today)) {
+      setError('Choose today’s service and start check-in from Today’s Service first.');
+      setTab('services');
+      return;
+    }
     const res=await fetch('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({kiosk_open:!settings.kiosk_open})});
     const data=await res.json(); if(!res.ok){setError(data.error||'Could not update.');return;} setMessage(settings.kiosk_open?'Check-in closed.':'Check-in opened.'); loadData();
   };
@@ -718,7 +723,7 @@ export default function AdminPage() {
         });
         const data = await res.json();
         if (!res.ok) { setError(data.error||'Could not create.'); return; }
-        setMessage('Service created and set as active.');
+        setMessage('Service created. Start check-in when you are ready.');
       }
       setServiceFormOpen(false);
       loadData();
@@ -728,7 +733,24 @@ export default function AdminPage() {
   const setActiveService = async (id:string) => {
     setMessage(null); setError(null);
     const res=await fetch('/api/services',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({serviceId:id,setActive:true})});
-    const data=await res.json(); if(!res.ok){setError(data.error||'Could not activate.');return;} setMessage('Current service updated.'); loadData();
+    const data=await res.json(); if(!res.ok){setError(data.error||'Could not activate.');return;} setMessage('Service selected.'); loadData();
+  };
+
+  const startCheckinForService = async (service: Service) => {
+    if (service.service_date !== today) {
+      setError('Check-in can only be opened for a service scheduled today.');
+      return;
+    }
+    setMessage(null); setError(null);
+    const select = await fetch('/api/services', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ serviceId:service.id, setActive:true }) });
+    const selected = await select.json();
+    if (!select.ok) { setError(selected.error || 'Could not select this service.'); return; }
+    const open = await fetch('/api/settings', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ kiosk_open:true, active_service_id:service.id }) });
+    const opened = await open.json();
+    if (!open.ok) { setError(opened.error || 'Could not open check-in.'); return; }
+    setMessage(`Check-in opened for ${service.title || 'this service'}.`);
+    setTab('dashboard');
+    loadData();
   };
 
   const openReportModal = (s: Service) => {
@@ -1072,6 +1094,10 @@ export default function AdminPage() {
   const visitors = useMemo(() => activePeople.filter(p=>p.role==='visitor'), [activePeople]);
   const members = useMemo(() => activePeople.filter(p=>p.role!=='visitor'), [activePeople]);
   const activeService = useMemo(() => services.find(s=>s.is_active)||null, [services]);
+  // A selected service becomes a live dashboard session only while check-in
+  // is actually open. Outside that moment, the dashboard stays a church-wide
+  // overview even if an earlier service remains selected for next time.
+  const liveService = settings?.kiosk_open ? activeService : null;
 
   // All "today / this month / last month" figures are reckoned in the church's
   // own timezone (see monthWindow), not the device clock, so they roll over
@@ -1087,8 +1113,8 @@ export default function AdminPage() {
   // active service must therefore begin with a clean attendance slate even
   // when a church has already run another gathering that same day.
   const activeServiceCheckins = useMemo(() =>
-    activeService ? checkins.filter(c => c.service_id === activeService.id) : []
-  , [checkins, activeService]);
+    liveService ? checkins.filter(c => c.service_id === liveService.id) : []
+  , [checkins, liveService]);
   const activeServiceFirstTimers = useMemo(() =>
     activeServiceCheckins.filter(c => c.is_first_time).length
   , [activeServiceCheckins]);
@@ -1834,20 +1860,24 @@ export default function AdminPage() {
             <section className="panel" style={{padding:'22px 24px',marginBottom:18,borderTop:'3px solid #C97B1A',background:'linear-gradient(135deg,#FFFFFF 0%,#FFF9F0 100%)'}}>
               <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',gap:16,flexWrap:'wrap',marginBottom:18}}>
                 <div>
-                  <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#C97B1A',fontWeight:700,marginBottom:5}}>Live service attendance</div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:23,color:'#16243A'}}>{activeService?.title || 'No service selected'}</div>
+                  <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'#C97B1A',fontWeight:700,marginBottom:5}}>{liveService ? 'Live service attendance' : 'Church overview'}</div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:23,color:'#16243A'}}>{liveService?.title || session.orgName}</div>
                 </div>
                 <div style={{fontSize:12,color:settings?.kiosk_open?'#2E7D4E':'#7A6E60',fontWeight:500,display:'flex',alignItems:'center',gap:6}}>
                   <span style={{width:7,height:7,borderRadius:'50%',background:settings?.kiosk_open?'#2E7D4E':'#A89D8E',display:'inline-block'}} />
-                  {settings?.kiosk_open ? 'Receiving check-ins now' : 'Open check-in to begin'}
+                  {liveService ? 'Receiving check-ins now' : 'Create a service, then start check-in when ready'}
                 </div>
               </div>
               <div className="admin-stat-grid">
-                {[
+                {(liveService ? [
                   {label:'Checked in for this service', value:activeServiceCheckins.length},
                   {label:'First-time visitors', value:activeServiceFirstTimers},
                   {label:'Returning people', value:activeServiceReturning},
-                ].map(({label,value})=>(
+                ] : [
+                  {label:'Total members', value:members.length},
+                  {label:'Total visitors', value:visitors.length},
+                  {label:'Services recorded', value:services.length},
+                ]).map(({label,value})=>(
                   <div key={label} style={{padding:'8px 0'}}>
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:36,color:'#16243A',lineHeight:1,marginBottom:7}}>{value}</div>
                     <div style={{fontSize:12,color:'#7A6E60',fontWeight:400}}>{label}</div>
@@ -1856,7 +1886,7 @@ export default function AdminPage() {
               </div>
             </section>
 
-            <div style={{display:'flex',alignItems:'center',gap:10,margin:'0 2px 18px',color:'#8A7C6B',fontSize:12,flexWrap:'wrap'}}>
+            {liveService && <div style={{display:'flex',alignItems:'center',gap:10,margin:'0 2px 18px',color:'#8A7C6B',fontSize:12,flexWrap:'wrap'}}>
               <span style={{fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',fontSize:10}}>Church at a glance</span>
               <span aria-hidden="true" style={{color:'#D7CCBC'}}>•</span>
               <span>{members.length} total members</span>
@@ -1864,7 +1894,7 @@ export default function AdminPage() {
               <span>{visitors.length} total visitors</span>
               <span aria-hidden="true" style={{color:'#D7CCBC'}}>•</span>
               <span>{services.length} services recorded</span>
-            </div>
+            </div>}
 
             {/* Two column grid — stacks below lg so neither panel gets squeezed */}
             <div className="grid gap-5 grid-cols-1 lg:grid-cols-[1.3fr_1fr]">
@@ -1872,13 +1902,13 @@ export default function AdminPage() {
               {/* Only the active service appears here. Starting a new service
                   never carries an earlier service's attendance list. */}
               <div className="panel" style={{padding:'24px 28px'}}>
-                <div className="panel-label" style={{display:'block',marginBottom:18}}>This service&apos;s check-ins</div>
-                {activeServiceCheckins.length===0 ? (
+                <div className="panel-label" style={{display:'block',marginBottom:18}}>{liveService ? 'This service’s check-ins' : 'Recent check-ins'}</div>
+                {(liveService ? activeServiceCheckins : checkins).length===0 ? (
                   <div style={{textAlign:'center',padding:'32px 0',color:'#A89D8E'}}>
-                    <div style={{fontSize:14,fontWeight:300}}>{activeService ? 'Nobody checked in for this service yet' : 'Create a service to begin check-in'}</div>
+                    <div style={{fontSize:14,fontWeight:300}}>{liveService ? 'Nobody checked in for this service yet' : 'No check-ins recorded yet'}</div>
                   </div>
                 ) : (<>
-                  {activeServiceCheckins.slice(0,8).map((c,i,arr)=>(
+                  {(liveService ? activeServiceCheckins : checkins).slice(0,8).map((c,i,arr)=>(
                     <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 0',borderBottom:i===arr.length-1?'none':'1px solid #F0EBE3'}}>
                       <Avatar name={c.person?.full_name || ''} photoUrl={c.person?.photo_url} />
                       <div style={{flex:1,minWidth:0}}>
@@ -1890,9 +1920,9 @@ export default function AdminPage() {
                       <div style={{fontSize:12,color:'#A89D8E',flexShrink:0}}>{new Date(c.checked_in_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
                     </div>
                   ))}
-                  {activeServiceCheckins.length>8 && (
+                  {(liveService ? activeServiceCheckins : checkins).length>8 && (
                     <div style={{fontSize:12,color:'#A89D8E',fontWeight:300,paddingTop:14,borderTop:'1px solid #F0EBE3',marginTop:4}}>
-                      + {activeServiceCheckins.length-8} more checked in for this service
+                      + {(liveService ? activeServiceCheckins : checkins).length-8} more {liveService ? 'checked in for this service' : 'check-ins recorded'}
                     </div>
                   )}
                 </>)}
@@ -2454,6 +2484,9 @@ export default function AdminPage() {
                         )}
                       </div>
                       <div className="service-actions" style={{display:'flex',gap:8,flexShrink:0}}>
+                        {!settings?.kiosk_open && s.service_date===today && (
+                          <button onClick={()=>startCheckinForService(s)} className="service-action-primary" style={{background:'#2E7D4E',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:'pointer'}}>Start check-in</button>
+                        )}
                         <button onClick={()=>{ setInfoTab('summary'); setPresentFilter('all'); setAbsentGroupCategoryId(''); setInfoService(s); }} className="service-action-primary" style={{background:'#16243A',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,cursor:'pointer'}}>View service</button>
                         <details className="service-more">
                           <summary aria-label={`More actions for ${s.title||'service'}`}>•••</summary>
