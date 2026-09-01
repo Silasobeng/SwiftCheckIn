@@ -2977,7 +2977,18 @@ export default function AdminPage() {
                     <p style={{fontSize:12,color:'#7A6E60',fontWeight:300,lineHeight:1.5,margin:'0 0 12px'}}>Members and leaders absent from both most recent service days.</p>
                     {recentServiceDays.length<2 ? <div style={{fontSize:12,color:'#A89D8E'}}>Needs two completed services to measure.</div>
                       : missedTwoServices.length===0 ? <div style={{fontSize:12,color:'#2E7D4E'}}>Everyone expected attended at least one of the last two services.</div>
-                      : <div>{(showAllMissed?missedTwoServices:missedTwoServices.slice(0,5)).map(person=><div key={person.id} style={{fontSize:13,color:'#3A3020',padding:'7px 0',borderTop:'1px solid #F4EEE5'}}>{person.full_name}<span style={{color:'#A89D8E',fontSize:11}}> · last seen {person.last_checkin_at ? `${Math.floor((Date.now()-new Date(person.last_checkin_at).getTime())/(7*24*60*60*1000))}w ago` : 'never'}</span></div>)}{missedTwoServices.length>5&&<button onClick={()=>setShowAllMissed(v=>!v)} style={{fontSize:11,color:'#C97B1A',fontWeight:600,paddingTop:8,background:'none',border:'none',cursor:'pointer'}}>{showAllMissed?'Show fewer':`Show all ${missedTwoServices.length}`}</button>}</div>}
+                      : <div>{(showAllMissed?missedTwoServices:missedTwoServices.slice(0,5)).map(person=>(
+                        // A "who needs a call" list is only useful if it
+                        // actually gets you to the phone number — a bare
+                        // name meant a separate trip to People just to look
+                        // it up. Clicking through opens the same profile
+                        // People uses, so it's also one tap from here to
+                        // actually edit or message them.
+                        <div key={person.id} onClick={()=>setEditingPerson(person)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,fontSize:13,color:'#3A3020',padding:'7px 0',borderTop:'1px solid #F4EEE5',cursor:'pointer'}}>
+                          <span>{person.full_name}<span style={{color:'#A89D8E',fontSize:11}}> · last seen {person.last_checkin_at ? `${Math.floor((Date.now()-new Date(person.last_checkin_at).getTime())/(7*24*60*60*1000))}w ago` : 'never'}</span></span>
+                          {person.phone && <a href={`tel:${person.phone}`} onClick={e=>e.stopPropagation()} style={{fontSize:12,color:'#C97B1A',fontWeight:500,flexShrink:0,textDecoration:'none'}}>{person.phone}</a>}
+                        </div>
+                      ))}{missedTwoServices.length>5&&<button onClick={()=>setShowAllMissed(v=>!v)} style={{fontSize:11,color:'#C97B1A',fontWeight:600,paddingTop:8,background:'none',border:'none',cursor:'pointer'}}>{showAllMissed?'Show fewer':`Show all ${missedTwoServices.length}`}</button>}</div>}
                   </div>
 
                   <div style={{background:'#fff',border:'1px solid #E9DFD0',borderRadius:14,padding:'18px 19px'}}>
@@ -2988,7 +2999,12 @@ export default function AdminPage() {
                     <p style={{fontSize:12,color:'#7A6E60',fontWeight:300,lineHeight:1.5,margin:'0 0 12px'}}>Active members and leaders who attended fewer than half of the last eight service days.</p>
                     {recentServiceDays.length<4 ? <div style={{fontSize:12,color:'#A89D8E'}}>Needs four completed services to spot a pattern.</div>
                       : irregularAttenders.length===0 ? <div style={{fontSize:12,color:'#2E7D4E'}}>No established members are currently irregular.</div>
-                      : <div>{(showAllIrregular?irregularAttenders:irregularAttenders.slice(0,5)).map(({person,attended})=><div key={person.id} style={{fontSize:13,color:'#3A3020',padding:'7px 0',borderTop:'1px solid #F4EEE5'}}>{person.full_name}<span style={{color:'#A89D8E',fontSize:11}}> · attended {attended}/{recentServiceDays.length}</span></div>)}{irregularAttenders.length>5&&<button onClick={()=>setShowAllIrregular(v=>!v)} style={{fontSize:11,color:'#C97B1A',fontWeight:600,paddingTop:8,background:'none',border:'none',cursor:'pointer'}}>{showAllIrregular?'Show fewer':`Show all ${irregularAttenders.length}`}</button>}</div>}
+                      : <div>{(showAllIrregular?irregularAttenders:irregularAttenders.slice(0,5)).map(({person,attended})=>(
+                        <div key={person.id} onClick={()=>setEditingPerson(person)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,fontSize:13,color:'#3A3020',padding:'7px 0',borderTop:'1px solid #F4EEE5',cursor:'pointer'}}>
+                          <span>{person.full_name}<span style={{color:'#A89D8E',fontSize:11}}> · attended {attended}/{recentServiceDays.length}</span></span>
+                          {person.phone && <a href={`tel:${person.phone}`} onClick={e=>e.stopPropagation()} style={{fontSize:12,color:'#C97B1A',fontWeight:500,flexShrink:0,textDecoration:'none'}}>{person.phone}</a>}
+                        </div>
+                      ))}{irregularAttenders.length>5&&<button onClick={()=>setShowAllIrregular(v=>!v)} style={{fontSize:11,color:'#C97B1A',fontWeight:600,paddingTop:8,background:'none',border:'none',cursor:'pointer'}}>{showAllIrregular?'Show fewer':`Show all ${irregularAttenders.length}`}</button>}</div>}
                   </div>
                 </div>
               </>}
