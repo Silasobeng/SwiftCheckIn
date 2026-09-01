@@ -642,7 +642,7 @@ export default function KioskPage() {
                 just sits there implying it should be filled — the point is
                 removing the felt pressure to type something under pressure,
                 not the option to give a real one. */}
-            <input type="email" className="input-dark input-lg" placeholder="Leave blank if you don't have one" value={newForm.email}
+            <input type="email" className="input-dark input-lg" placeholder="Skip this if you don't have one" value={newForm.email}
               onChange={e => { setNewForm({...newForm, email:e.target.value}); if(emailWarning) setEmailWarning(''); }}/>
             {emailWarning && (
               <div className="mt-2.5 rounded-xl px-4 py-3 text-sm" style={{ background:'rgba(232,170,24,.12)', border:'1px solid rgba(232,170,24,.35)', color:'rgba(255,255,255,.85)' }}>

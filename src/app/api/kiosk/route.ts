@@ -5,7 +5,7 @@ import { sendSMS, welcomeMessage } from '@/lib/sms';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { tzFormatter, dayKeyOf } from '@/lib/monthWindow';
 import { formatPersonName, validatePersonIdentity } from '@/lib/personIdentity';
-import { checkEmailDomain } from '@/lib/emailDomainCheck';
+import { checkEmailDomain, isDisposableEmailDomain, wasEmailPreviouslyBounced } from '@/lib/emailDomainCheck';
 
 // A service is only "today" once, in the church's own timezone — a kiosk left
 // open past that (nobody closed it after Sunday) must not silently accept a
@@ -199,17 +199,26 @@ export async function POST(request: NextRequest) {
       const identityError = validatePersonIdentity(full_name, phone);
       if (identityError) return NextResponse.json({ error: identityError }, { status: 400 });
 
-      // Catch a typo'd or made-up email domain right here, while the person
-      // is still standing at the kiosk and can actually fix it — the far
-      // better moment than a bounce webhook discovering it hours later.
-      // Only a definitive "this domain has no mail server" blocks the
-      // submission, and only once — the client resubmits with
-      // confirmEmailAnyway to go through regardless, so a person who really
-      // does use an odd domain is never stuck.
+      // Three checks, cheapest first, catching three different failure
+      // modes — a typo'd/made-up domain, a deliberately throwaway address,
+      // and an address already proven dead for some other church — all
+      // while the person is still standing at the kiosk and can actually
+      // fix it, the far better moment than a bounce webhook discovering it
+      // hours later. Only ever blocks once — the client resubmits with
+      // confirmEmailAnyway to go through regardless, so anyone with a
+      // genuinely unusual (but real) address is never stuck.
       if (email?.trim() && !confirmEmailAnyway) {
-        const domainCheck = await checkEmailDomain(email.trim());
+        const trimmedEmail = email.trim();
+
+        if (await wasEmailPreviouslyBounced(supabase, trimmedEmail)) {
+          return NextResponse.json({ error: 'EMAIL_UNVERIFIED', message: `"${trimmedEmail}" has failed to deliver before — check the spelling, or continue anyway.` }, { status: 422 });
+        }
+        if (isDisposableEmailDomain(trimmedEmail)) {
+          return NextResponse.json({ error: 'EMAIL_UNVERIFIED', message: `"${trimmedEmail}" looks like a temporary/throwaway email address — check it, or continue anyway.` }, { status: 422 });
+        }
+        const domainCheck = await checkEmailDomain(trimmedEmail);
         if (domainCheck === 'no-mail-server') {
-          return NextResponse.json({ error: 'EMAIL_UNVERIFIED', message: `We couldn't find a mail server for "${email.trim()}" — check the spelling, or continue anyway.` }, { status: 422 });
+          return NextResponse.json({ error: 'EMAIL_UNVERIFIED', message: `We couldn't find a mail server for "${trimmedEmail}" — check the spelling, or continue anyway.` }, { status: 422 });
         }
       }
 
