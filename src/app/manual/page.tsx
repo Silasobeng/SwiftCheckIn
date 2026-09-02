@@ -3,6 +3,42 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+// Simple stroke icons, same visual language as the rest of the app (24x24,
+// currentColor, 1.8 stroke) — chosen over a real screenshot for the section
+// markers themselves since those need to never go stale.
+const ICONS: Record<string, string> = {
+  'getting-started': 'M3 3v18M3 4h13l-2 3.5L16 11H3',
+  kiosk: 'M7 4h10a1 1 0 011 1v13a1 1 0 01-1 1H7a1 1 0 01-1-1V5a1 1 0 011-1z M11 18h2',
+  people: 'M9 11a3 3 0 100-6 3 3 0 000 6zM3 20c0-3 2.5-5 6-5s6 2 6 5 M17 11a2.5 2.5 0 100-5 M17 20c0-2.3-1-4-2.7-4.7',
+  messaging: 'M3 6.5l9 6 9-6M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z',
+  giving: 'M12 20s-7-4.35-9.5-8.5C.7 8 2.5 5 6 5c2 0 3.5 1 4 2.2C10.5 6 12 5 14 5c3.5 0 5.3 3 3.5 6.5C15 15.65 12 20 12 20z',
+  analytics: 'M4 20V10m6 10V4m6 16v-7',
+  settings: 'M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14 3h-4l-.5 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1c.6.5 1.3.9 2 1.2L10 21h4l.5-2.7c.7-.3 1.4-.7 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.2-.8.2-1.2z',
+  billing: 'M3 7a1 1 0 011-1h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7zM3 10h18M6.5 14h3',
+  help: 'M12 21a9 9 0 100-18 9 9 0 000 18zM9.5 9a2.5 2.5 0 015 0c0 1.5-2.5 1.8-2.5 3.5M12 16.5v.01',
+};
+
+function Icon({ id }: { id: string }) {
+  const d = ICONS[id];
+  if (!d) return null;
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
+
+// A callout for the one detail in a section most likely to trip someone up —
+// used sparingly, not on every paragraph, so it still means something when
+// it shows up.
+function Tip({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-3 rounded-lg border-l-4 border-gold-400 bg-gold-50 px-4 py-3 text-sm text-navy-700">
+      {children}
+    </div>
+  );
+}
+
 const SECTIONS = [
   { id: 'getting-started', label: 'Getting started' },
   { id: 'kiosk', label: 'Your check-in kiosk' },
@@ -14,6 +50,35 @@ const SECTIONS = [
   { id: 'billing', label: 'Billing & subscription' },
   { id: 'help', label: 'Getting help' },
 ];
+
+// A faithful but simplified redrawing of the kiosk's opening choice, not a
+// literal screenshot — an actual screenshot breaks the moment a heading or
+// a colour changes; this only needs to be redrawn if the whole layout
+// concept changes, which is rare. Generic labels, no real church's data.
+function KioskIllustration() {
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-navy-100 shadow-soft">
+      <div className="px-6 py-8" style={{ background: 'linear-gradient(160deg,#16243A 0%,#060d18 100%)' }}>
+        <div className="mx-auto max-w-xs text-center">
+          <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-white/10" />
+          <p className="font-display text-xl text-white">Welcome to Your Church</p>
+          <p className="mt-1 text-xs text-white/50">We&apos;re so glad you&apos;re here</p>
+
+          <div className="mt-6 rounded-xl px-4 py-4 text-left" style={{ background: 'linear-gradient(135deg,#1fa971,#0d7a4f)' }}>
+            <p className="text-sm font-bold text-white">RETURNING</p>
+            <p className="text-xs text-white/70">Search for your name</p>
+          </div>
+          <div className="mt-3 rounded-xl px-4 py-4 text-left" style={{ background: 'linear-gradient(135deg,#e8aa18,#d4900a)' }}>
+            <p className="text-sm font-bold text-navy-900">FIRST TIME</p>
+            <p className="text-xs text-navy-900/60">Fill in a quick form</p>
+          </div>
+
+          <p className="mt-5 text-[11px] italic text-white/40">&ldquo;A verse from your church&rdquo;</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ManualPage() {
   // This page is linked from both the public marketing nav and from inside
@@ -46,7 +111,12 @@ export default function ManualPage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-navy-400">On this page</p>
             <ul className="mt-3 space-y-2 text-sm">
               {SECTIONS.map(s => (
-                <li key={s.id}><a href={`#${s.id}`} className="text-navy-600 hover:text-gold-600">{s.label}</a></li>
+                <li key={s.id}>
+                  <a href={`#${s.id}`} className="flex items-center gap-2 text-navy-600 hover:text-gold-600">
+                    <span className="text-navy-300"><Icon id={s.id} /></span>
+                    {s.label}
+                  </a>
+                </li>
               ))}
             </ul>
           </nav>
@@ -54,7 +124,9 @@ export default function ManualPage() {
           <div className="space-y-16 text-[15px] leading-7 text-navy-700">
 
             <section id="getting-started">
-              <h2 className="font-display text-2xl text-navy-900">Getting started</h2>
+              <h2 className="flex items-center gap-2.5 font-display text-2xl text-navy-900">
+                <span className="text-gold-500"><Icon id="getting-started" /></span> Getting started
+              </h2>
               <p className="mt-3">
                 When you sign up, you create your church&apos;s account and get a 14-day free trial —
                 no card required. You&apos;ll set your church name, your name, an email and password,
@@ -75,20 +147,27 @@ export default function ManualPage() {
             </section>
 
             <section id="kiosk">
-              <h2 className="font-display text-2xl text-navy-900">Your check-in kiosk</h2>
+              <h2 className="flex items-center gap-2.5 font-display text-2xl text-navy-900">
+                <span className="text-gold-500"><Icon id="kiosk" /></span> Your check-in kiosk
+              </h2>
               <p className="mt-3">
                 The kiosk is the screen your ushers or greeters use on a tablet or laptop at the door
                 — it&apos;s a separate, simplified page anyone can use without logging in, reached at
-                your own link (<strong>Open Kiosk</strong>, top right of the admin dashboard).
+                your own link (<strong>Open Kiosk</strong>, top right of the admin dashboard). This is
+                roughly what a visitor sees:
               </p>
+              <KioskIllustration />
               <h3 className="mt-6 font-display text-lg text-navy-900">Starting a service</h3>
               <p className="mt-2">
                 Before people can check in, create a service under <strong>Today&apos;s Service</strong>
                 — give it a title, date, and optionally a theme, scripture, and message. Then click
-                <strong> Open Check-In</strong> on the Dashboard. Check-in stays open until you close
-                it; if you forget and leave it open past that day, the app warns you the next time you
-                look, since anyone checking in would otherwise be recorded against the wrong day.
+                <strong> Open Check-In</strong> on the Dashboard.
               </p>
+              <Tip>
+                Check-in stays open until you close it. If you forget and leave it open past that day,
+                the app warns you the next time you look — anyone checking in would otherwise be
+                recorded against the wrong day.
+              </Tip>
               <h3 className="mt-6 font-display text-lg text-navy-900">How someone checks in</h3>
               <p className="mt-2">
                 At the kiosk, a person searches for their name or types it fresh if it&apos;s their
@@ -108,7 +187,9 @@ export default function ManualPage() {
             </section>
 
             <section id="people">
-              <h2 className="font-display text-2xl text-navy-900">Managing people</h2>
+              <h2 className="flex items-center gap-2.5 font-display text-2xl text-navy-900">
+                <span className="text-gold-500"><Icon id="people" /></span> Managing people
+              </h2>
               <p className="mt-3">
                 Everyone who has ever checked in — or that you&apos;ve added manually — lives in the
                 <strong> People</strong> tab. Each person has a role: <strong>Visitor</strong>,
@@ -122,12 +203,14 @@ export default function ManualPage() {
               </p>
               <h3 className="mt-6 font-display text-lg text-navy-900">Photos</h3>
               <p className="mt-2">
-                Adding a photo is optional and admin-only — never something the kiosk or a visitor can
-                do themselves. From a person&apos;s profile, either <strong>Take photo</strong> (opens
-                your device&apos;s camera directly) or <strong>Upload photo</strong> (pick an existing
-                image). Anyone without a photo just shows their initials, so nothing looks broken if you
-                never add one.
+                From a person&apos;s profile, either <strong>Take photo</strong> (opens your device&apos;s
+                camera directly) or <strong>Upload photo</strong> (pick an existing image). Anyone
+                without a photo just shows their initials, so nothing looks broken if you never add one.
               </p>
+              <Tip>
+                Adding a photo is optional and admin-only — never something the kiosk or a visitor can
+                do themselves.
+              </Tip>
               <h3 className="mt-6 font-display text-lg text-navy-900">Groups</h3>
               <p className="mt-2">
                 Set up categories (like &quot;Cell Group&quot; or &quot;Department&quot;) under
@@ -139,7 +222,9 @@ export default function ManualPage() {
             </section>
 
             <section id="messaging">
-              <h2 className="font-display text-2xl text-navy-900">Messaging</h2>
+              <h2 className="flex items-center gap-2.5 font-display text-2xl text-navy-900">
+                <span className="text-gold-500"><Icon id="messaging" /></span> Messaging
+              </h2>
               <p className="mt-3">
                 Messaging covers two channels — email, which is fully automatic once set up, and SMS,
                 which is pay-as-you-go and mostly used to reach people email can&apos;t.
@@ -169,9 +254,12 @@ export default function ManualPage() {
               <p className="mt-2">
                 Give your texts your church&apos;s name instead of the platform default by setting a
                 <strong> Sender Name</strong> in Settings (max 11 characters, no spaces) — it has its
-                own Save button, separate from the toggles, and a brand-new name can take the network a
-                few minutes to approve before it appears on real messages.
+                own Save button, separate from the toggles.
               </p>
+              <Tip>
+                A brand-new Sender Name can take the network a few minutes to approve before it appears
+                on real messages — no need to contact support for that, it clears on its own.
+              </Tip>
               <h3 className="mt-6 font-display text-lg text-navy-900">Broadcasts</h3>
               <p className="mt-2">
                 Send a one-off text to your whole congregation, just members, just visitors, one
@@ -182,7 +270,9 @@ export default function ManualPage() {
             </section>
 
             <section id="giving">
-              <h2 className="font-display text-2xl text-navy-900">Giving</h2>
+              <h2 className="flex items-center gap-2.5 font-display text-2xl text-navy-900">
+                <span className="text-gold-500"><Icon id="giving" /></span> Giving
+              </h2>
               <p className="mt-3">
                 Record tithes, offerings, seed giving, pledges, and other gifts under the
                 <strong> Giving</strong> tab — who gave, how much, what type, and optionally which
@@ -192,7 +282,9 @@ export default function ManualPage() {
             </section>
 
             <section id="analytics">
-              <h2 className="font-display text-2xl text-navy-900">Analytics</h2>
+              <h2 className="flex items-center gap-2.5 font-display text-2xl text-navy-900">
+                <span className="text-gold-500"><Icon id="analytics" /></span> Analytics
+              </h2>
               <p className="mt-3">
                 The <strong>Analytics</strong> tab is where the numbers turn into a story: attendance
                 trends over the last six months, whether your congregation is actually growing or just
@@ -209,7 +301,9 @@ export default function ManualPage() {
             </section>
 
             <section id="settings">
-              <h2 className="font-display text-2xl text-navy-900">Settings & branding</h2>
+              <h2 className="flex items-center gap-2.5 font-display text-2xl text-navy-900">
+                <span className="text-gold-500"><Icon id="settings" /></span> Settings & branding
+              </h2>
               <p className="mt-3">
                 Under <strong>Settings</strong> you can set your church&apos;s logo, cover photo, brand
                 colour, address, and contact details — these appear on your kiosk screen and in every
@@ -220,7 +314,9 @@ export default function ManualPage() {
             </section>
 
             <section id="billing">
-              <h2 className="font-display text-2xl text-navy-900">Billing & subscription</h2>
+              <h2 className="flex items-center gap-2.5 font-display text-2xl text-navy-900">
+                <span className="text-gold-500"><Icon id="billing" /></span> Billing & subscription
+              </h2>
               <p className="mt-3">
                 Every church starts with a 14-day free trial, no card required. After that, choose
                 Monthly or Annual (Annual works out cheaper per month). Payment is handled by Paystack
@@ -231,7 +327,9 @@ export default function ManualPage() {
             </section>
 
             <section id="help">
-              <h2 className="font-display text-2xl text-navy-900">Getting help</h2>
+              <h2 className="flex items-center gap-2.5 font-display text-2xl text-navy-900">
+                <span className="text-gold-500"><Icon id="help" /></span> Getting help
+              </h2>
               <p className="mt-3">
                 Stuck on something this manual didn&apos;t cover? Use the WhatsApp button in the app or
                 on the website to reach us directly — a real person, not a bot.
