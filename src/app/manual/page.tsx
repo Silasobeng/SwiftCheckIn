@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 const SECTIONS = [
   { id: 'getting-started', label: 'Getting started' },
@@ -13,10 +16,21 @@ const SECTIONS = [
 ];
 
 export default function ManualPage() {
+  // This page is linked from both the public marketing nav and from inside
+  // the logged-in app (admin header, the Open Check-In hint) — a hardcoded
+  // "back to the landing page" link is wrong for the second case, since
+  // someone already using the app has no use for the marketing homepage.
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  useEffect(() => {
+    fetch('/api/auth/session').then(r=>r.json()).then(d=>setIsLoggedIn(d.authenticated)).catch(()=>{});
+  }, []);
+
   return (
     <main className="min-h-screen bg-cream px-6 py-16 text-navy-900">
       <div className="mx-auto max-w-5xl">
-        <Link href="/" className="text-sm font-medium text-gold-600">← Back to WeMotiply</Link>
+        <Link href={isLoggedIn ? '/admin' : '/'} className="text-sm font-medium text-gold-600">
+          {isLoggedIn ? '← Back to Dashboard' : '← Back to WeMotiply'}
+        </Link>
         <p className="mt-10 panel-label">GUIDE</p>
         <h1 className="mt-3 font-display text-4xl">The WeMotiply Manual</h1>
         <p className="mt-3 max-w-2xl text-navy-500">
