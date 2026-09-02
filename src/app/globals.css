@@ -466,12 +466,40 @@ body {
   .admin-shell .admin-service-modal { max-height:calc(100dvh - 16px) !important; border-radius:14px !important; }
   .admin-shell .admin-modal-header { padding:18px 16px 0 !important; }
   .admin-shell .admin-modal-body { padding:18px 16px !important; }
-  .admin-shell .admin-modal-footer { padding:14px 16px 16px !important; flex-direction:column-reverse; }
+  .admin-shell .admin-modal-footer { padding:14px 16px 16px !important; flex-direction:row; }
+  .admin-shell .admin-modal-footer .btn { min-width:0; }
   .admin-shell .service-report-table { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .admin-shell .service-report-table th,
   .admin-shell .service-report-table td { min-width:96px; padding-right:16px !important; }
   .admin-shell .service-report-table th:first-child,
   .admin-shell .service-report-table td:first-child { min-width:120px; }
+
+  /* A leader's name and attendance status are the useful facts on a phone.
+     Keep phone and last-seen details visible beneath them instead of forcing
+     the admin to pan a wide desktop table. */
+  .admin-shell .leadership-report-table,
+  .admin-shell .leadership-report-table tbody { display:block; overflow:visible; }
+  .admin-shell .leadership-report-table thead { display:none; }
+  .admin-shell .leadership-report-table tr {
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) auto;
+    grid-template-areas:
+      'leader status'
+      'phone last-seen';
+    gap:5px 16px;
+    padding:13px 0;
+    border-bottom:1px solid #F5F1EA;
+  }
+  .admin-shell .leadership-report-table td {
+    min-width:0 !important;
+    padding:0 !important;
+    border:0 !important;
+    overflow-wrap:anywhere;
+  }
+  .admin-shell .leadership-report-table td:nth-child(1) { grid-area:leader; font-weight:600; }
+  .admin-shell .leadership-report-table td:nth-child(2) { grid-area:status; white-space:nowrap; text-align:right; }
+  .admin-shell .leadership-report-table td:nth-child(3) { grid-area:phone; font-size:12px !important; }
+  .admin-shell .leadership-report-table td:nth-child(4) { grid-area:last-seen; font-size:12px !important; text-align:right; }
 
   .admin-shell .sms-inline-action { flex-wrap:wrap; }
   .admin-shell .sms-inline-action .input { max-width:none !important; flex:1 1 180px; min-width:0; }

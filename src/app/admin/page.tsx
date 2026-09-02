@@ -2182,7 +2182,7 @@ export default function AdminPage() {
                           {b.leadersPresent.length+b.leadersAbsent.length===0 ? (
                             <div style={{fontSize:13,color:'#A89D8E',fontWeight:300}}>No leaders on record.</div>
                           ) : (
-                            <table className="service-report-table" style={{width:'100%',borderCollapse:'collapse'}}>
+                            <table className="service-report-table leadership-report-table" style={{width:'100%',borderCollapse:'collapse'}}>
                               <thead><tr><th style={th}>Leader</th><th style={th}>Status</th><th style={th}>Phone</th><th style={th}>Last seen</th></tr></thead>
                               <tbody>
                                 {b.leadersPresent.map(r=>(
