@@ -6,20 +6,27 @@ export const dynamic = 'force-dynamic';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-// Its own bucket, separate from branding assets — a photo of a real person
-// is more sensitive than a church logo, and keeping it in its own bucket
-// means a future "delete this person's photo" request (or a bulk cleanup)
-// never has to touch or risk anything branding-related.
 const DEFAULT_BUCKET = process.env.SUPABASE_PERSON_PHOTOS_BUCKET || 'person-photos';
 
-function extensionFor(file: File): string {
-  const extFromName = file.name.split('.').pop()?.toLowerCase();
+// Camera captures on many mobile browsers report an empty MIME type.
+// Infer from the file extension; default to JPEG since that's what
+// virtually every phone camera produces.
+function inferContentType(file: File): string {
+  if (file.type && SUPPORTED_IMAGE_TYPES.has(file.type)) return file.type;
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (ext === 'png') return 'image/png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'webp') return 'image/webp';
+  return 'image/jpeg';
+}
+
+function extensionFor(contentType: string, fileName: string): string {
+  const extFromName = fileName.split('.').pop()?.toLowerCase();
   if (extFromName && /^[a-z0-9]+$/.test(extFromName)) return extFromName;
-  const mime = file.type.toLowerCase();
-  if (mime === 'image/png') return 'png';
-  if (mime === 'image/jpeg') return 'jpg';
-  if (mime === 'image/webp') return 'webp';
-  return 'bin';
+  if (contentType === 'image/png') return 'png';
+  if (contentType === 'image/jpeg') return 'jpg';
+  if (contentType === 'image/webp') return 'webp';
+  return 'jpg';
 }
 
 async function ensureBucketExists() {
@@ -29,8 +36,6 @@ async function ensureBucketExists() {
 
   const exists = buckets?.some((bucket) => bucket.name === DEFAULT_BUCKET);
   if (exists) {
-    // The bucket may have been created by an earlier release with a smaller
-    // limit. Keep its configuration in step with the application.
     const { error: updateError } = await supabase.storage.updateBucket(DEFAULT_BUCKET, {
       public: true,
       fileSizeLimit: `${MAX_FILE_SIZE}`,
@@ -51,9 +56,6 @@ async function ensureBucketExists() {
   }
 }
 
-// POST — admin-only (kiosk never calls this). Uploads one member/visitor
-// photo and returns its public URL; the caller is responsible for saving
-// that URL onto the person's record via PATCH /api/people.
 export async function POST(request: NextRequest) {
   const auth = await requireActiveSubscription();
   if ('error' in auth) return auth.error;
@@ -65,17 +67,19 @@ export async function POST(request: NextRequest) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'No image file was provided.' }, { status: 400 });
     }
-    if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
-      return NextResponse.json({ error: 'Please upload a JPG, PNG, or WebP image.' }, { status: 400 });
+    if (file.type && !file.type.startsWith('image/')) {
+      return NextResponse.json({ error: 'Please upload an image file.' }, { status: 400 });
     }
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json({ error: 'Image is too large. Maximum size is 10MB.' }, { status: 400 });
     }
 
+    const contentType = inferContentType(file);
+
     await ensureBucketExists();
 
     const bytes = Buffer.from(await file.arrayBuffer());
-    const extension = extensionFor(file);
+    const extension = extensionFor(contentType, file.name);
     const safeSlug = auth.session.orgSlug.replace(/[^a-z0-9-]/gi, '').toLowerCase() || 'church';
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
     const path = `${safeSlug}/${filename}`;
@@ -84,7 +88,7 @@ export async function POST(request: NextRequest) {
     const { error: uploadError } = await supabase.storage
       .from(DEFAULT_BUCKET)
       .upload(path, bytes, {
-        contentType: file.type,
+        contentType,
         upsert: true,
         cacheControl: '3600',
       });

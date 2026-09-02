@@ -119,9 +119,12 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
   const onPhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const supportedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
-    if (!supportedImageTypes.has(file.type)) {
-      setErr('Please choose a JPG, PNG, or WebP image.');
+    // Camera captures on many Android browsers report file.type as ""
+    // (empty string). Accept empty types — if the OS camera produced it,
+    // it's an image. Only reject files that are explicitly non-image.
+    const t = file.type.toLowerCase();
+    if (t && !t.startsWith('image/')) {
+      setErr('Please choose an image file.');
       return;
     }
     if (file.size > 10*1024*1024) { setErr('Image is too large. Maximum size is 10MB.'); return; }
@@ -2031,7 +2034,7 @@ export default function AdminPage() {
               const th:React.CSSProperties = {textAlign:'left',fontSize:11,fontWeight:600,color:'#7A6E60',letterSpacing:'0.05em',textTransform:'uppercase',padding:'0 0 8px',borderBottom:'1px solid #E4DFD5'};
               const td:React.CSSProperties = {fontSize:13,color:'#16243A',padding:'10px 0',borderBottom:'1px solid #F5F1EA',verticalAlign:'top'};
               return (
-                <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
+                <div style={{position:'fixed',inset:0,zIndex:70,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
                   onClick={()=>setInfoService(null)}>
                   <div className="admin-modal admin-service-modal" style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:760,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
                     onClick={e=>e.stopPropagation()}>
