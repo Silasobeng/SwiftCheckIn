@@ -63,6 +63,7 @@ CREATE TABLE people (
   phone TEXT NOT NULL,
   gender TEXT CHECK (gender IN ('male', 'female')),
   email TEXT,
+  photo_url TEXT,
   date_of_birth DATE,
   
   -- Additional info

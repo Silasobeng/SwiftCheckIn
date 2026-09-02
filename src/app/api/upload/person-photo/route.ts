@@ -4,7 +4,8 @@ import { getServerSupabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 // Its own bucket, separate from branding assets — a photo of a real person
 // is more sensitive than a church logo, and keeping it in its own bucket
 // means a future "delete this person's photo" request (or a bulk cleanup)
@@ -27,7 +28,17 @@ async function ensureBucketExists() {
   if (error) throw new Error(`Could not list storage buckets: ${error.message}`);
 
   const exists = buckets?.some((bucket) => bucket.name === DEFAULT_BUCKET);
-  if (exists) return;
+  if (exists) {
+    // The bucket may have been created by an earlier release with a smaller
+    // limit. Keep its configuration in step with the application.
+    const { error: updateError } = await supabase.storage.updateBucket(DEFAULT_BUCKET, {
+      public: true,
+      fileSizeLimit: `${MAX_FILE_SIZE}`,
+      allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
+    });
+    if (updateError) throw new Error(`Could not update person-photos bucket: ${updateError.message}`);
+    return;
+  }
 
   const { error: createError } = await supabase.storage.createBucket(DEFAULT_BUCKET, {
     public: true,
@@ -54,11 +65,11 @@ export async function POST(request: NextRequest) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'No image file was provided.' }, { status: 400 });
     }
-    if (!file.type.startsWith('image/')) {
-      return NextResponse.json({ error: 'Only image uploads are allowed.' }, { status: 400 });
+    if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
+      return NextResponse.json({ error: 'Please upload a JPG, PNG, or WebP image.' }, { status: 400 });
     }
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: 'Image is too large. Maximum size is 5MB.' }, { status: 400 });
+      return NextResponse.json({ error: 'Image is too large. Maximum size is 10MB.' }, { status: 400 });
     }
 
     await ensureBucketExists();

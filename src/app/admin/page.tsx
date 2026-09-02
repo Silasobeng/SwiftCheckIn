@@ -119,8 +119,12 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
   const onPhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { setErr('Please choose an image file.'); return; }
-    if (file.size > 5*1024*1024) { setErr('Image is too large. Maximum size is 5MB.'); return; }
+    const supportedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    if (!supportedImageTypes.has(file.type)) {
+      setErr('Please choose a JPG, PNG, or WebP image.');
+      return;
+    }
+    if (file.size > 10*1024*1024) { setErr('Image is too large. Maximum size is 10MB.'); return; }
     setErr(null);
     setPhotoFile(file);
     setPhotoRemoved(false);
@@ -212,7 +216,7 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
               </label>
               <label className="btn btn-secondary text-sm" style={{cursor:'pointer'}}>
                 {photoPreview && !photoRemoved ? 'Change photo' : 'Upload photo'}
-                <input type="file" accept="image/*" onChange={onPhotoSelected} style={{display:'none'}} />
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onPhotoSelected} style={{display:'none'}} />
               </label>
               {photoPreview && !photoRemoved && (
                 <button type="button" onClick={()=>{ setPhotoFile(null); setPhotoPreview(null); setPhotoRemoved(true); }} className="btn btn-ghost text-sm">
