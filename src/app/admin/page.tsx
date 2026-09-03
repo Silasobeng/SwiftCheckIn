@@ -3371,19 +3371,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* A church can top up SMS credits purely to send a one-off
-                    broadcast and never realize these toggles exist — nothing
-                    else in the app points here. This only shows when it's
-                    actually true (credits on hand, nothing automated on),
-                    so it disappears the moment any toggle is flipped and
-                    never nags a church that's already made its choice. */}
-                {smsSettings.sms_credits > 0 && !smsSettings.sms_welcome_enabled && !smsSettings.sms_birthday_enabled && !smsSettings.sms_missed_enabled && (
-                  <div style={{background:'#FDF3E0',border:'1px solid rgba(201,123,26,0.3)',borderRadius:10,padding:'12px 16px',fontSize:13,color:'#7A6048',marginBottom:4}}>
-                    You have {smsSettings.sms_credits} SMS credit{smsSettings.sms_credits===1?'':'s'} but no automatic messages turned on. Want first-timers, birthdays, and missed-service follow-ups texted automatically for anyone without an email? Turn them on below.
-                  </div>
-                )}
-
-                {/* Toggles */}
+                <div style={{fontSize:13,fontWeight:600,color:'#16243A',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>Auto-send SMS</div>
                 <div className="space-y-3">
                   {([
                     { key: 'sms_welcome_enabled',  label: 'Welcome SMS',      desc: 'First-time visitors without an email address.', usageKey: 'welcome' },
