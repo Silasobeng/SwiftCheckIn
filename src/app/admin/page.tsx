@@ -684,6 +684,16 @@ export default function AdminPage() {
   }, [session]);
   useEffect(() => { if (!message&&!error) return; const id=window.setTimeout(()=>{setMessage(null);setError(null);},4000); return ()=>window.clearTimeout(id); }, [message,error]);
 
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      document.querySelectorAll('details[open].service-more, details[open].row-more').forEach(d => {
+        if (!d.contains(e.target as Node)) d.removeAttribute('open');
+      });
+    };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, []);
+
   const handleLogout = async () => { await fetch('/api/auth/logout',{method:'POST'}); router.push('/login'); };
 
   const toggleKiosk = async () => {
