@@ -67,21 +67,33 @@ const EMPTY_TEMPLATES: Record<'welcome'|'birthday'|'missed', {subject:string;bod
   missed:   { subject: 'We Miss You!',                    body: 'We noticed you have missed the last couple of gatherings. We hope everything is well with you.\n\nWe would love to see you again soon!' },
 };
 
-/* ─── Avatar ─────────────────────────────────────────────────────────────
-   One place for "photo if there is one, initials circle if there isn't" —
-   used everywhere a person shows up in a list, so a photo taken effect
-   shows up consistently rather than needing three separate fixes. */
 function Avatar({ name, photoUrl, size = 34 }: { name: string; photoUrl?: string | null; size?: number }) {
+  const [viewing, setViewing] = useState(false);
   const style: React.CSSProperties = {
     width: size, height: size, borderRadius: '50%', flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: size * 0.4, color: '#7A6048', fontFamily: "'Playfair Display',serif",
     background: '#F0EBE3', overflow: 'hidden',
+    cursor: photoUrl ? 'pointer' : undefined,
   };
-  if (photoUrl) {
-    return <div style={style}><img src={photoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} /></div>;
-  }
-  return <div style={style}>{name?.charAt(0) || '?'}</div>;
+  return (
+    <>
+      <div style={style} onClick={photoUrl ? () => setViewing(true) : undefined}>
+        {photoUrl
+          ? <img src={photoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} />
+          : (name?.charAt(0) || '?')}
+      </div>
+      {viewing && photoUrl && (
+        <div onClick={() => setViewing(false)} style={{
+          position:'fixed', inset:0, zIndex:9999,
+          background:'rgba(0,0,0,0.85)', display:'flex',
+          alignItems:'center', justifyContent:'center', cursor:'pointer',
+        }}>
+          <img src={photoUrl} alt={name} style={{maxWidth:'90vw',maxHeight:'90vh',borderRadius:8,objectFit:'contain'}} />
+        </div>
+      )}
+    </>
+  );
 }
 
 /* ─── Edit Person Modal ─────────────────────────────────────────────────── */
@@ -211,7 +223,7 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
               the kiosk; adding one here is a deliberate choice by whoever's
               trusted with this person's phone number and giving history. */}
           <div className="flex items-center gap-4">
-            <Avatar name={form.full_name} photoUrl={photoRemoved ? null : photoPreview} size={56} />
+            <Avatar name={form.full_name} photoUrl={photoRemoved ? null : photoPreview} size={100} />
             <div className="flex items-center gap-2 flex-wrap">
               {/* Two explicit actions rather than one generic file picker —
                   a bare picker sometimes surfaces "Camera" as an option on
