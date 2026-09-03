@@ -31,7 +31,9 @@ export async function POST(request: NextRequest) {
       .from('people').select('*')
       .eq('org_id', auth.session.orgId)
       .eq('archived', false)
-      .not('email', 'is', null);
+      .not('email', 'is', null)
+      .is('email_invalid_at', null)
+      .is('email_needs_verification_at', null);
 
     // ── Fixed audience filters ──────────────────────────────
     if (audience === 'members') {

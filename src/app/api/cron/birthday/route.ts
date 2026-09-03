@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       for (const person of people) {
         // SMS path: people without a working email (missing, or already
         // bounced/complained per the Resend webhook), if org has SMS enabled
-        if (!person.email || person.email_invalid_at) {
+        if (!person.email || person.email_invalid_at || person.email_needs_verification_at) {
           if (org.sms_birthday_enabled && org.sms_credits > 0 && !person.sms_opted_out) {
             const firstName = person.full_name.split(' ')[0];
             await sendSMS(person.phone, birthdayMessage(firstName, org.name), org.id, 'birthday', person.id);

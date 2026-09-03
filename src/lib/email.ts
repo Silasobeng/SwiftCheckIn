@@ -339,7 +339,9 @@ export async function sendWelcomeEmail(
   // hard-bounced or complained — retrying it on every future welcome/
   // birthday/missed send would just be attempting a known-dead address
   // forever with nothing to show for it.
-  if (person.email_invalid_at) return { success: false, error: 'Email previously bounced' };
+  if (person.email_invalid_at || person.email_needs_verification_at) {
+    return { success: false, error: 'Email is not cleared for delivery' };
+  }
   const supabase = getServerSupabase();
   const { data: org }      = await supabase.from('organizations').select('*').eq('id', orgId).single();
   if (!org) return { success: false, error: 'Organization not found' };

@@ -127,6 +127,23 @@ export async function PATCH(request: NextRequest) {
       if (typeof safeUpdates.full_name === 'string') safeUpdates.full_name = formatPersonName(safeUpdates.full_name);
       if (typeof safeUpdates.phone === 'string') safeUpdates.phone = safeUpdates.phone.trim();
 
+      // A corrected email deserves a fresh chance, while an unchanged
+      // suspicious one must remain suppressed. These fields are server-owned
+      // and intentionally cannot be cleared by arbitrary browser input.
+      if (Object.prototype.hasOwnProperty.call(safeUpdates, 'email')) {
+        const { data: current, error: currentError } = await supabase
+          .from('people').select('email').eq('id', personId).eq('org_id', auth.session.orgId).maybeSingle();
+        if (currentError || !current) return NextResponse.json({ error: 'Person not found' }, { status: 404 });
+
+        const nextEmail = typeof safeUpdates.email === 'string' ? safeUpdates.email.trim() || null : null;
+        const oldEmail = current.email?.trim().toLowerCase() || null;
+        safeUpdates.email = nextEmail;
+        if (oldEmail !== (nextEmail?.toLowerCase() || null)) {
+          safeUpdates.email_invalid_at = null;
+          safeUpdates.email_needs_verification_at = null;
+        }
+      }
+
       if (Object.keys(safeUpdates).length === 0) {
         return NextResponse.json({ error: 'No valid updates provided' }, { status: 400 });
       }

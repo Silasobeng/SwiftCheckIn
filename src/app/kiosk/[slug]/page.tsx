@@ -648,7 +648,7 @@ export default function KioskPage() {
               <div className="mt-2.5 rounded-xl px-4 py-3 text-sm" style={{ background:'rgba(232,170,24,.12)', border:'1px solid rgba(232,170,24,.35)', color:'rgba(255,255,255,.85)' }}>
                 {emailWarning}
                 <button type="button" onClick={() => handleCheckin(undefined, newForm, true)} className="block mt-1.5 font-bold underline" style={{ color:'#f5c842' }}>
-                  Continue anyway
+                  Check in without sending email
                 </button>
               </div>
             )}

@@ -123,9 +123,9 @@ export async function GET(request: NextRequest) {
       // People with a working email go through the email queue; everyone
       // else — no email, or one already marked bounced/complained by the
       // Resend webhook — goes through SMS instead of a dead address.
-      const emailAbsentees = absentees.filter((p) => p.email && !p.email_invalid_at && !alreadyEmailed.has(p.id));
+      const emailAbsentees = absentees.filter((p) => p.email && !p.email_invalid_at && !p.email_needs_verification_at && !alreadyEmailed.has(p.id));
       const smsAbsentees   = absentees.filter(
-        (p) => (!p.email || p.email_invalid_at) && !p.sms_opted_out && !alreadyTexted.has(p.id) &&
+        (p) => (!p.email || p.email_invalid_at || p.email_needs_verification_at) && !p.sms_opted_out && !alreadyTexted.has(p.id) &&
                org.sms_missed_enabled && org.sms_credits > 0
       );
 

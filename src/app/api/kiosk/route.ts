@@ -199,26 +199,28 @@ export async function POST(request: NextRequest) {
       const identityError = validatePersonIdentity(full_name, phone);
       if (identityError) return NextResponse.json({ error: identityError }, { status: 400 });
 
-      // Three checks, cheapest first, catching three different failure
-      // modes — a typo'd/made-up domain, a deliberately throwaway address,
-      // and an address already proven dead for some other church — all
-      // while the person is still standing at the kiosk and can actually
-      // fix it, the far better moment than a bounce webhook discovering it
-      // hours later. Only ever blocks once — the client resubmits with
-      // confirmEmailAnyway to go through regardless, so anyone with a
-      // genuinely unusual (but real) address is never stuck.
-      if (email?.trim() && !confirmEmailAnyway) {
+      // A suspicious email may still be kept on the profile when a visitor
+      // confirms it, but it is never used for automatic email. That protects
+      // the sending reputation without blocking check-in for an unusual,
+      // legitimate address.
+      let emailNeedsVerification = false;
+      if (email?.trim()) {
         const trimmedEmail = email.trim();
+        let warning = '';
 
         if (await wasEmailPreviouslyBounced(supabase, trimmedEmail)) {
-          return NextResponse.json({ error: 'EMAIL_UNVERIFIED', message: `"${trimmedEmail}" has failed to deliver before — check the spelling, or continue anyway.` }, { status: 422 });
+          warning = `"${trimmedEmail}" has failed to deliver before — check the spelling.`;
+        } else if (isDisposableEmailDomain(trimmedEmail)) {
+          warning = `"${trimmedEmail}" looks like a temporary/throwaway email address — check it.`;
+        } else if (await checkEmailDomain(trimmedEmail) === 'no-mail-server') {
+          warning = `We couldn't find a mail server for "${trimmedEmail}" — check the spelling.`;
         }
-        if (isDisposableEmailDomain(trimmedEmail)) {
-          return NextResponse.json({ error: 'EMAIL_UNVERIFIED', message: `"${trimmedEmail}" looks like a temporary/throwaway email address — check it, or continue anyway.` }, { status: 422 });
-        }
-        const domainCheck = await checkEmailDomain(trimmedEmail);
-        if (domainCheck === 'no-mail-server') {
-          return NextResponse.json({ error: 'EMAIL_UNVERIFIED', message: `We couldn't find a mail server for "${trimmedEmail}" — check the spelling, or continue anyway.` }, { status: 422 });
+
+        if (warning) {
+          if (!confirmEmailAnyway) {
+            return NextResponse.json({ error: 'EMAIL_UNVERIFIED', message: `${warning} You can still check in, but no email will be sent until it is corrected.` }, { status: 422 });
+          }
+          emailNeedsVerification = true;
         }
       }
 
@@ -242,6 +244,7 @@ export async function POST(request: NextRequest) {
             phone: phone.trim(),
             gender: gender || null,
             email: email?.trim() || null,
+            email_needs_verification_at: emailNeedsVerification ? new Date().toISOString() : null,
             role: 'visitor',
             first_attendance_date: service?.service_date,
           })
@@ -320,12 +323,12 @@ export async function POST(request: NextRequest) {
     // the Resend webhook has already marked as bounced/complained is treated
     // the same as having no email at all, so it falls through to SMS below
     // instead of silently trying the same dead address again.
-    if (isFirstTime && person.email && !person.email_invalid_at) {
+    if (isFirstTime && person.email && !person.email_invalid_at && !person.email_needs_verification_at) {
       sendWelcomeEmail(person, org.id, service).catch(console.error);
     }
 
     // Send welcome SMS for first-timers without a working email (phone is always present)
-    if (isFirstTime && (!person.email || person.email_invalid_at) && org.sms_welcome_enabled && org.sms_credits > 0 && !person.sms_opted_out) {
+    if (isFirstTime && (!person.email || person.email_invalid_at || person.email_needs_verification_at) && org.sms_welcome_enabled && org.sms_credits > 0 && !person.sms_opted_out) {
       const firstName = person.full_name.split(' ')[0];
       sendSMS(person.phone, welcomeMessage(firstName, org.name), org.id, 'welcome', person.id).catch(console.error);
     }

@@ -98,11 +98,13 @@ export interface Person {
   // Admin-uploaded only — never settable from the kiosk or by the person
   // themselves. See PersonModal / Avatar.
   photo_url: string | null;
-  // Set by the Resend bounce webhook, not by anyone in the app — once an
-  // address hard-bounces or complains, every automated send path skips it
-  // rather than retrying the same dead address forever. See
-  // /api/webhooks/resend and shouldSkipEmail().
+  // Set by either delivery provider's bounce/complaint webhook. A confirmed
+  // hard failure is permanently suppressed until an admin enters a new email.
   email_invalid_at: string | null;
+  // A kiosk email that failed a disposable, MX, or previous-bounce check but
+  // was deliberately kept for the person's record. It is never emailed until
+  // an admin corrects/replaces it.
+  email_needs_verification_at: string | null;
 }
 
 export interface Service {
