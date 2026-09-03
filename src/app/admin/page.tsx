@@ -1680,9 +1680,10 @@ export default function AdminPage() {
       <header className="admin-topbar bg-white border-b border-navy-100 px-4 sm:px-6 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto h-[68px] flex justify-between items-center gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div style={{width:36,height:36,background:"#16243A",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              <svg style={{width:16,height:16,color:"#F0A832"}} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-            </div>
+            {branding.logo_url
+              ? <img src={branding.logo_url} alt="" style={{width:36,height:36,borderRadius:10,objectFit:'cover',flexShrink:0}} />
+              : <div style={{width:36,height:36,background:"#16243A",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:'#F0A832',fontWeight:600,fontSize:16}}>{session.orgName?.charAt(0) || 'W'}</div>
+            }
             <div className="min-w-0">
               <h1 className="font-semibold text-navy-900 leading-tight truncate">{session.orgName}</h1>
               <div className="flex items-center gap-1.5 mt-0.5">
