@@ -2167,7 +2167,7 @@ export default function AdminPage() {
                             {b.turnout!==null && (
                               <div style={{textAlign:'right'}}>
                                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,lineHeight:1,color:b.turnout>=70?'#2E7D4E':b.turnout>=40?'#C97B1A':'#B23B3B'}}>{b.turnout}%</div>
-                                <div style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginTop:5}}>of {b.expectedCount} expected</div>
+                                <div style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginTop:5}}>member turnout ({b.expectedCount-b.absent.length} of {b.expectedCount})</div>
                               </div>
                             )}
                           </div>

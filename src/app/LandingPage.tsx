@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { LandingImages } from '@/lib/pexels';
 import WhatsAppSupport from '@/components/WhatsAppSupport';
@@ -79,6 +80,7 @@ const CAPABILITIES: { icon: FeatureIconVariant; label: string; desc: string }[] 
 ];
 
 export default function LandingPage({ images }: { images: LandingImages }) {
+  const router = useRouter();
   const [isLoggedIn, setIsLoggedIn]   = useState(false);
   const [mobileOpen, setMobileOpen]   = useState(false);
   const [scrolled, setScrolled]       = useState(false);
@@ -88,8 +90,11 @@ export default function LandingPage({ images }: { images: LandingImages }) {
   const [annual, setAnnual] = useState(false);
 
   useEffect(() => {
-    fetch('/api/auth/session').then(r=>r.json()).then(d=>setIsLoggedIn(d.authenticated)).catch(()=>{});
-  }, []);
+    fetch('/api/auth/session').then(r=>r.json()).then(d=>{
+      if (d.authenticated) { router.replace('/admin'); return; }
+      setIsLoggedIn(false);
+    }).catch(()=>{});
+  }, [router]);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)');
@@ -202,6 +207,9 @@ export default function LandingPage({ images }: { images: LandingImages }) {
           </p>
 
           <div className="mb-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+            <Link href="/login" className="w-full rounded-full border border-white/30 px-8 py-4 text-center font-semibold text-white transition hover:bg-white/10 sm:w-auto">
+              Sign In
+            </Link>
             <Link href="/signup" className="w-full rounded-full bg-gold-500 px-8 py-4 text-center font-semibold text-navy-900 shadow-lg shadow-gold-500/25 transition hover:-translate-y-0.5 hover:brightness-105 sm:w-auto">
               Start Free →
             </Link>
