@@ -202,8 +202,8 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-navy-900/60 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-6 px-4" onClick={onClose}>
+      <div className="fixed inset-0 bg-navy-900/60 backdrop-blur-sm" />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto animate-scale-in" onClick={e=>e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-5 border-b border-navy-100 sticky top-0 bg-white rounded-t-2xl z-10">
           <div>
@@ -2004,7 +2004,7 @@ export default function AdminPage() {
 
             {/* Report recipient modal — confirm/redirect where the CSV goes */}
             {reportService && (
-              <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
+              <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'24px 16px',overflowY:'auto',background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
                 onClick={()=>setReportService(null)}>
                 <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:440,boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}} onClick={e=>e.stopPropagation()}>
                   <div style={{padding:'24px 28px 20px'}}>
@@ -2062,7 +2062,7 @@ export default function AdminPage() {
               const th:React.CSSProperties = {textAlign:'left',fontSize:11,fontWeight:600,color:'#7A6E60',letterSpacing:'0.05em',textTransform:'uppercase',padding:'0 0 8px',borderBottom:'1px solid #E4DFD5'};
               const td:React.CSSProperties = {fontSize:13,color:'#16243A',padding:'10px 0',borderBottom:'1px solid #F5F1EA',verticalAlign:'top'};
               return (
-                <div style={{position:'fixed',inset:0,zIndex:70,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
+                <div style={{position:'fixed',inset:0,zIndex:70,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'24px 16px',overflowY:'auto',background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
                   onClick={()=>setInfoService(null)}>
                   <div className="admin-modal admin-service-modal" style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:760,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
                     onClick={e=>e.stopPropagation()}>
@@ -2415,7 +2415,7 @@ export default function AdminPage() {
 
             {/* Service form modal */}
             {serviceFormOpen && (
-              <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
+              <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'24px 16px',overflowY:'auto',background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
                 onClick={()=>setServiceFormOpen(false)}>
                 <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:560,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
                   onClick={e=>e.stopPropagation()}>
@@ -2821,7 +2821,7 @@ export default function AdminPage() {
 
             {/* Record gift modal */}
             {givingFormOpen && (
-              <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:16,background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
+              <div style={{position:'fixed',inset:0,zIndex:50,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'24px 16px',overflowY:'auto',background:'rgba(22,36,58,0.55)',backdropFilter:'blur(4px)'}}
                 onClick={()=>setGivingFormOpen(false)}>
                 <div style={{background:'#fff',borderRadius:20,width:'100%',maxWidth:520,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 24px 60px rgba(22,36,58,0.25)'}}
                   onClick={e=>e.stopPropagation()}>
