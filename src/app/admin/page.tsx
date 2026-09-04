@@ -161,7 +161,6 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
           const upData = await upRes.json();
           if (!upRes.ok) { setErr(upData.error || 'Could not upload photo.'); return; }
           photo_url = upData.url;
-          console.log('[photo-debug] upload response:', upData);
         } finally { setUploadingPhoto(false); }
       } else if (photoRemoved) {
         photo_url = null;
@@ -180,14 +179,12 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
         ...(photo_url !== undefined ? { photo_url } : {}),
       };
       const reqBody = person ? { personId: person.id, updates: payload } : payload;
-      console.log('[photo-debug] saving person, photo_url in payload:', 'photo_url' in payload, payload.photo_url);
       const res = await fetch('/api/people', {
         method: person ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reqBody),
       });
       const data = await res.json();
-      console.log('[photo-debug] save response:', res.status, data);
       if (!res.ok) { setErr(data.error || (person ? 'Profile could not be saved.' : 'Person could not be added.')); return; }
 
       const savedPersonId = person?.id || data.person?.id;
