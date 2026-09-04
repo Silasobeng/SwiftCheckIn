@@ -69,21 +69,23 @@ const EMPTY_TEMPLATES: Record<'welcome'|'birthday'|'missed', {subject:string;bod
 
 function Avatar({ name, photoUrl, size = 34 }: { name: string; photoUrl?: string | null; size?: number }) {
   const [viewing, setViewing] = useState(false);
+  const [imgBroken, setImgBroken] = useState(false);
+  const hasPhoto = !!photoUrl && !imgBroken;
   const style: React.CSSProperties = {
     width: size, height: size, borderRadius: '50%', flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: size * 0.4, color: '#7A6048', fontFamily: "'Playfair Display',serif",
     background: '#F0EBE3', overflow: 'hidden',
-    cursor: photoUrl ? 'pointer' : undefined,
+    cursor: hasPhoto ? 'pointer' : undefined,
   };
   return (
     <>
-      <div style={style} onClick={photoUrl ? () => setViewing(true) : undefined}>
-        {photoUrl
-          ? <img src={photoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} />
+      <div style={style} onClick={hasPhoto ? () => setViewing(true) : undefined}>
+        {hasPhoto
+          ? <img src={photoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={() => setImgBroken(true)} />
           : (name?.charAt(0) || '?')}
       </div>
-      {viewing && photoUrl && (
+      {viewing && hasPhoto && (
         <div onClick={() => setViewing(false)} style={{
           position:'fixed', inset:0, zIndex:9999,
           background:'rgba(0,0,0,0.85)', display:'flex',
