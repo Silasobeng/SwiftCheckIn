@@ -70,6 +70,8 @@ const EMPTY_TEMPLATES: Record<'welcome'|'birthday'|'missed', {subject:string;bod
 function Avatar({ name, photoUrl, size = 34 }: { name: string; photoUrl?: string | null; size?: number }) {
   const [viewing, setViewing] = useState(false);
   const [imgBroken, setImgBroken] = useState(false);
+  const prevUrl = useRef(photoUrl);
+  if (photoUrl !== prevUrl.current) { prevUrl.current = photoUrl; setImgBroken(false); }
   const hasPhoto = !!photoUrl && !imgBroken;
   const style: React.CSSProperties = {
     width: size, height: size, borderRadius: '50%', flexShrink: 0,
@@ -88,10 +90,12 @@ function Avatar({ name, photoUrl, size = 34 }: { name: string; photoUrl?: string
       {viewing && hasPhoto && (
         <div onClick={() => setViewing(false)} style={{
           position:'fixed', inset:0, zIndex:9999,
-          background:'rgba(0,0,0,0.85)', display:'flex',
+          background:'rgba(0,0,0,0.92)', display:'flex', flexDirection:'column',
           alignItems:'center', justifyContent:'center', cursor:'pointer',
+          padding:20,
         }}>
-          <img src={photoUrl} alt={name} style={{maxWidth:'90vw',maxHeight:'90vh',borderRadius:8,objectFit:'contain'}} />
+          <img src={photoUrl} alt={name} style={{maxWidth:'90vw',maxHeight:'80vh',borderRadius:12,objectFit:'contain'}} />
+          <div style={{color:'rgba(255,255,255,0.7)',fontSize:14,marginTop:14,fontWeight:500}}>{name}</div>
         </div>
       )}
     </>
@@ -218,24 +222,15 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
         <div className="px-6 py-5 space-y-5">
           {err && <div className="alert alert-error"><span>{err}</span></div>}
 
-          {/* Photo — optional, admin-set only. Never shown or asked for at
-              the kiosk; adding one here is a deliberate choice by whoever's
-              trusted with this person's phone number and giving history. */}
-          <div className="flex items-center gap-4">
-            <Avatar name={form.full_name} photoUrl={photoRemoved ? null : photoPreview} size={100} />
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Two explicit actions rather than one generic file picker —
-                  a bare picker sometimes surfaces "Camera" as an option on
-                  mobile and sometimes doesn't, depending on the phone and
-                  browser. `capture="environment"` forces the rear camera to
-                  open directly, since the admin is photographing someone
-                  else standing in front of them, not taking a selfie. */}
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12,padding:'8px 0'}}>
+            <Avatar name={form.full_name} photoUrl={photoRemoved ? null : photoPreview} size={140} />
+            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',justifyContent:'center'}}>
               <label className="btn btn-secondary text-sm" style={{cursor:'pointer'}}>
                 Take photo
                 <input type="file" accept="image/*" capture="environment" onChange={onPhotoSelected} style={{display:'none'}} />
               </label>
               <label className="btn btn-secondary text-sm" style={{cursor:'pointer'}}>
-                {photoPreview && !photoRemoved ? 'Change photo' : 'Upload photo'}
+                {photoPreview && !photoRemoved ? 'Change' : 'Upload'}
                 <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onPhotoSelected} style={{display:'none'}} />
               </label>
               {photoPreview && !photoRemoved && (
@@ -244,6 +239,9 @@ function PersonModal({ person, categories, groups, personGroupIds, onClose, onSa
                 </button>
               )}
             </div>
+            {photoPreview && !photoRemoved && (
+              <div style={{fontSize:11,color:'#A89D8E',fontWeight:300}}>Tap photo to view full size</div>
+            )}
           </div>
 
           <fieldset>
