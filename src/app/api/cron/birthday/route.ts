@@ -50,13 +50,27 @@ export async function GET(request: NextRequest) {
 
       if (!people || people.length === 0) continue;
 
+      // Dedup: skip anyone already emailed or texted today for a birthday
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      const { data: alreadySentEmail } = await supabase
+        .from('email_logs').select('person_id')
+        .eq('org_id', org.id).eq('email_type', 'birthday')
+        .gte('created_at', todayStart.toISOString());
+      const { data: alreadySentSms } = await supabase
+        .from('sms_logs').select('person_id')
+        .eq('org_id', org.id).eq('sms_type', 'birthday')
+        .gte('created_at', todayStart.toISOString());
+      const emailedToday = new Set((alreadySentEmail ?? []).map(l => l.person_id));
+      const textedToday = new Set((alreadySentSms ?? []).map(l => l.person_id));
+
       for (const person of people) {
         const hasWorkingEmail = person.email && !person.email_invalid_at && !person.email_needs_verification_at;
-        if (org.sms_birthday_enabled && org.sms_credits > 0 && !person.sms_opted_out && (org.sms_send_to_all || !hasWorkingEmail)) {
+        if (!textedToday.has(person.id) && org.sms_birthday_enabled && org.sms_credits > 0 && !person.sms_opted_out && (org.sms_send_to_all || !hasWorkingEmail)) {
           const firstName = person.full_name.split(' ')[0];
           await sendSMS(person.phone, birthdayMessage(firstName, org.name), org.id, 'birthday', person.id);
         }
-        if (!hasWorkingEmail) continue;
+        if (!hasWorkingEmail || emailedToday.has(person.id)) continue;
         const subject = processTemplate(template.subject, person, org as any);
         const body    = processTemplate(template.body,    person, org as any);
         // Parse the processed body into greeting/body/sign-off for the premium template

@@ -3408,7 +3408,7 @@ export default function AdminPage() {
                   <div className="flex items-center justify-between gap-4 py-2" style={{borderTop:'1px solid #F0EDE8'}}>
                     <div>
                       <div style={{fontSize:14,fontWeight:500,color:'#16243A'}}>Send to everyone</div>
-                      <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>Send SMS even to people who have an email address. Uses more credits.</div>
+                      <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>Send welcome, birthday and follow-up SMS even to people who have an email address. Uses more credits.</div>
                     </div>
                     <button
                       type="button"

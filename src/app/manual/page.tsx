@@ -144,6 +144,13 @@ export default function ManualPage() {
                 know&quot; panel flagging data worth cleaning up (people missing a birthday or email,
                 for example). This is what you&apos;ll see every time you log in.
               </p>
+              <h3 className="mt-6 font-display text-lg text-navy-900">Install as an app</h3>
+              <p className="mt-2">
+                On most phones and laptops, WeMotiply can be installed straight from the browser — you
+                will see a prompt at the bottom of the screen the first time you visit. Once installed
+                it opens in its own window with no address bar, just like a native app. This is
+                especially useful for the kiosk tablet at the door.
+              </p>
             </section>
 
             <section id="kiosk">
@@ -248,8 +255,11 @@ export default function ManualPage() {
                 being unlimited like email. Top up under <strong>Settings → SMS</strong> — pay by
                 Mobile Money or card, and credits land in your balance automatically once payment
                 clears. The same three automatic messages (welcome, birthday, missed-service) can be
-                sent by text instead of email for anyone who has a phone number but no email on file —
-                toggle each on individually in Settings.
+                sent by text instead of email — toggle each on individually in Settings. By default,
+                SMS only goes to people who have no working email on file (so it fills the gap rather
+                than doubling up). If you prefer every person to get a text regardless of whether they
+                also receive an email, turn on <strong>Send to everyone</strong> in the same SMS
+                section — just know it uses more credits.
               </p>
               <p className="mt-2">
                 Give your texts your church&apos;s name instead of the platform default by setting a
@@ -310,6 +320,12 @@ export default function ManualPage() {
                 email you send. You can also customise the kiosk&apos;s welcome heading and subtext, set
                 your timezone, manage group categories, and configure everything covered above under
                 Messaging.
+              </p>
+              <h3 className="mt-6 font-display text-lg text-navy-900">Kiosk access code</h3>
+              <p className="mt-2">
+                You can set a short PIN (4 to 12 letters or numbers) that must be entered before
+                the kiosk opens. This stops a curious visitor from tapping through to your
+                check-in list on the tablet. Leave it blank if you don&apos;t need the lock.
               </p>
             </section>
 
