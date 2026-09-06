@@ -427,7 +427,7 @@ export default function AdminPage() {
   const [branding, setBranding] = useState({
   org_name: '',
   tagline:'', host_names:'', address:'', phone:'', email:'', logo_url:'', cover_image_url:'', brand_color:'#102a43', kiosk_welcome_heading:'', kiosk_welcome_subtext:'', timezone:'' });
-  const [smsSettings, setSmsSettings] = useState({ sms_welcome_enabled: false, sms_birthday_enabled: false, sms_missed_enabled: false, sms_credits: 0, sms_sender_id: '' });
+  const [smsSettings, setSmsSettings] = useState({ sms_welcome_enabled: false, sms_birthday_enabled: false, sms_missed_enabled: false, sms_send_to_all: false, sms_credits: 0, sms_sender_id: '' });
   const [savingSms, setSavingSms] = useState(false);
   // Separate from smsSettings.sms_sender_id, which tracks whatever's
   // currently typed in the field (saved or not). This tracks what's
@@ -608,6 +608,7 @@ export default function AdminPage() {
           sms_welcome_enabled:  org.sms_welcome_enabled  ?? false,
           sms_birthday_enabled: org.sms_birthday_enabled ?? false,
           sms_missed_enabled:   org.sms_missed_enabled   ?? false,
+          sms_send_to_all:      org.sms_send_to_all      ?? false,
           sms_credits:          org.sms_credits          ?? 0,
           sms_sender_id:        org.sms_sender_id        ?? '',
         });
@@ -857,6 +858,7 @@ export default function AdminPage() {
         sms_welcome_enabled: smsSettings.sms_welcome_enabled,
         sms_birthday_enabled: smsSettings.sms_birthday_enabled,
         sms_missed_enabled: smsSettings.sms_missed_enabled,
+        sms_send_to_all: smsSettings.sms_send_to_all,
       }) });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Could not save notification settings.'); return; }
@@ -3371,9 +3373,9 @@ export default function AdminPage() {
                 <div style={{fontSize:13,fontWeight:600,color:'#16243A',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>Auto-send SMS</div>
                 <div className="space-y-3">
                   {([
-                    { key: 'sms_welcome_enabled',  label: 'Welcome SMS',      desc: 'First-time visitors without an email address.', usageKey: 'welcome' },
-                    { key: 'sms_birthday_enabled', label: 'Birthday SMS',     desc: 'Members whose email is missing on their birthday.', usageKey: 'birthday' },
-                    { key: 'sms_missed_enabled',   label: 'Missed-service SMS', desc: 'Members without email who missed two services in a row.', usageKey: 'missed' },
+                    { key: 'sms_welcome_enabled',  label: 'Welcome SMS',      desc: smsSettings.sms_send_to_all ? 'First-time visitors.' : 'First-time visitors without an email address.', usageKey: 'welcome' },
+                    { key: 'sms_birthday_enabled', label: 'Birthday SMS',     desc: smsSettings.sms_send_to_all ? 'Members on their birthday.' : 'Members whose email is missing on their birthday.', usageKey: 'birthday' },
+                    { key: 'sms_missed_enabled',   label: 'Missed-service SMS', desc: smsSettings.sms_send_to_all ? 'Members who missed two services in a row.' : 'Members without email who missed two services in a row.', usageKey: 'missed' },
                   ] as const).map(({ key, label, desc, usageKey }) => (
                     <div key={key} className="flex items-center justify-between gap-4 py-2" style={{borderTop:'1px solid #F0EDE8'}}>
                       <div>
@@ -3402,6 +3404,30 @@ export default function AdminPage() {
                       </button>
                     </div>
                   ))}
+
+                  <div className="flex items-center justify-between gap-4 py-2" style={{borderTop:'1px solid #F0EDE8'}}>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:500,color:'#16243A'}}>Send to everyone</div>
+                      <div style={{fontSize:12,color:'#A89D8E',fontWeight:300}}>Send SMS even to people who have an email address. Uses more credits.</div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={smsSettings.sms_send_to_all}
+                      onClick={() => setSmsSettings(s => ({ ...s, sms_send_to_all: !s.sms_send_to_all }))}
+                      style={{
+                        width:44, height:24, borderRadius:12, border:'none', cursor:'pointer', flexShrink:0,
+                        background: smsSettings.sms_send_to_all ? 'var(--series-1, #2F5C99)' : '#D4CFC9',
+                        position:'relative', transition:'background 0.15s',
+                      }}
+                    >
+                      <span style={{
+                        position:'absolute', top:3, left: smsSettings.sms_send_to_all ? 23 : 3,
+                        width:18, height:18, borderRadius:'50%', background:'#fff',
+                        transition:'left 0.15s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
+                      }} />
+                    </button>
+                  </div>
                 </div>
 
                 <button onClick={saveSmsSettings} disabled={savingSms} className="btn btn-gold text-sm">

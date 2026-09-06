@@ -31,6 +31,7 @@ export interface Organization {
   sms_welcome_enabled: boolean;
   sms_birthday_enabled: boolean;
   sms_missed_enabled: boolean;
+  sms_send_to_all: boolean;
   sms_sender_id: string | null;
 }
 

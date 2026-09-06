@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     // Get org
     const { data: org } = await supabase
       .from('organizations')
-      .select('id, name, subscription_status, subscription_end_date, timezone, sms_welcome_enabled, sms_credits')
+      .select('id, name, subscription_status, subscription_end_date, timezone, sms_welcome_enabled, sms_send_to_all, sms_credits')
       .eq('slug', orgSlug)
       .single();
 
@@ -327,8 +327,9 @@ export async function POST(request: NextRequest) {
       sendWelcomeEmail(person, org.id, service).catch(console.error);
     }
 
-    // Send welcome SMS for first-timers without a working email (phone is always present)
-    if (isFirstTime && (!person.email || person.email_invalid_at || person.email_needs_verification_at) && org.sms_welcome_enabled && org.sms_credits > 0 && !person.sms_opted_out) {
+    const hasWorkingEmail = person.email && !person.email_invalid_at && !person.email_needs_verification_at;
+    const shouldSms = org.sms_welcome_enabled && org.sms_credits > 0 && !person.sms_opted_out && (org.sms_send_to_all || !hasWorkingEmail);
+    if (isFirstTime && shouldSms) {
       const firstName = person.full_name.split(' ')[0];
       sendSMS(person.phone, welcomeMessage(firstName, org.name), org.id, 'welcome', person.id).catch(console.error);
     }

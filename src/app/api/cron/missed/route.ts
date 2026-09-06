@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     // Get all active organizations
     const { data: orgs } = await supabase
       .from('organizations')
-      .select('id, name, brand_color, logo_url, address, phone, email, admin_email, subscription_status, subscription_end_date, sms_missed_enabled, sms_credits');
+      .select('id, name, brand_color, logo_url, address, phone, email, admin_email, subscription_status, subscription_end_date, sms_missed_enabled, sms_send_to_all, sms_credits');
 
     if (!orgs) {
       return NextResponse.json({ success: true, sent: 0 });
@@ -120,13 +120,11 @@ export async function GET(request: NextRequest) {
         .gte('created_at', sevenDaysAgo.toISOString());
       const alreadyTexted = new Set((recentSmsLogs ?? []).map((l) => l.person_id));
 
-      // People with a working email go through the email queue; everyone
-      // else — no email, or one already marked bounced/complained by the
-      // Resend webhook — goes through SMS instead of a dead address.
       const emailAbsentees = absentees.filter((p) => p.email && !p.email_invalid_at && !p.email_needs_verification_at && !alreadyEmailed.has(p.id));
       const smsAbsentees   = absentees.filter(
-        (p) => (!p.email || p.email_invalid_at || p.email_needs_verification_at) && !p.sms_opted_out && !alreadyTexted.has(p.id) &&
-               org.sms_missed_enabled && org.sms_credits > 0
+        (p) => !p.sms_opted_out && !alreadyTexted.has(p.id) &&
+               org.sms_missed_enabled && org.sms_credits > 0 &&
+               (org.sms_send_to_all || !p.email || p.email_invalid_at || p.email_needs_verification_at)
       );
 
       // Fire SMS for no-email absentees immediately (low volume, no batching needed)
