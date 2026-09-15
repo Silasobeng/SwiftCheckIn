@@ -12,8 +12,8 @@
 // visitors, not by church staff, and a support button there would either be
 // ignored or tapped by the wrong person entirely.
 
-// Ghana local 0559519783 -> international, digits only, no + for wa.me
-const SUPPORT_NUMBER = '233559519783';
+// Ghana local 0268668845 -> international, digits only, no + for wa.me
+const SUPPORT_NUMBER = '233268668845';
 
 export default function WhatsAppSupport({
   context,
