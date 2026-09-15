@@ -3386,7 +3386,9 @@ export default function AdminPage() {
                       {savingSenderId ? 'Saving…' : 'Save'}
                     </button>
                   </div>
-                  <div style={{marginTop:18,paddingTop:16,borderTop:'1px solid #F0EDE8'}}>
+                  {/* Kept for the next release. Special-bundle requests need a
+                      little more operational testing before churches see it. */}
+                  {false && <div style={{marginTop:18,paddingTop:16,borderTop:'1px solid #F0EDE8'}}>
                     <div style={{fontSize:13,fontWeight:500,color:'#16243A',marginBottom:4}}>Need a special SMS bundle?</div>
                     <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:10,lineHeight:1.6}}>Tell us what you need. We will confirm the price and email you a secure Mobile Money or card payment link.</p>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -3395,7 +3397,7 @@ export default function AdminPage() {
                     </div>
                     <textarea className="input" style={{marginTop:8,minHeight:66}} maxLength={500} placeholder="Anything we should know? (optional)" value={bundleRequest.note} onChange={e=>setBundleRequest(v=>({...v,note:e.target.value}))} />
                     <button onClick={sendBundleRequest} disabled={sendingBundleRequest || !bundleRequest.credits} className="btn btn-secondary text-sm" style={{marginTop:8}}>{sendingBundleRequest ? 'Sending…' : 'Request special bundle'}</button>
-                  </div>
+                  </div>}
                 </div>
 
                 <div style={{fontSize:13,fontWeight:600,color:'#16243A',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>Auto-send SMS</div>
@@ -3483,6 +3485,9 @@ export default function AdminPage() {
                         <span style={{display:'block',fontSize:11,color:'#7A6E60',marginTop:2}}>GHC {item.amountGhc}</span>
                       </button>
                     ))}
+                  </div>
+                  <div style={{fontSize:12,color:'#7A6E60',fontWeight:300,marginBottom:12}}>
+                    Need more SMS than these packages? <WhatsAppSupport variant="inline" context="a larger SMS credit bundle" />
                   </div>
                   <div style={{fontSize:12,fontWeight:500,color:'#16243A',marginBottom:8}}>Or choose your own amount</div>
                   <div className="flex gap-2 items-center sms-topup-row">
