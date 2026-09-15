@@ -439,6 +439,7 @@ export default function AdminPage() {
   const [savingSenderId, setSavingSenderId] = useState(false);
   const [smsTopupAmount, setSmsTopupAmount] = useState('');
   const [toppingUp, setToppingUp] = useState(false);
+  const [smsSalesAvailable, setSmsSalesAvailable] = useState(true);
   const [bundleRequest, setBundleRequest] = useState({ credits: '', budgetGhs: '', note: '' });
   const [sendingBundleRequest, setSendingBundleRequest] = useState(false);
   const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -474,6 +475,8 @@ export default function AdminPage() {
   useEffect(() => {
     fetch('/api/auth/session').then(r=>r.json()).then(d=>{ if(!d.authenticated) router.push('/login'); else { setSession(d.session); setLoading(false); } }).catch(()=>router.push('/login'));
   }, [router]);
+
+  useEffect(() => { fetch('/api/sms/availability').then(r=>r.json()).then(d=>setSmsSalesAvailable(d.available !== false)).catch(()=>{}); }, []);
 
   // Billing checkout state and the ?billing=success|failed round trip from
   // Paystack's redirect. Read once on mount, then the URL is cleaned so a
@@ -3470,13 +3473,14 @@ export default function AdminPage() {
                   <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:12,lineHeight:1.6}}>
                     Pay by MoMo or card via Paystack. Larger packages give you a lower price per SMS.
                   </p>
+                  {!smsSalesAvailable && <div className="alert alert-error" style={{marginBottom:12}}><span>SMS credits are temporarily being restocked. Please try again shortly, or contact support for urgent help.</span></div>}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" style={{marginBottom:12}}>
                     {SMS_TOPUP_PACKAGES.map(item => (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => initSmsTopup(item.id)}
-                        disabled={toppingUp}
+                        disabled={toppingUp || !smsSalesAvailable}
                         className="btn btn-secondary text-left"
                         style={{padding:'10px 12px'}}
                       >
@@ -3512,7 +3516,7 @@ export default function AdminPage() {
                     )}
                     <button
                       onClick={() => initSmsTopup()}
-                      disabled={toppingUp || !smsTopupAmount || parseFloat(smsTopupAmount) < 5}
+                      disabled={toppingUp || !smsSalesAvailable || !smsTopupAmount || parseFloat(smsTopupAmount) < 5}
                       className="btn btn-gold text-sm shrink-0"
                     >
                       {toppingUp ? 'Redirecting…' : 'Pay'}

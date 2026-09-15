@@ -13,6 +13,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const { amountGhc, packageId } = await request.json();
+    const { data: sales } = await (await import('@/lib/supabase')).getServerSupabase().from('platform_settings').select('sms_sales_available').eq('id', true).maybeSingle();
+    if (sales?.sms_sales_available === false) return NextResponse.json({ error: 'SMS credits are temporarily being restocked. Please try again shortly or contact support for urgent help.' }, { status: 503 });
     const selectedPackage = findSmsTopupPackage(packageId);
     const paymentAmount = selectedPackage?.amountGhc ?? amountGhc;
     const credits = selectedPackage?.credits ??

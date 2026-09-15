@@ -28,6 +28,7 @@ export default function OwnerPage() {
   const [loggingIn, setLoggingIn] = useState(false);
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [bundleRequests, setBundleRequests] = useState<BundleRequest[]>([]);
+  const [smsSalesAvailable, setSmsSalesAvailable] = useState(true);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +42,7 @@ export default function OwnerPage() {
 
   const load = async () => {
     setError(null);
-    const [orgRes, requestRes] = await Promise.all([fetch('/api/owner/orgs', { cache: 'no-store' }), fetch('/api/owner/sms-bundle-requests', { cache: 'no-store' })]);
+    const [orgRes, requestRes, salesRes] = await Promise.all([fetch('/api/owner/orgs', { cache: 'no-store' }), fetch('/api/owner/sms-bundle-requests', { cache: 'no-store' }), fetch('/api/owner/sms-sales', { cache: 'no-store' })]);
     if (orgRes.status === 401) {
       // Owner cookie missing or expired — fall back to the password screen.
       setAuthed(false);
@@ -55,6 +56,7 @@ export default function OwnerPage() {
       setOrgs(orgData.orgs || []);
       const requestData = await requestRes.json();
       if (requestRes.ok) setBundleRequests(requestData.requests || []);
+      const salesData = await salesRes.json(); if (salesRes.ok) setSmsSalesAvailable(salesData.available !== false);
     }
     setAuthed(true);
     setLoading(false);
@@ -166,6 +168,12 @@ export default function OwnerPage() {
     finally { setBusy(null); }
   };
 
+  const setSmsSales = async (available: boolean) => {
+    setBusy('sms-sales');
+    try { const res=await fetch('/api/owner/sms-sales',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({available})}); const data=await res.json(); if(!res.ok) throw new Error(data.error); setSmsSalesAvailable(available); setMessage(available ? 'SMS credit purchases are live.' : 'SMS credit purchases are paused.'); }
+    catch(err){setError(err instanceof Error ? err.message : 'Could not update SMS sales.');} finally {setBusy(null);}
+  };
+
   if (authed === null || (loading && authed)) return (
     <div style={{ minHeight:'100vh', background:'#F8F4EE', display:'flex', alignItems:'center', justifyContent:'center' }}>
       <div style={{ textAlign:'center' }}>
@@ -247,6 +255,11 @@ export default function OwnerPage() {
         <div style={{ marginBottom:28 }}>
           <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:26, color:'#16243A', fontWeight:400, marginBottom:4 }}>Every church on the platform</h2>
           <p style={{ fontSize:14, color:'#7A6E60', fontWeight:300 }}>Manage subscriptions, reset data, and remove accounts.</p>
+        </div>
+
+        <div className="card" style={{padding:'18px 20px',marginBottom:24,display:'flex',justifyContent:'space-between',alignItems:'center',gap:16}}>
+          <div><div style={{fontWeight:600,color:'#16243A'}}>SMS credit purchases</div><div style={{fontSize:13,color:'#7A6E60',marginTop:3}}>{smsSalesAvailable ? 'Churches can currently buy SMS packages.' : 'Paused — churches will see the restocking message instead of paying.'}</div></div>
+          <button onClick={()=>setSmsSales(!smsSalesAvailable)} disabled={busy==='sms-sales'} className={smsSalesAvailable ? 'btn btn-secondary text-sm' : 'btn btn-primary text-sm'}>{busy==='sms-sales' ? 'Saving…' : smsSalesAvailable ? 'Pause sales' : 'Resume sales'}</button>
         </div>
 
         <div className="card" style={{padding:0,marginBottom:24,overflow:'hidden'}}>
