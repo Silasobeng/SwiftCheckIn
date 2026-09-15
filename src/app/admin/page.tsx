@@ -3489,10 +3489,11 @@ export default function AdminPage() {
                         onClick={() => initSmsTopup(item.id)}
                         disabled={toppingUp || !smsSalesAvailable}
                         className="btn btn-secondary text-left"
-                        style={{padding:'12px 14px',minHeight:76,borderColor:'#E4DFD5'}}
+                        style={{padding:'10px 12px'}}
                       >
-                        <span style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}><span style={{fontSize:13,fontWeight:600}}>{item.label}</span><span style={{fontSize:11,color:'#A65D07',fontWeight:700,background:'#FFF3DE',padding:'3px 7px',borderRadius:999}}>GHS {item.amountGhc}</span></span>
-                        <span style={{display:'block',fontSize:14,marginTop:7,color:'#16243A',fontWeight:500}}>{item.credits.toLocaleString()} <span style={{fontSize:11,fontWeight:400,color:'#7A6E60'}}>SMS credits</span></span>
+                        <span style={{display:'block',fontSize:13,fontWeight:600}}>{item.label}</span>
+                        <span style={{display:'block',fontSize:12,marginTop:2}}>{item.credits.toLocaleString()} SMS</span>
+                        <span style={{display:'block',fontSize:11,color:'#7A6E60',marginTop:2}}>GHC {item.amountGhc}</span>
                       </button>
                     ))}
                   </div>
