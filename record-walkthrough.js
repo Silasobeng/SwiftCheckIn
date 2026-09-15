@@ -36,7 +36,7 @@ const OUTPUT_DIR = path.join(__dirname, 'walkthrough-video');
   try {
     // ─── SCENE 1: LANDING PAGE ───
     console.log('Scene 1: Landing page');
-    await page.goto('https://wemotiply.com', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto('https://wemotiply.com', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await linger(3500);
     await smoothScroll(600);
     await linger(2500);
@@ -45,7 +45,7 @@ const OUTPUT_DIR = path.join(__dirname, 'walkthrough-video');
 
     // ─── SCENE 2: LOG IN ───
     console.log('Scene 2: Logging in');
-    await page.goto('https://wemotiply.com/login', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto('https://wemotiply.com/login', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await linger(2000);
 
     const emailInput = page.locator('input[type="email"]');
@@ -76,7 +76,7 @@ const OUTPUT_DIR = path.join(__dirname, 'walkthrough-video');
       } else {
         console.log('  -> Login may have failed. Body snippet:', bodyText?.slice(0, 200));
         // Try navigating directly
-        await page.goto('https://wemotiply.com/admin', { waitUntil: 'networkidle', timeout: 20000 });
+        await page.goto('https://wemotiply.com/admin', { waitUntil: 'domcontentloaded', timeout: 20000 });
       }
     }
     await linger(3000);
