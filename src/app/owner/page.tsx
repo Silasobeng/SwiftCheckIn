@@ -168,6 +168,21 @@ export default function OwnerPage() {
     finally { setBusy(null); }
   };
 
+  const addSmsCredits = async (org: OrgRow) => {
+    const input = window.prompt(`How many SMS credits should be added to ${org.name}?`);
+    if (input === null) return;
+    const credits = Number(input);
+    if (!Number.isInteger(credits) || credits < 1) { setError('Enter a whole number of SMS credits.'); return; }
+    setBusy(`${org.id}:sms`); setError(null); setMessage(null);
+    try {
+      const res = await fetch('/api/owner/orgs', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ orgId:org.id, action:'add_sms_credits', credits }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not add SMS credits.');
+      setMessage(`${credits.toLocaleString()} SMS credits added to ${org.name}.`);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Could not add SMS credits.'); }
+    finally { setBusy(null); }
+  };
+
   const setSmsSales = async (available: boolean) => {
     setBusy('sms-sales');
     try { const res=await fetch('/api/owner/sms-sales',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({available})}); const data=await res.json(); if(!res.ok) throw new Error(data.error); setSmsSalesAvailable(available); setMessage(available ? 'SMS credit purchases are live.' : 'SMS credit purchases are paused.'); }
@@ -322,6 +337,7 @@ export default function OwnerPage() {
                       <td className="table-cell">
                         <div className="flex flex-wrap gap-2 justify-end">
                           <button onClick={() => patchOrg(org.id, 'extend_30_days')} className="btn btn-secondary text-xs py-1.5 px-3" disabled={busy === `${org.id}:extend_30_days`}>+30 days</button>
+                          <button onClick={() => addSmsCredits(org)} className="btn btn-secondary text-xs py-1.5 px-3" disabled={busy === `${org.id}:sms`}>{busy === `${org.id}:sms` ? 'Adding…' : '+ SMS credits'}</button>
                           <button onClick={() => patchOrg(org.id, 'activate_annual')} className="btn btn-secondary text-xs py-1.5 px-3" disabled={busy === `${org.id}:activate_annual`}>Annual</button>
                           <button onClick={() => patchOrg(org.id, 'mark_expired')} className="btn btn-secondary text-xs py-1.5 px-3" disabled={busy === `${org.id}:mark_expired`}>Expire</button>
                           <button onClick={() => { setResetPwOrgId(org.id); setNewPassword(''); setShowNewPw(false); }} className="btn btn-ghost text-xs py-1.5 px-3">Reset pw</button>

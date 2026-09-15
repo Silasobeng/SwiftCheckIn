@@ -51,12 +51,23 @@ export async function PATCH(request: NextRequest) {
   if ('error' in auth) return auth.error;
 
   try {
-    const { orgId, action, newPassword } = await request.json();
+    const { orgId, action, newPassword, credits } = await request.json();
     if (!orgId || !action) {
       return NextResponse.json({ error: 'orgId and action are required' }, { status: 400 });
     }
 
     const supabase = getServerSupabase();
+
+    if (action === 'add_sms_credits') {
+      if (!Number.isInteger(credits) || credits < 1 || credits > 100000) {
+        return NextResponse.json({ error: 'Enter a whole number of SMS credits (1 to 100,000).' }, { status: 400 });
+      }
+      const { data: org, error: lookupError } = await supabase.from('organizations').select('sms_credits').eq('id', orgId).single();
+      if (lookupError || !org) return NextResponse.json({ error: 'Church not found.' }, { status: 404 });
+      const { error } = await supabase.from('organizations').update({ sms_credits: (org.sms_credits || 0) + credits, updated_at: new Date().toISOString() }).eq('id', orgId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true, credits: (org.sms_credits || 0) + credits });
+    }
 
     if (action === 'reset_password') {
       if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
