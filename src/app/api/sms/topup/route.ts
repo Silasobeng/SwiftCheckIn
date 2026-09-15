@@ -1,22 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireActiveSubscription } from '@/lib/auth';
 import { initializeSmsTopup } from '@/lib/paystack';
+import { findSmsTopupPackage, smsCreditsForCustomTopup } from '@/lib/smsPricing';
 
 export const dynamic = 'force-dynamic';
 
 // POST - Start a Paystack checkout to top up this org's SMS credits.
-// Body: { amountGhc: number }   (minimum 5 GHC = 12 credits)
+// Body: { amountGhc?: number, packageId?: string }
 export async function POST(request: NextRequest) {
   const auth = await requireActiveSubscription();
   if ('error' in auth) return auth.error;
 
   try {
-    const { amountGhc } = await request.json();
+    const { amountGhc, packageId } = await request.json();
+    const selectedPackage = findSmsTopupPackage(packageId);
+    const paymentAmount = selectedPackage?.amountGhc ?? amountGhc;
+    const credits = selectedPackage?.credits ??
+      (typeof paymentAmount === 'number' ? smsCreditsForCustomTopup(paymentAmount) : 0);
 
-    if (typeof amountGhc !== 'number' || amountGhc < 5) {
-      return NextResponse.json({ error: 'Minimum top-up is 5 GHC.' }, { status: 400 });
+    if (typeof paymentAmount !== 'number' || paymentAmount < 5 || credits < 1) {
+      return NextResponse.json({ error: 'Minimum top-up is 5 GHC (50 SMS credits).' }, { status: 400 });
     }
-    if (amountGhc > 5000) {
+    if (paymentAmount > 5000) {
       return NextResponse.json({ error: 'Maximum single top-up is 5,000 GHC.' }, { status: 400 });
     }
 
@@ -30,8 +35,9 @@ export async function POST(request: NextRequest) {
     const { authorization_url, access_code } = await initializeSmsTopup(
       auth.session.adminEmail,
       auth.session.orgId,
-      amountGhc,
-      callbackUrl
+      paymentAmount,
+      callbackUrl,
+      credits
     );
 
     return NextResponse.json({ authorizationUrl: authorization_url, accessCode: access_code });

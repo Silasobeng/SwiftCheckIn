@@ -12,7 +12,7 @@ import { creditsFromPesewas } from './sms';
 // handles both of those directly in GHS.
 //
 // Amounts sent to Paystack are always in the currency's smallest subunit —
-// for GHS that is pesewas, so GHS 99.00 is sent as 9900.
+// for GHS that is pesewas, so GHS 150.00 is sent as 15000.
 
 const PAYSTACK_API = 'https://api.paystack.co';
 const SUBUNIT = 100;
@@ -24,10 +24,10 @@ export type BillingPlan = 'monthly' | 'annual';
 // be mirrored in both — they are static copy, not read from this object.
 //
 // Annual is priced at ten months rather than twelve, so a church that pays up
-// front gets two months free (89 x 12 = 1,068 against 890, saving 178).
+// front gets two months free (150 x 10 = 1,500 against 1,800, saving 300).
 export const PLAN_PRICING: Record<BillingPlan, { amountGHS: number; days: number; label: string }> = {
-  monthly: { amountGHS: 99, days: 30, label: 'Monthly' },
-  annual: { amountGHS: 990, days: 365, label: 'Annual' },
+  monthly: { amountGHS: 150, days: 30, label: 'Monthly' },
+  annual: { amountGHS: 1500, days: 365, label: 'Annual' },
 };
 
 function secretKey(): string {
@@ -121,11 +121,13 @@ export async function initializeSmsTopup(
   email: string,
   orgId: string,
   amountGHS: number,
-  callbackUrl: string
+  callbackUrl: string,
+  creditsOverride?: number,
+  bundleRequestId?: string
 ): Promise<InitResult> {
   const reference = generateReference();
   const pesewas   = Math.round(amountGHS * SUBUNIT);
-  const credits   = creditsFromPesewas(pesewas);
+  const credits   = creditsOverride ?? creditsFromPesewas(pesewas);
 
   const res = await fetch(`${PAYSTACK_API}/transaction/initialize`, {
     method: 'POST',
@@ -136,7 +138,7 @@ export async function initializeSmsTopup(
       currency: 'GHS',
       reference,
       callback_url: callbackUrl,
-      metadata: { org_id: orgId, purpose: 'sms_topup', credits },
+      metadata: { org_id: orgId, purpose: 'sms_topup', credits, ...(bundleRequestId ? { bundle_request_id: bundleRequestId } : {}) },
     }),
   });
 
@@ -190,6 +192,11 @@ export async function creditSmsTopup(
     .from('organizations')
     .update({ sms_credits: (org?.sms_credits ?? 0) + credits, updated_at: new Date().toISOString() })
     .eq('id', orgId);
+
+  const bundleRequestId = data?.metadata?.bundle_request_id as string | undefined;
+  if (bundleRequestId) {
+    await supabase.from('sms_bundle_requests').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', bundleRequestId).eq('org_id', orgId);
+  }
 
   return { applied: true, credits };
 }

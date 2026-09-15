@@ -1,7 +1,8 @@
 import { getServerSupabase } from './supabase';
+import { smsCreditsForCustomTopup } from './smsPricing';
 
-// 0.40 GHC per SMS charged to churches. Arkesel costs ~0.28 GHC/SMS (~$0.02).
-const PRICE_PER_SMS_PESEWAS = 40;
+// Custom SMS credit purchases are 0.10 GHC each. Larger package purchases
+// have their own credit counts in smsPricing.ts.
 const ARKESEL_API_URL = 'https://sms.arkesel.com/api/v2/sms/send';
 const BATCH_SIZE = 100; // Arkesel max recipients per request
 
@@ -58,7 +59,7 @@ export async function sendSMSBatched(
 }
 
 export function creditsFromPesewas(pesewas: number): number {
-  return Math.floor(pesewas / PRICE_PER_SMS_PESEWAS);
+  return smsCreditsForCustomTopup(pesewas / 100);
 }
 
 export function welcomeMessage(firstName: string, orgName: string): string {

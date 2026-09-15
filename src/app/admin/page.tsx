@@ -9,6 +9,7 @@ import { tzFormatter, timeFormatter, monthKeyOf, dayKeyOf, prevMonthKey, monthRa
 import { StackedTrend, RankedBars, OrdinalBars, SplitBar, SingleTrend } from '@/components/Charts';
 import WhatsAppSupport from '@/components/WhatsAppSupport';
 import { formatPersonName } from '@/lib/personIdentity';
+import { SMS_TOPUP_PACKAGES, smsCreditsForCustomTopup } from '@/lib/smsPricing';
 
 type Tab = 'dashboard' | 'services' | 'people' | 'giving' | 'analytics' | 'emails' | 'settings';
 
@@ -438,6 +439,8 @@ export default function AdminPage() {
   const [savingSenderId, setSavingSenderId] = useState(false);
   const [smsTopupAmount, setSmsTopupAmount] = useState('');
   const [toppingUp, setToppingUp] = useState(false);
+  const [bundleRequest, setBundleRequest] = useState({ credits: '', budgetGhs: '', note: '' });
+  const [sendingBundleRequest, setSendingBundleRequest] = useState(false);
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [broadcastFilter, setBroadcastFilter] = useState('all');
   // Hand-picked recipients for the 'specific' filter — a church texting just
@@ -941,12 +944,13 @@ export default function AdminPage() {
     } finally { setBroadcastSending(false); }
   };
 
-  const initSmsTopup = async () => {
-    const amount = parseFloat(smsTopupAmount);
+  const initSmsTopup = async (packageId?: string) => {
+    const selectedPackage = packageId ? SMS_TOPUP_PACKAGES.find(item => item.id === packageId) : undefined;
+    const amount = selectedPackage?.amountGhc ?? parseFloat(smsTopupAmount);
     if (!amount || amount < 5) { setError('Minimum top-up is 5 GHC.'); return; }
     setToppingUp(true); setMessage(null); setError(null);
     try {
-      const res  = await fetch('/api/sms/topup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amountGhc: amount }) });
+      const res  = await fetch('/api/sms/topup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(selectedPackage ? { packageId: selectedPackage.id } : { amountGhc: amount }) });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Could not start top-up.'); setToppingUp(false); return; }
 
@@ -981,6 +985,20 @@ export default function AdminPage() {
       setError('Could not reach the payment service. Check your connection.');
       setToppingUp(false);
     }
+  };
+
+  const sendBundleRequest = async () => {
+    const credits = Number(bundleRequest.credits);
+    if (!Number.isInteger(credits) || credits < 1) { setError('Enter how many SMS credits you need.'); return; }
+    setSendingBundleRequest(true); setError(null); setMessage(null);
+    try {
+      const res = await fetch('/api/sms/bundle-request', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ credits, budgetGhs: bundleRequest.budgetGhs, note: bundleRequest.note }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send request.');
+      setBundleRequest({ credits:'', budgetGhs:'', note:'' });
+      setMessage('Request sent. We will email you a secure payment link after confirming your bundle.');
+    } catch (err) { setError(err instanceof Error ? err.message : 'Could not send request.'); }
+    finally { setSendingBundleRequest(false); }
   };
 
   const saveGroup = async () => {
@@ -1580,7 +1598,7 @@ export default function AdminPage() {
           <div className="card" style={{padding:'20px 22px',marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center',gap:16}}>
             <div>
               <div style={{fontSize:12,color:'#A89D8E',fontWeight:500,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Monthly</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 99<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / month</span></div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 150<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / month</span></div>
             </div>
             <button onClick={()=>startCheckout('monthly')} disabled={billingBusy!==null} className="btn btn-secondary">
               {billingBusy==='monthly' ? 'Redirecting…' : 'Choose'}
@@ -1589,8 +1607,8 @@ export default function AdminPage() {
 
           <div className="card" style={{padding:'20px 22px',marginBottom:20,display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,border:'1px solid #C97B1A',background:'#FDF3E0'}}>
             <div>
-              <div style={{fontSize:12,color:'#7A4A0E',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Annual · Save GHS 198</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 990<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / year</span></div>
+              <div style={{fontSize:12,color:'#7A4A0E',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Annual · Save GHS 300</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:'#16243A'}}>GHS 1,500<span style={{fontSize:13,color:'#7A6E60',fontWeight:400}}> / year</span></div>
             </div>
             <button onClick={()=>startCheckout('annual')} disabled={billingBusy!==null} className="btn btn-primary">
               {billingBusy==='annual' ? 'Redirecting…' : 'Choose'}
@@ -3328,7 +3346,7 @@ export default function AdminPage() {
                   <div>
                     <div className="panel-label" style={{display:'block',marginBottom:4}}>SMS Notifications</div>
                     <p style={{fontSize:13,color:'#7A6E60',fontWeight:300,lineHeight:1.7}}>
-                      Sent to members who have no email address. Each SMS costs 0.40 GHC from your credit balance.
+                      Sent to members who have no email address. Each SMS uses one credit from your balance.
                     </p>
                   </div>
                   <div style={{textAlign:'right',flexShrink:0}}>
@@ -3367,6 +3385,16 @@ export default function AdminPage() {
                     <button onClick={saveSenderId} disabled={savingSenderId || smsSettings.sms_sender_id===savedSenderId} className="btn btn-secondary text-sm">
                       {savingSenderId ? 'Saving…' : 'Save'}
                     </button>
+                  </div>
+                  <div style={{marginTop:18,paddingTop:16,borderTop:'1px solid #F0EDE8'}}>
+                    <div style={{fontSize:13,fontWeight:500,color:'#16243A',marginBottom:4}}>Need a special SMS bundle?</div>
+                    <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:10,lineHeight:1.6}}>Tell us what you need. We will confirm the price and email you a secure Mobile Money or card payment link.</p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <input className="input" type="number" min="1" placeholder="How many SMS credits?" value={bundleRequest.credits} onChange={e=>setBundleRequest(v=>({...v,credits:e.target.value}))} />
+                      <input className="input" type="number" min="0" placeholder="Your budget in GHS (optional)" value={bundleRequest.budgetGhs} onChange={e=>setBundleRequest(v=>({...v,budgetGhs:e.target.value}))} />
+                    </div>
+                    <textarea className="input" style={{marginTop:8,minHeight:66}} maxLength={500} placeholder="Anything we should know? (optional)" value={bundleRequest.note} onChange={e=>setBundleRequest(v=>({...v,note:e.target.value}))} />
+                    <button onClick={sendBundleRequest} disabled={sendingBundleRequest || !bundleRequest.credits} className="btn btn-secondary text-sm" style={{marginTop:8}}>{sendingBundleRequest ? 'Sending…' : 'Request special bundle'}</button>
                   </div>
                 </div>
 
@@ -3436,11 +3464,27 @@ export default function AdminPage() {
 
                 {/* Top-up */}
                 <div style={{borderTop:'1px solid #F0EDE8',paddingTop:16}}>
-                  <div style={{fontSize:13,fontWeight:500,color:'#16243A',marginBottom:4}}>Top up SMS credits</div>
+                  <div style={{fontSize:13,fontWeight:500,color:'#16243A',marginBottom:4}}>Buy SMS credits</div>
                   <p style={{fontSize:12,color:'#A89D8E',fontWeight:300,marginBottom:12,lineHeight:1.6}}>
-                    Pay by MoMo or card via Paystack. Credits are added automatically once payment clears.
-                    Minimum 5 GHC (12 credits).
+                    Pay by MoMo or card via Paystack. Larger packages give you a lower price per SMS.
                   </p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" style={{marginBottom:12}}>
+                    {SMS_TOPUP_PACKAGES.map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => initSmsTopup(item.id)}
+                        disabled={toppingUp}
+                        className="btn btn-secondary text-left"
+                        style={{padding:'10px 12px'}}
+                      >
+                        <span style={{display:'block',fontSize:13,fontWeight:600}}>{item.label}</span>
+                        <span style={{display:'block',fontSize:12,marginTop:2}}>{item.credits.toLocaleString()} SMS</span>
+                        <span style={{display:'block',fontSize:11,color:'#7A6E60',marginTop:2}}>GHC {item.amountGhc}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{fontSize:12,fontWeight:500,color:'#16243A',marginBottom:8}}>Or choose your own amount</div>
                   <div className="flex gap-2 items-center sms-topup-row">
                     <div className="relative flex-1 sms-topup-field">
                       <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13,color:'#7A6E60',fontWeight:500,pointerEvents:'none'}}>GHC</span>
@@ -3451,18 +3495,18 @@ export default function AdminPage() {
                         min="5"
                         max="5000"
                         step="1"
-                        placeholder="e.g. 50"
+                        placeholder="Minimum 5"
                         value={smsTopupAmount}
                         onChange={e => setSmsTopupAmount(e.target.value)}
                       />
                     </div>
                     {smsTopupAmount && parseFloat(smsTopupAmount) >= 5 && (
                       <span style={{fontSize:12,color:'#7A6E60',whiteSpace:'nowrap'}}>
-                        = {Math.floor(parseFloat(smsTopupAmount) * 100 / 40)} credits
+                        = {smsCreditsForCustomTopup(parseFloat(smsTopupAmount))} SMS credits
                       </span>
                     )}
                     <button
-                      onClick={initSmsTopup}
+                      onClick={() => initSmsTopup()}
                       disabled={toppingUp || !smsTopupAmount || parseFloat(smsTopupAmount) < 5}
                       className="btn btn-gold text-sm shrink-0"
                     >

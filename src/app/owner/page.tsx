@@ -12,6 +12,7 @@ type OrgRow = {
   created_at: string;
   counts: { people: number; services: number; checkins: number };
 };
+type BundleRequest = { id:string; created_at:string; requested_credits:number; budget_ghs:number|null; note:string|null; status:string; quoted_amount_ghs:number|null; quoted_credits:number|null; organizations:{name:string;admin_email:string}|null };
 
 const STATUS_BADGE: Record<string, string> = {
   active: 'badge-success',
@@ -26,6 +27,7 @@ export default function OwnerPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState(false);
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
+  const [bundleRequests, setBundleRequests] = useState<BundleRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export default function OwnerPage() {
 
   const load = async () => {
     setError(null);
-    const orgRes = await fetch('/api/owner/orgs', { cache: 'no-store' });
+    const [orgRes, requestRes] = await Promise.all([fetch('/api/owner/orgs', { cache: 'no-store' }), fetch('/api/owner/sms-bundle-requests', { cache: 'no-store' })]);
     if (orgRes.status === 401) {
       // Owner cookie missing or expired — fall back to the password screen.
       setAuthed(false);
@@ -51,6 +53,8 @@ export default function OwnerPage() {
       setError(orgData.error || 'Could not load owner dashboard.');
     } else {
       setOrgs(orgData.orgs || []);
+      const requestData = await requestRes.json();
+      if (requestRes.ok) setBundleRequests(requestData.requests || []);
     }
     setAuthed(true);
     setLoading(false);
@@ -145,6 +149,23 @@ export default function OwnerPage() {
     setBusy(null);
   };
 
+  const sendBundlePaymentLink = async (item: BundleRequest) => {
+    const amountText = window.prompt(`Price for ${item.organizations?.name || 'this church'} (GHS):`, item.budget_ghs ? String(item.budget_ghs) : '');
+    if (amountText === null) return;
+    const creditsText = window.prompt('How many SMS credits will they receive?', String(item.requested_credits));
+    if (creditsText === null) return;
+    const amountGhs = Number(amountText); const credits = Number(creditsText);
+    if (!Number.isFinite(amountGhs) || amountGhs < 5 || !Number.isInteger(credits) || credits < 1) { setError('Use a price of at least GHS 5 and a whole number of credits.'); return; }
+    setBusy(`${item.id}:bundle`); setError(null); setMessage(null);
+    try {
+      const res = await fetch('/api/owner/sms-bundle-requests', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ requestId:item.id, amountGhs, credits }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send payment link.');
+      setMessage('Payment link emailed to the church. Credits will be added automatically after payment.'); await load();
+    } catch (err) { setError(err instanceof Error ? err.message : 'Could not send payment link.'); }
+    finally { setBusy(null); }
+  };
+
   if (authed === null || (loading && authed)) return (
     <div style={{ minHeight:'100vh', background:'#F8F4EE', display:'flex', alignItems:'center', justifyContent:'center' }}>
       <div style={{ textAlign:'center' }}>
@@ -226,6 +247,14 @@ export default function OwnerPage() {
         <div style={{ marginBottom:28 }}>
           <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:26, color:'#16243A', fontWeight:400, marginBottom:4 }}>Every church on the platform</h2>
           <p style={{ fontSize:14, color:'#7A6E60', fontWeight:300 }}>Manage subscriptions, reset data, and remove accounts.</p>
+        </div>
+
+        <div className="card" style={{padding:0,marginBottom:24,overflow:'hidden'}}>
+          <div style={{padding:'18px 20px',borderBottom:'1px solid #F0EDE8'}}>
+            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:'#16243A',marginBottom:4}}>Special SMS bundle requests</h2>
+            <p style={{fontSize:13,color:'#7A6E60',fontWeight:300}}>Set the price, then send the church a secure payment link by email.</p>
+          </div>
+          {bundleRequests.length === 0 ? <p style={{padding:20,fontSize:14,color:'#A89D8E'}}>No special SMS bundle requests yet.</p> : <div className="overflow-x-auto"><table className="w-full"><thead><tr className="bg-cream"><th className="table-header">Church</th><th className="table-header">Request</th><th className="table-header hidden md:table-cell">Note</th><th className="table-header">Status</th><th className="table-header text-right">Action</th></tr></thead><tbody>{bundleRequests.map(item => <tr key={item.id} className="table-row"><td className="table-cell"><div className="font-medium text-navy-900 text-sm">{item.organizations?.name || 'Unknown church'}</div><div style={{fontSize:12,color:'#A89D8E'}}>{item.organizations?.admin_email}</div></td><td className="table-cell text-sm text-navy-500">{item.requested_credits.toLocaleString()} SMS{item.budget_ghs ? <div>Budget: GHS {item.budget_ghs}</div> : null}</td><td className="table-cell hidden md:table-cell text-sm text-navy-500">{item.note || '—'}</td><td className="table-cell"><span className="badge badge-gold text-[11px] capitalize">{item.status.replace('_',' ')}</span></td><td className="table-cell text-right">{item.status === 'requested' ? <button onClick={()=>sendBundlePaymentLink(item)} disabled={busy===`${item.id}:bundle`} className="btn btn-primary text-xs py-1.5 px-3">{busy===`${item.id}:bundle` ? 'Sending…' : 'Set price & email link'}</button> : item.status === 'payment_sent' ? <span className="text-xs text-navy-500">Waiting for payment</span> : <span className="text-xs text-green-700">Paid</span>}</td></tr>)}</tbody></table></div>}
         </div>
 
         {/* Stat cards */}
