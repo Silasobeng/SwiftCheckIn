@@ -3493,7 +3493,9 @@ export default function AdminPage() {
                   <div style={{fontSize:12,color:'#7A6E60',fontWeight:300,marginBottom:12}}>
                     Need more SMS than these packages? <WhatsAppSupport variant="inline" context="a larger SMS credit bundle" />
                   </div>
-                  <div style={{fontSize:12,fontWeight:500,color:'#16243A',marginBottom:8}}>Or choose your own amount</div>
+                  {/* Custom payments are kept for a future flexible-pricing
+                      release. Fixed packages keep prepaid SMS stock simple. */}
+                  {false && <><div style={{fontSize:12,fontWeight:500,color:'#16243A',marginBottom:8}}>Or choose your own amount</div>
                   <div className="flex gap-2 items-center sms-topup-row">
                     <div className="relative flex-1 sms-topup-field">
                       <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13,color:'#7A6E60',fontWeight:500,pointerEvents:'none'}}>GHC</span>
@@ -3521,7 +3523,7 @@ export default function AdminPage() {
                     >
                       {toppingUp ? 'Redirecting…' : 'Pay'}
                     </button>
-                  </div>
+                  </div></>}
                 </div>
               </div>
 
